@@ -37,7 +37,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
   // Controllers
   TextEditingController firstNameController = TextEditingController();
   TextEditingController lastNameController = TextEditingController();
-  TextEditingController artistNameController = TextEditingController();
+  // Removed artistNameController (artist registration not supported)
   TextEditingController phoneController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
@@ -74,7 +74,6 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
   final Map<String, String?> _validationErrors = {
     'firstName': null,
     'lastName': null,
-    'artistName': null,
     'phone': null,
     'email': null,
     'password': null,
@@ -90,7 +89,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
   // Add field keys to locate each field for scrolling
   final _firstNameFieldKey = GlobalKey();
   final _lastNameFieldKey = GlobalKey();
-  final _artistNameFieldKey = GlobalKey();
+  // Removed _artistNameFieldKey (artist registration not supported)
   final _phoneFieldKey = GlobalKey();
   final _emailFieldKey = GlobalKey();
   final _genderFieldKey = GlobalKey();
@@ -101,7 +100,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
   // Add FocusNodes for all input fields
   final FocusNode _firstNameFocus = FocusNode();
   final FocusNode _lastNameFocus = FocusNode();
-  final FocusNode _artistNameFocus = FocusNode();
+  // Removed _artistNameFocus (artist registration not supported)
   final FocusNode _phoneFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
@@ -147,7 +146,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     // Add listeners to text controllers for delayed validation
     firstNameController.addListener(_validateFirstName);
     lastNameController.addListener(_validateLastName);
-    artistNameController.addListener(_validateArtistName);
+  // Removed artistNameController listener (artist registration not supported)
     phoneController.addListener(_validatePhone);
     emailController.addListener(_validateEmail);
     passwordController.addListener(_validatePassword);
@@ -160,9 +159,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     _lastNameFocus.addListener(() {
       if (_lastNameFocus.hasFocus) _scrollToField(_lastNameFieldKey);
     });
-    _artistNameFocus.addListener(() {
-      if (_artistNameFocus.hasFocus) _scrollToField(_artistNameFieldKey);
-    });
+    // Removed artistNameFocus listener (artist registration not supported)
     _phoneFocus.addListener(() {
       if (_phoneFocus.hasFocus) _scrollToField(_phoneFieldKey);
     });
@@ -189,7 +186,6 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     // Remove all listeners from controllers
     firstNameController.removeListener(_validateFirstName);
     lastNameController.removeListener(_validateLastName);
-    artistNameController.removeListener(_validateArtistName);
     phoneController.removeListener(_validatePhone);
     emailController.removeListener(_validateEmail);
     passwordController.removeListener(_validatePassword);
@@ -198,7 +194,6 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     // Dispose focus nodes
     _firstNameFocus.dispose();
     _lastNameFocus.dispose();
-    _artistNameFocus.dispose();
     _phoneFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
@@ -207,11 +202,11 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     _animationController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
-    artistNameController.dispose();
     phoneController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    // Removed _artistNameFocus and artistNameController dispose (artist registration not supported)
     super.dispose();
   }
 
@@ -281,25 +276,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     });
   }
 
-  void _validateArtistName() {
-    _debounce(() {
-      if (mounted) {
-        setState(() {
-          if (_selectedRole == 'Artist') {
-            _validationErrors['artistName'] = Validators.validateName(
-              artistNameController.text.trim(),
-              minLength: 2,
-              maxLength: 30,
-              fieldName: 'Artist name',
-            );
-          } else {
-            _validationErrors['artistName'] = null;
-          }
-          _updateFormValidity();
-        });
-      }
-    });
-  }
+  // Removed _validateArtistName (artist registration not supported)
 
   void _validatePhone() {
     _debounce(() {
@@ -381,17 +358,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
         maxLength: 30,
       );
 
-      // Validate artist name only if Artist role is selected
-      if (_selectedRole == 'Artist') {
-        _validationErrors['artistName'] = Validators.validateName(
-          artistNameController.text.trim(),
-          minLength: 2,
-          maxLength: 30,
-          fieldName: 'Artist name',
-        );
-      } else {
-        _validationErrors['artistName'] = null;
-      }
+      // Artist name validation removed (artist registration not supported)
 
       // Special handling for phone (optional field)
       if (phoneController.text.trim().isEmpty) {
@@ -432,10 +399,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
       isValid = false;
     }
 
-    // Check artist name only if Artist role is selected
-    if (_selectedRole == 'Artist' && _validationErrors['artistName'] != null) {
-      isValid = false;
-    }
+    // Artist name validation removed (artist registration not supported)
 
     // Phone is optional, so only check if it has an error when filled
     if (_validationErrors['phone'] != null &&
@@ -461,22 +425,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
       _autoValidate = true;
     });
 
-    // Check if the user is trying to sign up as an Artist
-    if (_selectedRole == 'Artist') {
-      // Show coming soon message when trying to sign up as an Artist
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Artist registration coming soon...'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          margin: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.w),
-        ),
-      );
-      return;
-    }
+    // Artist registration logic removed (only Listener allowed)
 
     // Validate form data
     if (!_termsAccepted) {
@@ -528,7 +477,6 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     final fieldErrors = [
       {'key': _firstNameFieldKey, 'error': 'firstName'},
       {'key': _lastNameFieldKey, 'error': 'lastName'},
-      {'key': _artistNameFieldKey, 'error': 'artistName'},
       {'key': _phoneFieldKey, 'error': 'phone'},
       {'key': _emailFieldKey, 'error': 'email'},
       {'key': _passwordFieldKey, 'error': 'password'},
@@ -828,33 +776,8 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                 ),
                                 child: Column(
                                   children: [
-                                    // Fixed position AuthTabBar
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                        top: 24.w, // Changed from .w to .w
-                                        left: 24.w,
-                                        right: 24.w,
-                                      ),
-                                      child: AuthTabBar(
-                                        selectedRole: _selectedRole,
-                                        onRoleChanged: (role) {
-                                          setState(() {
-                                            _selectedRole = role;
-                                            // Reset validation for artist name when role changes
-                                            if (role != 'Artist') {
-                                              _validationErrors['artistName'] =
-                                                  null;
-                                            } else {
-                                              _validateArtistName();
-                                            }
-                                            _updateFormValidity();
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height: 20.w,
-                                    ), // Changed from .w to .w
+                                    // Removed AuthTabBar (only Listener role supported)
+                                    SizedBox(height: 20.w),
                                     // Scrollable content area starting below the tab bar
                                     Expanded(
                                       child: SingleChildScrollView(
@@ -987,10 +910,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         onEditingComplete:
                                                             () => _fieldFocusChange(
                                                               _lastNameFocus,
-                                                              _selectedRole ==
-                                                                      'Artist'
-                                                                  ? _artistNameFocus
-                                                                  : _phoneFocus,
+                                                              _phoneFocus,
                                                             ),
                                                       ),
                                                     ),
@@ -1020,76 +940,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                   height: AppSizes.paddingM,
                                                 ),
 
-                                                // Artist Name Field - Only show for Artist role
-                                                if (_selectedRole ==
-                                                    'Artist') ...[
-                                                  Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Padding(
-                                                        padding:
-                                                            EdgeInsets.only(
-                                                              left: 4.w,
-                                                              bottom: 8.w,
-                                                            ),
-                                                        child: _buildFieldLabel(
-                                                          'Artist Name',
-                                                          true,
-                                                        ),
-                                                      ),
-                                                      SizedBox(
-                                                        key:
-                                                            _artistNameFieldKey,
-                                                        height:
-                                                            AppSizes
-                                                                .inputHeight,
-                                                        child: InputField(
-                                                          controller:
-                                                              artistNameController,
-                                                          hintText:
-                                                              'Enter Stage Name',
-                                                          prefixIcon:
-                                                              Icons
-                                                                  .music_note_outlined,
-                                                          focusNode:
-                                                              _artistNameFocus,
-                                                          textInputAction:
-                                                              TextInputAction
-                                                                  .next,
-                                                          onEditingComplete:
-                                                              () => _fieldFocusChange(
-                                                                _artistNameFocus,
-                                                                _phoneFocus,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      if (_autoValidate &&
-                                                          _validationErrors['artistName'] !=
-                                                              null)
-                                                        Padding(
-                                                          padding:
-                                                              EdgeInsets.only(
-                                                                top: 4.w,
-                                                                left: 4.w,
-                                                              ),
-                                                          child: Text(
-                                                            _validationErrors['artistName']!,
-                                                            style: TextStyle(
-                                                              color: Colors.red,
-                                                              fontSize:
-                                                                  AppSizes
-                                                                      .fontSmall,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                  SizedBox(
-                                                    height: AppSizes.paddingM,
-                                                  ),
-                                                ],
+                                                // Artist Name Field removed (only Listener role supported)
 
                                                 // Phone Number Field
                                                 Column(

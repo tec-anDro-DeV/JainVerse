@@ -43,7 +43,7 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
   String buildNumber = '';
   late UserModel model;
   List<Data> list = [];
-  String _selectedRole = 'Listener';
+  // Only listener role is required
   bool _rememberMe = true; // default checked
 
   // Animation controller for subtle UI animations
@@ -170,8 +170,8 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
 
   Future<void> login() async {
     try {
-      // Map selected role to isArtist flag required by API: Listener -> 0, Artist -> 1
-      int isArtistFlag = _selectedRole == 'Artist' ? 1 : 0;
+      // Only listener role is supported
+      int isArtistFlag = 0;
       String res = await LoginDataPresenter().getUser(
         context,
         buildNumber,
@@ -180,75 +180,47 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
         isArtistFlag,
       );
       if (res.contains("1")) {
-        print("DEBUG: Login successful, attempting to get user data");
         model = await sharePrefs.getUserData();
-        print("DEBUG: User data retrieved successfully");
-
-        // Save credentials if remember me is checked
-        print("DEBUG: Remember me checked: $_rememberMe");
         if (_rememberMe) {
-          print("DEBUG: Saving credentials to SharedPreferences");
           await sharePrefs.setRememberMe(true);
           await sharePrefs.setRememberedEmail(emailController.text);
           await sharePrefs.setRememberedPassword(passwordController.text);
-          print("DEBUG: Credentials saved successfully");
         } else {
-          print("DEBUG: Clearing remembered credentials");
           await sharePrefs.setRememberMe(false);
           await sharePrefs.setRememberedEmail('');
           await sharePrefs.setRememberedPassword('');
-          print("DEBUG: Credentials cleared successfully");
         }
-
-        // Check if language is selected
         if (model.selectedLanguage > 0) {
-          // Reset token expiration handler so future 401s will trigger
-          // the login-expired flow again for this new session.
           try {
             TokenExpirationHandler().reset();
-          } catch (e) {
-            // ignore
-          }
-          print("DEBUG: Language selected, navigating to main navigation");
-          // Ensure navigation and mini player are visible after login (restore UI)
+          } catch (e) {}
           try {
             MusicPlayerStateManager().showNavigationAndMiniPlayer();
-          } catch (e) {
-            print('Error restoring music UI state after login: $e');
-          }
+          } catch (e) {}
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) {
                 return const MainNavigationWrapper(initialIndex: 0);
               },
             ),
-            (Route<dynamic> route) => false, // This removes all previous routes
+            (Route<dynamic> route) => false,
           );
         } else {
-          print(
-            "DEBUG: No language selected, navigating to language selection",
-          );
-          // Also restore UI when navigating to language selection
           try {
             MusicPlayerStateManager().showNavigationAndMiniPlayer();
-          } catch (e) {
-            print('Error restoring music UI state after login: $e');
-          }
+          } catch (e) {}
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) {
                 return LanguageChoose('fromLogin');
               },
             ),
-            (Route<dynamic> route) => false, // This removes all previous routes
+            (Route<dynamic> route) => false,
           );
         }
       } else if (res.contains("2")) {
-        print("DEBUG: Email verification required, navigating to OTP screen");
         hasLoad = false;
         setState(() {});
-
-        // Navigate to email verification screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -257,20 +229,10 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
           ),
         );
       } else {
-        print("DEBUG: Login failed");
-        // Fluttertoast.showToast(
-        //   msg: "Try Again !",
-        //   toastLength: Toast.LENGTH_SHORT,
-        //   timeInSecForIosWeb: 2,
-        //   backgroundColor: Colors.grey,
-        //   textColor: appColors().colorBackground,
-        //   fontSize: AppSizes.fontNormal,
-        // );
         hasLoad = false;
         setState(() {});
       }
     } catch (e) {
-      print("DEBUG: Exception in login method: $e");
       Fluttertoast.showToast(
         msg: "An error occurred. Please try again.",
         toastLength: Toast.LENGTH_SHORT,
@@ -285,13 +247,7 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
   }
 
   void _handleLoginButton() {
-    // Close keyboard first
     FocusScope.of(context).unfocus();
-
-    // Artist login is now supported by the backend. We still keep the role
-    // selection in UI but allow the login flow to proceed for both roles.
-
-    // Regular login flow for Listener role
     ConnectionCheck().checkConnection();
     if (emailController.text.isEmpty) {
       Fluttertoast.showToast(
@@ -352,14 +308,12 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
 
     return Scaffold(
       backgroundColor: appColors().backgroundLogin,
-      // Remove resizeToAvoidBottomInset to avoid the screen shifting
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
-                // App Bar replacement
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: 16.w,
@@ -374,21 +328,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                           size: 24.w,
                           color: appColors().black,
                         ),
-                        // onPressed:
-                        //     () => Navigator.pushReplacement(
-                        //       context,
-                        //       MaterialPageRoute(
-                        //         builder:
-                        //             (context) => OnboardingScreen(
-                        //               onGetStarted: () {
-                        //                 // This callback won't be used since we're navigating away
-                        //               },
-                        //             ),
-                        //       ),
-                        //     ),
-
-                        // onPressed: () => Navigator.pop(context),
-                        //Keep on Pressed to exit app as ther will be no screen previous
                         onPressed: () {
                           SystemNavigator.pop();
                         },
@@ -402,16 +341,11 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                           fontFamily: 'Poppins',
                         ),
                       ),
-                      // Empty SizedBox for balanced spacing
                       SizedBox(width: 48.w),
                     ],
                   ),
                 ),
-
-                // Replace the header code with the new AuthHeader widget
                 AuthHeader(height: safeAreaHeight * 0.12, heroTag: 'app_logo'),
-
-                // Scrollable Login Form Container
                 Expanded(
                   child: FadeTransition(
                     opacity: _fadeInAnimation,
@@ -419,7 +353,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                       position: _slideAnimation,
                       child: GestureDetector(
                         onTap: () {
-                          // Dismiss keyboard when tapping outside input fields
                           FocusScope.of(context).unfocus();
                         },
                         child: Container(
@@ -439,16 +372,13 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                               ),
                             ],
                           ),
-                          // Changed to a ScrollView that takes the full available space
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
                             child: Padding(
-                              // Move padding to here so it doesn't affect the background color
                               padding: EdgeInsets.only(
                                 top: 24.w,
                                 left: 24.w,
                                 right: 24.w,
-                                // Add additional padding at the bottom to ensure form is fully visible when keyboard is open
                                 bottom:
                                     24.w +
                                     MediaQuery.of(context).viewInsets.bottom *
@@ -457,17 +387,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Role Selection Tabs
-                                  AuthTabBar(
-                                    selectedRole: _selectedRole,
-                                    onRoleChanged: (role) {
-                                      setState(() {
-                                        _selectedRole = role;
-                                      });
-                                    },
-                                  ),
-                                  SizedBox(height: 28.w),
-
                                   // Email Section
                                   Text(
                                     'Email Address',
@@ -485,15 +404,14 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                     keyboardType: TextInputType.emailAddress,
                                     prefixIcon: Icons.email_outlined,
                                     textInputAction:
-                                        TextInputAction.next, // Set next action
+                                        TextInputAction.next,
                                     onSubmitted:
                                         (_) =>
                                             FocusScope.of(context).requestFocus(
                                               _passwordFocusNode,
-                                            ), // Move to password field
+                                            ),
                                   ),
                                   SizedBox(height: 20.w),
-
                                   // Password Section
                                   Text(
                                     'Password',
@@ -509,36 +427,26 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                     controller: passwordController,
                                     hintText: 'Password',
                                     focusNode:
-                                        _passwordFocusNode, // Assign focus node
+                                        _passwordFocusNode,
                                     textInputAction:
-                                        TextInputAction.done, // Set done action
+                                        TextInputAction.done,
                                     onSubmitted:
                                         (_) =>
-                                            _handleLoginButton(), // Submit form on done
+                                            _handleLoginButton(),
                                   ),
-
-                                  // Row with Remember Me checkbox and Forgot Password link
-                                  // Show for both Listener and Artist roles
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      // Remember Me checkbox
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Checkbox(
                                             value: _rememberMe,
                                             onChanged: (bool? value) {
-                                              print(
-                                                "DEBUG: Checkbox changed to: ${value ?? false}",
-                                              );
                                               setState(() {
                                                 _rememberMe = value ?? false;
                                               });
-                                              print(
-                                                "DEBUG: _rememberMe updated to: $_rememberMe",
-                                              );
                                             },
                                             activeColor: const Color(
                                               0xFFEE5533,
@@ -560,8 +468,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                           ),
                                         ],
                                       ),
-
-                                      // Forgot Password link
                                       TextButton(
                                         onPressed: () {
                                           Navigator.push(
@@ -623,8 +529,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                     ],
                                   ),
                                   SizedBox(height: 24.w),
-
-                                  // Login Button - Updated text to reflect selected role
                                   SizedBox(
                                     height: 56.w,
                                     child: ElevatedButton(
@@ -663,11 +567,9 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                                     MainAxisAlignment.center,
                                                 children: [
                                                   Text(
-                                                    _selectedRole == 'Artist'
-                                                        ? 'Login'
-                                                        : Resources.of(
-                                                          context,
-                                                        ).strings.login,
+                                                    Resources.of(
+                                                      context,
+                                                    ).strings.login,
                                                     style: TextStyle(
                                                       fontSize: 18.sp,
                                                       fontWeight:
@@ -680,8 +582,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                     ),
                                   ),
                                   SizedBox(height: 32.w),
-
-                                  // Create Account Link
                                   Wrap(
                                     alignment: WrapAlignment.center,
                                     crossAxisAlignment:
@@ -758,7 +658,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                       ),
                                     ],
                                   ),
-                                  // Add extra space at the bottom to ensure content is visible when keyboard appears
                                   SizedBox(
                                     height:
                                         MediaQuery.of(
@@ -779,8 +678,6 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                 ),
               ],
             ),
-
-            // Remove the loading overlay completely
           ],
         ),
       ),
