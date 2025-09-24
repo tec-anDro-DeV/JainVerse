@@ -1,0 +1,10 @@
+# Project exclude paths
+/.dart_tool/
+/build/
+.idea
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.DS_Store
+**/android/.kotlin/
+**/linux/

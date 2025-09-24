@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ExoPlayer Configuration for optimal audio performance -->
+    <integer name="exo_media_source_load_timeout_ms">10000</integer>
+    <integer name="exo_media_source_retry_delay_ms">1000</integer>
+    <integer name="exo_media_source_max_retry_count">3</integer>
+    
+    <!-- Audio buffering configuration -->
+    <integer name="exo_audio_buffer_duration_ms">2000</integer>
+    <integer name="exo_audio_min_buffer_duration_ms">1000</integer>
+    <integer name="exo_audio_max_buffer_duration_ms">5000</integer>
+    
+    <!-- MediaCodec configuration -->
+    <bool name="exo_enable_decoder_fallback">true</bool>
+    <bool name="exo_enable_async_media_codec_operations">false</bool>
+    <integer name="exo_decoder_dequeue_input_timeout_ms">5000</integer>
+    <integer name="exo_decoder_dequeue_output_timeout_ms">5000</integer>
+    
+    <!-- Network configuration -->
+    <integer name="exo_http_connect_timeout_ms">8000</integer>
+    <integer name="exo_http_read_timeout_ms">8000</integer>
+    <bool name="exo_http_allow_cross_protocol_redirects">true</bool>
+    
+    <!-- Audio focus and session configuration -->
+    <bool name="exo_audio_focus_may_duck">true</bool>
+    <bool name="exo_audio_focus_handle_audio_becoming_noisy">true</bool>
+    
+    <!-- Cache configuration -->
+    <integer name="exo_cache_max_size_bytes">104857600</integer> <!-- 100MB -->
+    <integer name="exo_cache_max_file_size_bytes">10485760</integer> <!-- 10MB -->
+</resources>
