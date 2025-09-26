@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelCatSubcatMusic.dart';
@@ -13,41 +13,42 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/AppSettingsPresenter.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
-import 'package:jainverse/Presenter/Logout.dart';
-import 'package:jainverse/UI/AllCategoryByName.dart';
-import 'package:jainverse/main.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/utils/CacheManager.dart';
-import 'package:jainverse/utils/ConnectionCheck.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/utils/music_action_handler.dart';
-
-import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import '../widgets/common/app_header.dart';
-import '../controllers/download_controller.dart';
-import 'Login.dart';
-// Navigation to Music* components removed as we're using mini player directly
-import 'AccountPage.dart';
-import 'package:upgrader/upgrader.dart';
-import 'package:session_storage/session_storage.dart';
-import '../widgets/music/music_section_header.dart';
-import '../widgets/music/playlist_card.dart';
-import '../widgets/music/album_card.dart';
-import '../widgets/music/song_card.dart';
-import '../widgets/music/popular_song_card.dart';
-import '../widgets/music/circular_card.dart';
-import '../widgets/common/loader.dart';
-import '../widgets/music/new_albums_card.dart';
-import '../widgets/music/genre_card.dart';
+import 'package:jainverse/UI/AllCategoryByName.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/CacheManager.dart';
+import 'package:jainverse/utils/ConnectionCheck.dart';
+import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_action_handler.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:session_storage/session_storage.dart';
+import 'package:upgrader/upgrader.dart';
+
+import '../controllers/download_controller.dart';
+import '../widgets/common/app_header.dart';
+import '../widgets/common/loader.dart';
+import '../widgets/music/album_card.dart';
+import '../widgets/music/circular_card.dart';
+import '../widgets/music/genre_card.dart';
+import '../widgets/music/music_section_header.dart';
+import '../widgets/music/new_albums_card.dart';
+import '../widgets/music/playlist_card.dart';
+import '../widgets/music/popular_song_card.dart';
+import '../widgets/music/song_card.dart';
+// Navigation to Music* components removed as we're using mini player directly
+import 'AccountPage.dart';
+import 'Login.dart';
 
 AudioPlayerHandler? _audioHandler;
 
@@ -1061,7 +1062,7 @@ class _state extends State<HomeDiscover>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      appColors().PrimaryDarkColorApp,
+                      appColors().primaryColorApp,
                       appColors().primaryColorApp,
                     ],
                     begin: Alignment.centerLeft,

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,7 +8,7 @@ import 'package:jainverse/Presenter/VerifyEmailPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/LanguageChoose.dart';
+import 'package:jainverse/UI/MainNavigation.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -213,12 +214,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
               // Successful verification - user is now authenticated
               print("OTP verification successful, user is now logged in");
 
-              // Navigate to language choose screen or main app
-              Navigator.pushReplacement(
-                context,
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (context) => LanguageChoose("signup"),
+                  builder: (context) {
+                    return const MainNavigationWrapper(initialIndex: 0);
+                  },
                 ),
+                (Route<dynamic> route) => false,
               );
             } else {
               // Verification failed - user remains logged out

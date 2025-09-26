@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import for SystemChrome
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/UI/Login.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/Login.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onGetStarted;
@@ -270,9 +271,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         Text(
                           'JainVerse',
                           style: TextStyle(
-                            color: const Color(
-                              0xFFEE5533,
-                            ), // Keeping the punchy orange
+                            color:
+                                appColors()
+                                    .primaryColorApp, // Keeping the punchy orange
                             fontSize: AppSizes.fontH1 + 10.sp,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Poppins',

@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/models/downloaded_music.dart';
-import 'package:jainverse/services/download_service.dart';
-import 'package:jainverse/repositories/download_repository.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // import 'package:flutter/material.dart'; // removed duplicate import
 import 'package:jainverse/UI/Download.dart';
 import 'package:jainverse/main.dart';
+import 'package:jainverse/models/downloaded_music.dart';
+import 'package:jainverse/repositories/download_repository.dart';
+import 'package:jainverse/services/download_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 
 /// Controller for managing download state and operations
 class DownloadController extends ChangeNotifier {
@@ -1171,7 +1173,7 @@ class DownloadController extends ChangeNotifier {
       return relativePath;
     }
 
-    const baseUrl = 'http://143.244.213.49/heargod-staging/public';
+    const baseUrl = '${AppConstant.SiteUrl}public';
 
     // If relativePath starts with '/', it's already a complete path
     if (relativePath.startsWith('/')) {

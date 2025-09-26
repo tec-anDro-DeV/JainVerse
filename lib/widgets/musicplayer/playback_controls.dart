@@ -1,14 +1,14 @@
 /// Animated tap feedback for buttons
 library;
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:rxdart/rxdart.dart' as rxdart;
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:rxdart/rxdart.dart' as rxdart;
 
 class _AnimatedTapButton extends StatefulWidget {
   final Widget child;
@@ -406,7 +406,7 @@ class ModernPlaybackControls extends StatelessWidget {
         color:
             isEnabled
                 ? (isActive
-                    ? (colorScheme?.primary ?? const Color(0xFFE84625))
+                    ? (colorScheme?.primary ?? appColors().primaryColorApp)
                     : Colors.white)
                 : Colors.white.withOpacity(0.3),
         size: 42.w,

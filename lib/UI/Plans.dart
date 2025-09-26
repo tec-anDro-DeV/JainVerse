@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 import 'package:jainverse/widgets/auth/auth_tabbar.dart';
-import 'PaymentPlan.dart';
-
 import 'package:we_slide/we_slide.dart';
-import 'MusicEntryPoint.dart';
-import 'MainNavigation.dart';
+
 import '../main.dart';
+import 'MainNavigation.dart';
+import 'MusicEntryPoint.dart';
+import 'PaymentPlan.dart';
 
 AudioPlayerHandler? _audioHandler;
 
@@ -352,9 +352,9 @@ class MyState extends State<GoPro> with SingleTickerProviderStateMixin {
                                       border: Border.all(
                                         color:
                                             plan.isFeatured
-                                                ? const Color(0xFFEE5533)
+                                                ? appColors().primaryColorApp
                                                 : isSelected
-                                                ? const Color(0xFFEE5533)
+                                                ? appColors().primaryColorApp
                                                 : const Color(0xFFE5E5E5),
                                         width: plan.isFeatured ? 2 : 1,
                                       ),
@@ -426,9 +426,9 @@ class MyState extends State<GoPro> with SingleTickerProviderStateMixin {
                                                                           4.w,
                                                                     ),
                                                                 decoration: BoxDecoration(
-                                                                  color: const Color(
-                                                                    0xFFEE5533,
-                                                                  ),
+                                                                  color:
+                                                                      appColors()
+                                                                          .primaryColorApp,
                                                                   borderRadius:
                                                                       BorderRadius.circular(
                                                                         12.r,
@@ -540,15 +540,13 @@ class MyState extends State<GoPro> with SingleTickerProviderStateMixin {
                                                       Container(
                                                         width: 16.w,
                                                         height: 16.w,
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                              color: Color(
-                                                                0xFFEE5533,
-                                                              ),
-                                                              shape:
-                                                                  BoxShape
-                                                                      .circle,
-                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color:
+                                                              appColors()
+                                                                  .primaryColorApp,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
                                                         child: Icon(
                                                           Icons.check,
                                                           size: 12.w,
@@ -614,15 +612,15 @@ class MyState extends State<GoPro> with SingleTickerProviderStateMixin {
                                         }
                                         : null,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEE5533),
+                                  backgroundColor: appColors().primaryColorApp,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16.r),
                                   ),
                                   elevation: 0,
-                                  disabledBackgroundColor: const Color(
-                                    0xFFEE5533,
-                                  ).withOpacity(0.4),
+                                  disabledBackgroundColor: appColors()
+                                      .primaryColorApp
+                                      .withOpacity(0.4),
                                 ),
                                 child: Text(
                                   'Continue',

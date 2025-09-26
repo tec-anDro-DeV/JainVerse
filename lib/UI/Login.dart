@@ -1,28 +1,28 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jainverse/Model/ModelAppInfo.dart';
-import 'package:jainverse/Presenter/AppInfoPresenter.dart';
 import 'package:jainverse/Model/UserModel.dart';
+import 'package:jainverse/Presenter/AppInfoPresenter.dart';
 import 'package:jainverse/Presenter/LoginDataPresenter.dart';
-import 'package:jainverse/utils/ConnectionCheck.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/UI/ForgotPassword.dart';
-import 'package:jainverse/UI/signup.dart';
-import 'package:jainverse/UI/VerifyEmailScreen.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:jainverse/widgets/auth/auth_header.dart';
-import 'package:jainverse/widgets/auth/auth_tabbar.dart';
-import 'package:jainverse/widgets/common/input_field.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'LanguageChoose.dart';
-import 'MainNavigation.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/UI/ForgotPassword.dart';
+import 'package:jainverse/UI/VerifyEmailScreen.dart';
+import 'package:jainverse/UI/signup.dart';
 import 'package:jainverse/services/token_expiration_handler.dart';
+import 'package:jainverse/utils/ConnectionCheck.dart';
+import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/widgets/auth/auth_header.dart';
+import 'package:jainverse/widgets/common/input_field.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import 'MainNavigation.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -190,34 +190,24 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
           await sharePrefs.setRememberedEmail('');
           await sharePrefs.setRememberedPassword('');
         }
-        if (model.selectedLanguage > 0) {
-          try {
-            TokenExpirationHandler().reset();
-          } catch (e) {}
-          try {
-            MusicPlayerStateManager().showNavigationAndMiniPlayer();
-          } catch (e) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) {
-                return const MainNavigationWrapper(initialIndex: 0);
-              },
-            ),
-            (Route<dynamic> route) => false,
-          );
-        } else {
-          try {
-            MusicPlayerStateManager().showNavigationAndMiniPlayer();
-          } catch (e) {}
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) {
-                return LanguageChoose('fromLogin');
-              },
-            ),
-            (Route<dynamic> route) => false,
-          );
+        try {
+          TokenExpirationHandler().reset();
+        } catch (e) {
+          e.toString();
         }
+        try {
+          MusicPlayerStateManager().showNavigationAndMiniPlayer();
+        } catch (e) {
+          e.toString();
+        }
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) {
+              return const MainNavigationWrapper(initialIndex: 0);
+            },
+          ),
+          (Route<dynamic> route) => false,
+        );
       } else if (res.contains("2")) {
         hasLoad = false;
         setState(() {});
@@ -403,13 +393,11 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                     hintText: 'Your Email Address',
                                     keyboardType: TextInputType.emailAddress,
                                     prefixIcon: Icons.email_outlined,
-                                    textInputAction:
-                                        TextInputAction.next,
+                                    textInputAction: TextInputAction.next,
                                     onSubmitted:
-                                        (_) =>
-                                            FocusScope.of(context).requestFocus(
-                                              _passwordFocusNode,
-                                            ),
+                                        (_) => FocusScope.of(
+                                          context,
+                                        ).requestFocus(_passwordFocusNode),
                                   ),
                                   SizedBox(height: 20.w),
                                   // Password Section
@@ -426,13 +414,9 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                   PasswordInputField(
                                     controller: passwordController,
                                     hintText: 'Password',
-                                    focusNode:
-                                        _passwordFocusNode,
-                                    textInputAction:
-                                        TextInputAction.done,
-                                    onSubmitted:
-                                        (_) =>
-                                            _handleLoginButton(),
+                                    focusNode: _passwordFocusNode,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => _handleLoginButton(),
                                   ),
                                   Row(
                                     mainAxisAlignment:
@@ -448,9 +432,8 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                                 _rememberMe = value ?? false;
                                               });
                                             },
-                                            activeColor: const Color(
-                                              0xFFEE5533,
-                                            ),
+                                            activeColor:
+                                                appColors().primaryColorApp,
                                             materialTapTargetSize:
                                                 MaterialTapTargetSize
                                                     .shrinkWrap,
@@ -535,9 +518,8 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                       onPressed:
                                           hasLoad ? null : _handleLoginButton,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ),
+                                        backgroundColor:
+                                            appColors().primaryColorApp,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -545,9 +527,9 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                           ),
                                         ),
                                         elevation: 0,
-                                        disabledBackgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ).withOpacity(0.6),
+                                        disabledBackgroundColor: appColors()
+                                            .primaryColorApp
+                                            .withOpacity(0.6),
                                       ),
                                       child:
                                           hasLoad
@@ -649,7 +631,7 @@ class _State extends State<Login> with SingleTickerProviderStateMixin {
                                         child: Text(
                                           Resources.of(context).strings.signup,
                                           style: TextStyle(
-                                            color: const Color(0xFFEE5533),
+                                            color: appColors().primaryColorApp,
                                             fontSize: 14.sp,
                                             fontWeight: FontWeight.w600,
                                             fontFamily: 'Poppins',

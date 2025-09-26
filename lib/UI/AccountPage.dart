@@ -1,42 +1,35 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
+import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/AppInfo.dart';
 import 'package:jainverse/main.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'contact_us.dart';
-import 'package:jainverse/UI/AppInfo.dart';
+import 'package:session_storage/session_storage.dart';
 
-import 'AllCategoryByName.dart';
-import 'ArtistSignUp.dart';
-import 'Blog.dart';
 import '../widgets/common/app_header.dart';
-
 import 'FavoriteGenres.dart';
-import 'LanguageChoose.dart';
 import 'Login.dart';
 import 'ProfileEdit.dart';
-import 'PurchaseHistory.dart';
-import 'SubscriptionPlans.dart';
-import 'package:session_storage/session_storage.dart';
+import 'contact_us.dart';
 
 // Helper class for modern menu items
 class ModernMenuItem {
@@ -483,7 +476,7 @@ class MyState extends State<AccountPage>
                             margin: const EdgeInsets.fromLTRB(2, 2, 2, 0),
                             padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
                             decoration: BoxDecoration(
-                              color: appColors().PrimaryDarkColorApp,
+                              color: appColors().primaryColorApp,
                               borderRadius: BorderRadius.circular(10.0),
                             ),
                             child: Text(
@@ -657,58 +650,57 @@ class MyState extends State<AccountPage>
         _buildModernProfileSection(),
 
         // Subscription Section (moved outside profile container)
-        if (hasPre) ...[
-          SizedBox(height: 20.w),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SubscriptionPlans(),
-                  settings: const RouteSettings(
-                    name: '/AccountPage/SubscriptionPlans',
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
-              width: double.infinity,
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: appColors().primaryColorApp,
-                borderRadius: BorderRadius.circular(16.w),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.workspace_premium,
-                    color: Colors.white,
-                    size: 24.w,
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Text(
-                      'Subscription Plans',
-                      style: TextStyle(
-                        fontSize: AppSizes.fontMedium,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white,
-                    size: 16.w,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-
+        // if (hasPre) ...[
+        //   SizedBox(height: 20.w),
+        //   GestureDetector(
+        //     onTap: () {
+        //       Navigator.push(
+        //         context,
+        //         MaterialPageRoute(
+        //           builder: (context) => const SubscriptionPlans(),
+        //           settings: const RouteSettings(
+        //             name: '/AccountPage/SubscriptionPlans',
+        //           ),
+        //         ),
+        //       );
+        //     },
+        //     child: Container(
+        //       margin: EdgeInsets.symmetric(horizontal: 4.w),
+        //       width: double.infinity,
+        //       padding: EdgeInsets.all(16.w),
+        //       decoration: BoxDecoration(
+        //         color: appColors().primaryColorApp,
+        //         borderRadius: BorderRadius.circular(16.w),
+        //       ),
+        //       child: Row(
+        //         children: [
+        //           Icon(
+        //             Icons.workspace_premium,
+        //             color: Colors.white,
+        //             size: 24.w,
+        //           ),
+        //           SizedBox(width: 12.w),
+        //           Expanded(
+        //             child: Text(
+        //               'Subscription Plans',
+        //               style: TextStyle(
+        //                 fontSize: AppSizes.fontMedium,
+        //                 fontWeight: FontWeight.w600,
+        //                 color: Colors.white,
+        //                 fontFamily: 'Poppins',
+        //               ),
+        //             ),
+        //           ),
+        //           Icon(
+        //             Icons.arrow_forward_ios,
+        //             color: Colors.white,
+        //             size: 16.w,
+        //           ),
+        //         ],
+        //       ),
+        //     ),
+        //   ),
+        // ],
         SizedBox(height: 20.w),
 
         // Menu Items Section
@@ -863,53 +855,53 @@ class MyState extends State<AccountPage>
 
   Widget _buildMenuItemsSection() {
     final menuItems = [
-      if (model.data.artist_verify_status != 'A')
-        ModernMenuItem(
-          icon: Icons.library_music_outlined,
-          title: 'Request as Artist',
-          iconColor: const Color(0xFFFF6B47),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ArtistSignUp(),
-                settings: const RouteSettings(
-                  name: '/AccountPage/RequestArtist',
-                ),
-              ),
-            );
-          },
-        ),
-      if (model.data.artist_verify_status == 'A')
-        ModernMenuItem(
-          icon: Icons.library_music_outlined,
-          title: 'Artist Dashboard',
-          iconColor: const Color(0xFFFF6B47),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => AllCategoryByName(_audioHandler, "My Songs"),
-                settings: const RouteSettings(name: '/AccountPage/MySongs'),
-              ),
-            );
-          },
-        ),
-      ModernMenuItem(
-        icon: Icons.article_outlined,
-        title: 'Blogs',
-        iconColor: const Color(0xFFFF6B47),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const Blog(),
-              settings: const RouteSettings(arguments: 'afterlogin'),
-            ),
-          );
-        },
-      ),
+      // if (model.data.artist_verify_status != 'A')
+      //   ModernMenuItem(
+      //     icon: Icons.library_music_outlined,
+      //     title: 'Request as Artist',
+      //     iconColor: const Color(0xFFFF6B47),
+      //     onTap: () {
+      //       Navigator.push(
+      //         context,
+      //         MaterialPageRoute(
+      //           builder: (context) => const ArtistSignUp(),
+      //           settings: const RouteSettings(
+      //             name: '/AccountPage/RequestArtist',
+      //           ),
+      //         ),
+      //       );
+      //     },
+      //   ),
+      // if (model.data.artist_verify_status == 'A')
+      //   ModernMenuItem(
+      //     icon: Icons.library_music_outlined,
+      //     title: 'Artist Dashboard',
+      //     iconColor: const Color(0xFFFF6B47),
+      //     onTap: () {
+      //       Navigator.push(
+      //         context,
+      //         MaterialPageRoute(
+      //           builder:
+      //               (context) => AllCategoryByName(_audioHandler, "My Songs"),
+      //           settings: const RouteSettings(name: '/AccountPage/MySongs'),
+      //         ),
+      //       );
+      //     },
+      //   ),
+      // ModernMenuItem(
+      //   icon: Icons.article_outlined,
+      //   title: 'Blogs',
+      //   iconColor: const Color(0xFFFF6B47),
+      //   onTap: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (context) => const Blog(),
+      //         settings: const RouteSettings(arguments: 'afterlogin'),
+      //       ),
+      //     );
+      //   },
+      // ),
       ModernMenuItem(
         icon: Icons.info_outline,
         title: 'App Info',
@@ -924,34 +916,34 @@ class MyState extends State<AccountPage>
           );
         },
       ),
-      ModernMenuItem(
-        icon: Icons.history,
-        title: 'Purchase History',
-        iconColor: const Color(0xFFFF6B47),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PurchaseHistory(),
-              settings: const RouteSettings(arguments: 'his'),
-            ),
-          );
-        },
-      ),
-      ModernMenuItem(
-        icon: Icons.language_outlined,
-        title: 'Change Language',
-        iconColor: const Color(0xFFFF6B47),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => LanguageChoose(''),
-              settings: const RouteSettings(arguments: 'fromDrawer'),
-            ),
-          );
-        },
-      ),
+      // ModernMenuItem(
+      //   icon: Icons.history,
+      //   title: 'Purchase History',
+      //   iconColor: const Color(0xFFFF6B47),
+      //   onTap: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (context) => const PurchaseHistory(),
+      //         settings: const RouteSettings(arguments: 'his'),
+      //       ),
+      //     );
+      //   },
+      // ),
+      // ModernMenuItem(
+      //   icon: Icons.language_outlined,
+      //   title: 'Change Language',
+      //   iconColor: const Color(0xFFFF6B47),
+      //   onTap: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (context) => LanguageChoose(''),
+      //         settings: const RouteSettings(arguments: 'fromDrawer'),
+      //       ),
+      //     );
+      //   },
+      // ),
       ModernMenuItem(
         icon: Icons.music_note_outlined,
         title: 'Change Favorite Genres',

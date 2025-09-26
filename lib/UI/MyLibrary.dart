@@ -1,42 +1,44 @@
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:jainverse/Model/ModelCatSubcatMusic.dart';
+import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/Model/ModelCatSubcatMusic.dart';
-import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
-import 'package:jainverse/utils/AdHelper.dart';
-import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:jainverse/utils/CacheManager.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/utils/music_action_handler.dart';
-import 'package:audio_service/audio_service.dart';
+import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/utils/AdHelper.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/CacheManager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_action_handler.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:session_storage/session_storage.dart';
-import '../widgets/music/music_section_header.dart';
-import '../widgets/music/song_card.dart';
-import '../widgets/music/popular_song_card.dart';
-import '../widgets/music/history_card.dart';
-import '../widgets/common/app_header.dart';
+
 import '../main.dart';
+import '../widgets/common/app_header.dart';
+import '../widgets/music/history_card.dart';
+import '../widgets/music/music_section_header.dart';
+import '../widgets/music/popular_song_card.dart';
+import '../widgets/music/song_card.dart';
+import 'AccountPage.dart';
 import 'AllCategoryByName.dart';
 import 'Download.dart';
 import 'FavoriteOrHistory.dart';
 import 'MusicEntryPoint.dart'; // Contains Music class
 import 'playlist_screen.dart';
-import 'AccountPage.dart';
 
 // LibraryItem class for UI items
 class LibraryItem {
@@ -108,37 +110,37 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     LibraryItem(
       icon: Icons.queue_music_outlined,
       title: 'Playlist',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.download_outlined,
       title: 'Downloaded',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.favorite_outline_outlined,
       title: 'Favorites',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.album_outlined,
       title: 'Albums',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.category_outlined,
       title: 'Genres',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.people_outlined,
       title: 'Artist',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.music_note_outlined,
       title: 'Songs',
-      color: const Color(0xFFEE5A29),
+      color: appColors().primaryColorApp,
     ),
   ];
 

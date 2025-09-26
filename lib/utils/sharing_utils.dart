@@ -1,7 +1,9 @@
-import 'package:share_plus/share_plus.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:flutter/widgets.dart';
+import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:share_plus/share_plus.dart';
+
 import 'share_helper.dart';
 
 ///
@@ -13,7 +15,7 @@ class SharingUtils {
 
   /// App constants for sharing
   static const String _appName = 'JainVerse';
-  static const String _siteUrl = 'http://143.244.213.49/heargod-staging';
+  static const String _siteUrl = AppConstant.SiteUrl;
 
   /// Share a song using MediaItem (for music player contexts)
   ///

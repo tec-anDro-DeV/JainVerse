@@ -472,9 +472,8 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       onPressed:
                                           _isLoading ? null : _requestOTP,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ),
+                                        backgroundColor:
+                                            appColors().primaryColorApp,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -482,9 +481,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                           ),
                                         ),
                                         elevation: 0,
-                                        disabledBackgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ).withOpacity(0.6),
+                                        disabledBackgroundColor: appColors()
+                                            .primaryColorApp
+                                            .withOpacity(0.6),
                                       ),
                                       child: Text(
                                         Resources.of(context).strings.otp,
@@ -611,9 +610,8 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       onPressed:
                                           _isLoading ? null : _resetPassword,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ),
+                                        backgroundColor:
+                                            appColors().primaryColorApp,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -621,9 +619,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                           ),
                                         ),
                                         elevation: 0,
-                                        disabledBackgroundColor: const Color(
-                                          0xFFEE5533,
-                                        ).withOpacity(0.6),
+                                        disabledBackgroundColor: appColors()
+                                            .primaryColorApp
+                                            .withOpacity(0.6),
                                       ),
                                       child: Text(
                                         Resources.of(
@@ -697,7 +695,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       child: Text(
                                         Resources.of(context).strings.loginhere,
                                         style: TextStyle(
-                                          color: const Color(0xFFEE5533),
+                                          color: appColors().primaryColorApp,
                                           fontSize: 14.sp,
                                           fontWeight: FontWeight.w600,
                                           fontFamily: 'Poppins',

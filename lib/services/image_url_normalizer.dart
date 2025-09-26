@@ -1,5 +1,7 @@
 import 'dart:developer' as developer;
 
+import 'package:jainverse/utils/AppConstant.dart';
+
 /// Service to normalize and validate image URLs consistently across the app
 /// This fixes the issue where images don't load during queue navigation
 class ImageUrlNormalizer {
@@ -7,8 +9,7 @@ class ImageUrlNormalizer {
   factory ImageUrlNormalizer() => _instance;
   ImageUrlNormalizer._internal();
 
-  static const String _baseServerUrl =
-      'http://143.244.213.49/heargod-staging/public/';
+  static const String _baseServerUrl = '${AppConstant.SiteUrl}public/';
   static const String _defaultImagePath = 'images/audio/thumb/';
   static const String _fallbackImageUrl =
       ''; // Empty string to prevent network errors

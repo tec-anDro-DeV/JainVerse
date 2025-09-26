@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/Model/CountryModel.dart'; // Add this import
+import 'package:jainverse/Model/CountryModel.dart';
+import 'package:jainverse/ThemeMain/appColors.dart'; // Add this import
 
 class InputField extends StatelessWidget {
   final TextEditingController controller;
@@ -105,7 +106,7 @@ class InputField extends StatelessWidget {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
             borderSide: BorderSide(
-              color: const Color(0xFFEE5533),
+              color: appColors().primaryColorApp,
               width: 1.5.w,
             ),
           ),
@@ -209,7 +210,7 @@ class _PasswordInputFieldState extends State<PasswordInputField> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
             borderSide: BorderSide(
-              color: const Color(0xFFEE5533),
+              color: appColors().primaryColorApp,
               width: 1.5.w,
             ),
           ),

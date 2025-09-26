@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
@@ -12,20 +12,22 @@ import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/services/visualizer_music_integration.dart';
+import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart' hide RefreshIndicator;
-import 'package:jainverse/widgets/common/search_bar.dart';
-import 'package:jainverse/utils/music_action_handler.dart';
-import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/widgets/common/music_context_menu.dart';
 import 'package:jainverse/widgets/common/music_long_press_handler.dart';
-import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/widgets/common/search_bar.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart' hide RefreshIndicator;
+
 import '../main.dart';
 import 'MusicEntryPoint.dart';
 
@@ -439,13 +441,15 @@ class StateClass extends State<Favorite> {
 
   Widget _buildContentSliver(FavoritesHook favoritesHook) {
     // Always show action buttons and search bar
-    List<Widget> children = [_buildActionButtons(), _buildSearchSection()];
+    List<Widget> children = [];
 
     if (isLoading) {
       children.add(_buildLoadingWidget());
     } else if (filteredList.isEmpty) {
       children.add(_buildEmptyStateWidget());
     } else {
+      children.add(_buildActionButtons());
+      children.add(_buildSearchSection());
       // Use ListView.builder for search and list display to avoid index errors
       children.add(
         ListView.builder(
@@ -473,7 +477,7 @@ class StateClass extends State<Favorite> {
 
   Widget _buildLoadingWidget() {
     return SizedBox(
-      height: 400.w,
+      height: 800.w,
       child: Center(
         child: CircularProgressIndicator(color: appColors().primaryColorApp),
       ),
@@ -482,8 +486,8 @@ class StateClass extends State<Favorite> {
 
   Widget _buildEmptyStateWidget() {
     return Container(
-      height: 400.w,
-      padding: EdgeInsets.all(AppSizes.paddingL),
+      height: 800.w,
+      padding: EdgeInsets.all(AppSizes.paddingM),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

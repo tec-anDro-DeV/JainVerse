@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 // import 'package:flutter/material.dart';  // Comment out: unused import after removing toast messages
 // import 'package:fluttertoast/fluttertoast.dart';  // Comment out: unused import after removing toast messages
 import 'package:just_audio/just_audio.dart';
@@ -859,7 +860,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         uri = Uri.parse(audioUrl);
       } else {
         // Relative path - construct full URL
-        const baseUrl = 'http://143.244.213.49/heargod-staging/public/';
+        const baseUrl = '${AppConstant.SiteUrl}public/';
         uri = Uri.parse('$baseUrl$audioUrl');
         developer.log(
           '[DEBUG][AudioPlayerHandlerImpl] Constructed full URL: ${uri.toString()}',

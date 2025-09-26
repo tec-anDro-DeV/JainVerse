@@ -1,27 +1,28 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
 import 'package:jainverse/Model/ModelMusicGenre.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/AppSettingsPresenter.dart';
 import 'package:jainverse/Presenter/MusicGenrePresenter.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/utils/ConnectionCheck.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/ConnectionCheck.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 String fromLogin = '';
 
@@ -148,8 +149,8 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              appColors().PrimaryDarkColorApp,
-                              appColors().PrimaryDarkColorApp,
+                              appColors().primaryColorApp,
+                              appColors().primaryColorApp,
                               appColors().primaryColorApp,
                             ],
                             begin: Alignment.centerLeft,
@@ -181,8 +182,8 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              appColors().PrimaryDarkColorApp,
-                              appColors().PrimaryDarkColorApp,
+                              appColors().primaryColorApp,
+                              appColors().primaryColorApp,
                               appColors().primaryColorApp,
                             ],
                             begin: Alignment.centerLeft,
@@ -458,10 +459,11 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                           onRefresh: _onRefresh,
                                           physics:
                                               const BouncingScrollPhysics(),
-                                          header: const ClassicHeader(
+                                          header: ClassicHeader(
                                             refreshingIcon: Icon(
                                               Icons.refresh,
-                                              color: Color(0xFFEE5533),
+                                              color:
+                                                  appColors().primaryColorApp,
                                             ),
                                             refreshingText: '',
                                           ),
@@ -528,12 +530,10 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                           colors:
                                                               isSelected
                                                                   ? [
-                                                                    const Color(
-                                                                      0xFFEE5533,
-                                                                    ),
-                                                                    const Color(
-                                                                      0xFFCC4422,
-                                                                    ),
+                                                                    appColors()
+                                                                        .primaryColorApp,
+                                                                    appColors()
+                                                                        .primaryColorApp,
                                                                   ]
                                                                   : [
                                                                     appColors()
@@ -672,9 +672,9 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                                 child: Icon(
                                                                   Icons.check,
                                                                   size: 16.w,
-                                                                  color: const Color(
-                                                                    0xFFEE5533,
-                                                                  ),
+                                                                  color:
+                                                                      appColors()
+                                                                          .primaryColorApp,
                                                                 ),
                                                               ),
                                                             ),
@@ -693,7 +693,7 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                     return Center(
                                       child: CircularProgressIndicator(
                                         valueColor: AlwaysStoppedAnimation(
-                                          const Color(0xFFEE5533),
+                                          appColors().primaryColorApp,
                                         ),
                                         strokeWidth: 3.0,
                                       ),
@@ -772,7 +772,7 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEE5533),
+                                  backgroundColor: appColors().primaryColorApp,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16.r),

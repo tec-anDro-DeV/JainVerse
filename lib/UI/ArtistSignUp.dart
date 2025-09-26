@@ -1,22 +1,23 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
-import 'package:jainverse/UI/PrivacyPolicy.dart';
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/ProfilePresenter.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/PrivacyPolicy.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 class ArtistSignUp extends StatefulWidget {
   const ArtistSignUp({super.key});
@@ -644,7 +645,7 @@ class myState extends State {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          appColors().PrimaryDarkColorApp,
+                          appColors().primaryColorApp,
                           appColors().primaryColorApp,
                         ],
                         begin: Alignment.centerLeft,

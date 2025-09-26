@@ -1,28 +1,31 @@
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:io';
+
+import 'package:audio_service/audio_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/services/offline_mode_service.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
+import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/databasefolder/ListEntity.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/offline_mode_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/widgets/common/music_context_menu.dart';
 import 'package:jainverse/widgets/common/music_long_press_handler.dart';
+
 import '../main.dart';
-import 'dart:io';
 
 AudioPlayerHandler? _audioHandler;
 
@@ -170,7 +173,7 @@ class StateClass extends State {
 
       // The server returns complete relative paths starting with '/'
       // We just need to prepend the base URL
-      const baseUrl = 'http://143.244.213.49/heargod-staging/public';
+      const baseUrl = '${AppConstant.SiteUrl}public';
 
       if (track.image.isNotEmpty && !track.image.startsWith('http')) {
         if (track.image.startsWith('/')) {
@@ -244,7 +247,7 @@ class StateClass extends State {
 
       // The server returns complete relative paths starting with '/'
       // We just need to prepend the base URL
-      const baseUrl = 'http://143.244.213.49/heargod-staging/public';
+      const baseUrl = '${AppConstant.SiteUrl}public';
 
       if (track.image.isNotEmpty && !track.image.startsWith('http')) {
         if (track.image.startsWith('/')) {

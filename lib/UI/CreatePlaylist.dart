@@ -3,17 +3,17 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/widgets/playlist/playlist_service.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/performance_debouncer.dart';
-import 'playList_screen.dart';
+import 'package:jainverse/widgets/playlist/playlist_service.dart';
 
 // removed unused we_slide import
 import 'MainNavigation.dart';
+import 'playList_screen.dart';
 
 String idMusic = '';
 
@@ -305,7 +305,7 @@ class state extends State {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            appColors().PrimaryDarkColorApp,
+                            appColors().primaryColorApp,
                             appColors().primaryColorApp,
                             appColors().primaryColorApp,
                           ],

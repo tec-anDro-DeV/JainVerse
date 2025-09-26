@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/services/image_url_normalizer.dart';
-import 'package:flutter/material.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/services/image_url_normalizer.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CacheManager {
   static const String MUSIC_CATEGORIES_CACHE_KEY = 'music_categories_cache';
@@ -308,7 +309,7 @@ class CacheManager {
 
       // If audio URL is not complete, try to reconstruct it
       if (completeAudioUrl.isNotEmpty && !completeAudioUrl.startsWith('http')) {
-  const baseUrl = 'http://143.244.213.49/jainverse-staging/public/';
+        const baseUrl = '${AppConstant.SiteUrl}public/';
         if (audioPath != null && audioPath.isNotEmpty) {
           completeAudioUrl = '$baseUrl$audioPath$completeAudioUrl';
         } else {
@@ -399,7 +400,7 @@ class CacheManager {
 
     // If audio URL is not complete, try to reconstruct it
     if (audioUrl.isNotEmpty && !audioUrl.startsWith('http')) {
-  const baseUrl = 'http://143.244.213.49/jainverse-staging/public/';
+      const baseUrl = '${AppConstant.SiteUrl}public/';
       final audioPath = item['audioPath'] ?? '';
 
       if (audioPath.isNotEmpty) {

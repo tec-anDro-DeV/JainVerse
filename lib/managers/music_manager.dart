@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/UI/MusicEntryPoint.dart';
+import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/models/downloaded_music.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/single_music_service.dart';
-import 'package:jainverse/UI/MusicEntryPoint.dart';
-import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/services/station_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart'; // for queue operation lock
 
@@ -92,8 +94,7 @@ class MusicManager extends ChangeNotifier {
   static const Duration kPendingOpsTimeout = Duration(milliseconds: 1000);
 
   // --- URL Constants ---
-  static const String kBaseUrl =
-      'http://143.244.213.49/heargod-staging/public/';
+  static const String kBaseUrl = '${AppConstant.SiteUrl}public/';
   static const String kPlaceholderImageUrl =
       ''; // Empty string to prevent network errors
 
@@ -133,9 +134,9 @@ class MusicManager extends ChangeNotifier {
   List<DataMusic> _originalMusicData = [];
 
   // Enhanced queue management for Play Next / Add to Queue functionality
-  List<MediaItem> _playNextStack =
+  final List<MediaItem> _playNextStack =
       []; // High priority songs inserted via "Play Next"
-  List<MediaItem> _addToQueueStack =
+  final List<MediaItem> _addToQueueStack =
       []; // Low priority songs added via "Add to Queue"
 
   // Stream subscriptions
@@ -1091,7 +1092,9 @@ class MusicManager extends ChangeNotifier {
               }
             }
           } else {
-            developer.log('[MusicManager] 🎵 Station ready - playback paused');
+            developer.log(
+              '[MusicManager] 🎵 Station ready - playback paused',
+            );
           }
         } on TimeoutException {
           developer.log(

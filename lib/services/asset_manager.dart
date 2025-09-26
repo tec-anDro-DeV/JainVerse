@@ -1,10 +1,13 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import '../services/startup_controller.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+
 import '../controllers/download_controller.dart';
 import '../services/image_url_normalizer.dart';
+import '../services/startup_controller.dart';
 
 /// Utility class for managing assets with offline support
 class AssetManager {
@@ -132,7 +135,7 @@ class AssetManager {
       if (networkImageUrl.isNotEmpty) {
         String finalImageUrl = networkImageUrl;
         if (!finalImageUrl.startsWith('http')) {
-          const baseUrl = 'http://143.244.213.49/heargod-staging/public/';
+          const baseUrl = '${AppConstant.SiteUrl}public/';
           if (finalImageUrl.startsWith('/')) {
             finalImageUrl = '$baseUrl${finalImageUrl.substring(1)}';
           } else {
@@ -175,7 +178,7 @@ class AssetManager {
         // Ensure the network URL is properly constructed
         String finalAudioUrl = networkAudioUrl;
         if (!finalAudioUrl.startsWith('http')) {
-          const baseUrl = 'http://143.244.213.49/heargod-staging/public/';
+          const baseUrl = '${AppConstant.SiteUrl}public/';
           if (finalAudioUrl.startsWith('/')) {
             finalAudioUrl = '$baseUrl${finalAudioUrl.substring(1)}';
           } else {
@@ -192,7 +195,7 @@ class AssetManager {
       if (networkAudioUrl.isNotEmpty) {
         String finalAudioUrl = networkAudioUrl;
         if (!finalAudioUrl.startsWith('http')) {
-          const baseUrl = 'http://143.244.213.49/heargod-staging/public/';
+          const baseUrl = '${AppConstant.SiteUrl}public/';
           if (finalAudioUrl.startsWith('/')) {
             finalAudioUrl = '$baseUrl${finalAudioUrl.substring(1)}';
           } else {

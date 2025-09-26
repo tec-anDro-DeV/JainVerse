@@ -1,30 +1,28 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import for TextInputFormatter
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:jainverse/Model/ModelAppInfo.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
-import 'package:jainverse/Model/UserModel.dart';
+import 'package:intl/intl.dart';
 import 'package:jainverse/Model/CountryModel.dart';
+import 'package:jainverse/Model/ModelAppInfo.dart';
+import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/AppInfoPresenter.dart';
-import 'package:jainverse/Presenter/SignupPresenter.dart';
 import 'package:jainverse/Presenter/CountryPresenter.dart';
+import 'package:jainverse/Presenter/SignupPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/LanguageChoose.dart';
 import 'package:jainverse/UI/VerifyEmailScreen.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/validators.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
-import 'package:jainverse/widgets/auth/auth_tabbar.dart';
 import 'package:jainverse/widgets/auth/privacy_policy_view.dart';
-import 'package:jainverse/widgets/common/input_field.dart';
-import 'package:jainverse/widgets/common/custom_date_picker.dart';
 import 'package:jainverse/widgets/common/country_dropdown_with_search.dart';
-import 'package:intl/intl.dart';
+import 'package:jainverse/widgets/common/custom_date_picker.dart';
+import 'package:jainverse/widgets/common/input_field.dart';
 
 class signup extends StatefulWidget {
   const signup({super.key});
@@ -53,7 +51,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
   Animation<Offset> _slideAnimation = AlwaysStoppedAnimation(Offset.zero);
 
   // Form state variables
-  String _selectedRole = 'Listener';
+  final String _selectedRole = 'Listener';
   String? _selectedGender; // Changed from 'Male' to null
   Country? _selectedCountry; // Changed to Country object
   DateTime? _selectedDate;
@@ -146,7 +144,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
     // Add listeners to text controllers for delayed validation
     firstNameController.addListener(_validateFirstName);
     lastNameController.addListener(_validateLastName);
-  // Removed artistNameController listener (artist registration not supported)
+    // Removed artistNameController listener (artist registration not supported)
     phoneController.addListener(_validatePhone);
     emailController.addListener(_validateEmail);
     passwordController.addListener(_validatePassword);
@@ -574,30 +572,6 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                 (context) => VerifyEmailScreen(email: emailController.text),
           ),
         );
-      } else if (result.login_token.isNotEmpty) {
-        // If for some reason we get a login token directly (old flow)
-        sharePrefs.setToken(result.login_token);
-        sharePrefs.setThemeData(
-          jsonEncode(
-            ModelTheme(
-              '',
-              '',
-              'Default theme',
-              '0xFFb5bada',
-              'assets/images/default_screen.jpg',
-              'free',
-            ),
-          ),
-        );
-
-        emailController.text = '';
-        passwordController.text = '';
-
-        // Navigate to language choose screen
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => LanguageChoose('fromLogin')),
-          (Route<dynamic> route) => false, // This removes all previous routes
-        );
       } else {
         // Handle case where neither condition is met
         print(
@@ -677,7 +651,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
             TextSpan(
               text: '*',
               style: TextStyle(
-                color: const Color(0xFFEE5533),
+                color: appColors().primaryColorApp,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'Poppins',
@@ -908,10 +882,11 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                           CapitalizeFirstLetterFormatter(),
                                                         ],
                                                         onEditingComplete:
-                                                            () => _fieldFocusChange(
-                                                              _lastNameFocus,
-                                                              _phoneFocus,
-                                                            ),
+                                                            () =>
+                                                                _fieldFocusChange(
+                                                                  _lastNameFocus,
+                                                                  _phoneFocus,
+                                                                ),
                                                       ),
                                                     ),
                                                     if (_autoValidate &&
@@ -1337,9 +1312,8 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                       child: Checkbox(
                                                         value: _termsAccepted,
                                                         activeColor:
-                                                            const Color(
-                                                              0xFFEE5533,
-                                                            ),
+                                                            appColors()
+                                                                .primaryColorApp,
                                                         onChanged: (value) {
                                                           setState(() {
                                                             _termsAccepted =
@@ -1407,9 +1381,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                                 child: Text(
                                                                   'Terms of Use',
                                                                   style: TextStyle(
-                                                                    color: const Color(
-                                                                      0xFFEE5533,
-                                                                    ),
+                                                                    color:
+                                                                        appColors()
+                                                                            .primaryColorApp,
                                                                     fontSize:
                                                                         AppSizes
                                                                             .fontNormal,
@@ -1462,9 +1436,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                                 child: Text(
                                                                   'Privacy Policy',
                                                                   style: TextStyle(
-                                                                    color: const Color(
-                                                                      0xFFEE5533,
-                                                                    ),
+                                                                    color:
+                                                                        appColors()
+                                                                            .primaryColorApp,
                                                                     fontSize:
                                                                         AppSizes
                                                                             .fontNormal,
@@ -1495,9 +1469,8 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                             : _handleSignup,
                                                     style: ElevatedButton.styleFrom(
                                                       backgroundColor:
-                                                          const Color(
-                                                            0xFFEE5533,
-                                                          ),
+                                                          appColors()
+                                                              .primaryColorApp,
                                                       foregroundColor:
                                                           Colors.white,
                                                       shape: RoundedRectangleBorder(
@@ -1508,9 +1481,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                       ),
                                                       elevation: 0,
                                                       disabledBackgroundColor:
-                                                          const Color(
-                                                            0xFFEE5533,
-                                                          ).withOpacity(0.6),
+                                                          appColors()
+                                                              .primaryColorApp
+                                                              .withOpacity(0.6),
                                                     ),
                                                     child:
                                                         _isLoading
@@ -1584,9 +1557,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                           context,
                                                         ).strings.loginhere,
                                                         style: TextStyle(
-                                                          color: const Color(
-                                                            0xFFEE5533,
-                                                          ),
+                                                          color:
+                                                              appColors()
+                                                                  .primaryColorApp,
                                                           fontSize: 14.sp,
                                                           fontWeight:
                                                               FontWeight.w600,
@@ -1641,7 +1614,7 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
         onDateSelected(date);
       },
       dateFormat: 'MMMM d, yyyy',
-      primaryColor: const Color(0xFFEE5533),
+      primaryColor: appColors().primaryColorApp,
       backgroundColor: Colors.white,
       title: 'Select Birthdate',
       showTitle: true,

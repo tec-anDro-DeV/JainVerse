@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/UI/artist_detail_screen.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelAllCat.dart';
@@ -13,20 +12,23 @@ import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/artist_detail_screen.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/utils/performance_debouncer.dart';
+
 import '../main.dart';
+import '../widgets/common/app_header.dart';
+import '../widgets/common/loader.dart';
+import '../widgets/common/search_bar.dart';
+import '../widgets/media_items/index.dart';
 import 'MusicEntryPoint.dart';
 import 'MusicList.dart';
-import '../widgets/common/loader.dart';
-import '../widgets/common/app_header.dart';
-import '../widgets/media_items/index.dart';
-import '../widgets/common/search_bar.dart';
 
 AudioPlayerHandler? _audioHandler;
 
@@ -34,8 +36,11 @@ class AllCategoryByName extends StatefulWidget {
   // Per-instance display type to avoid shared global state
   final String typ;
 
-  AllCategoryByName(AudioPlayerHandler? audioHandler, String type, {super.key})
-    : typ = type;
+  const AllCategoryByName(
+    AudioPlayerHandler? audioHandler,
+    String type, {
+    super.key,
+  }) : typ = type;
 
   @override
   _AllCategoryByNameState createState() => _AllCategoryByNameState();
@@ -1154,7 +1159,7 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
             gradient: LinearGradient(
               colors: [
                 appColors().primaryColorApp,
-                appColors().PrimaryDarkColorApp,
+                appColors().primaryColorApp,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,

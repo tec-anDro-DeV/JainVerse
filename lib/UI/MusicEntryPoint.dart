@@ -1,20 +1,20 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/material.dart';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/UI/MusicPlayerLogic.dart';
-import 'package:jainverse/controllers/music_controller.dart';
-import 'package:jainverse/controllers/playback_controller.dart';
 import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/controllers/user_music_controller.dart';
+import 'package:jainverse/controllers/music_controller.dart';
 import 'package:jainverse/controllers/payment_controller.dart';
-import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/controllers/playback_controller.dart';
+import 'package:jainverse/controllers/user_music_controller.dart';
 import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/widgets/common/loader.dart';
-import 'package:provider/provider.dart';
 import 'package:jainverse/widgets/musicplayer/MusicPlayerView.dart';
+import 'package:provider/provider.dart';
 
 // Global variables maintained for backward compatibility
 int indixes = 0;

@@ -83,7 +83,7 @@ class _AuthTabBarState extends State<AuthTabBar>
                 width: (MediaQuery.of(context).size.width - 60.w - 8.r) / 2,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEE5533),
+                    color: appColors().primaryColorApp,
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                 ),

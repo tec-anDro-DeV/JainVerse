@@ -26,7 +26,7 @@ class CustomDatePicker extends StatefulWidget {
     this.lastDate,
     required this.onDateSelected,
     this.dateFormat = 'yyyy-MM-dd',
-    this.primaryColor = const Color(0xFFEE5533),
+    this.primaryColor = const Color(0xFFE84625),
     this.backgroundColor = Colors.white,
     this.title = 'Select Date',
     this.showTitle = true,
@@ -62,7 +62,7 @@ class CustomDatePicker extends StatefulWidget {
     DateTime? lastDate,
     required Function(DateTime) onDateSelected,
     String dateFormat = 'yyyy-MM-dd',
-    Color primaryColor = const Color(0xFFEE5533),
+    Color primaryColor = const Color(0xFFE84625),
     Color backgroundColor = Colors.white,
     String title = 'Select Date',
     bool showTitle = true,
@@ -380,6 +380,33 @@ class _InteractiveDatePickerDialogState
             Row(
               children: [
                 Expanded(
+                  flex: 1,
+                  child: GestureDetector(
+                    onTap: _showYearPicker,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 12.w, // Increased from 12.w
+                        horizontal: 8.w, // Increased from 8.w
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Text(
+                        _yearController.text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontFamily: 'Poppins',
+                          color: widget.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w), // Increased from 8.w
+                Expanded(
                   flex: 2,
                   child: GestureDetector(
                     onTap: _showMonthPicker,
@@ -412,8 +439,8 @@ class _InteractiveDatePickerDialogState
                     onTap: _showDayPicker,
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                        vertical: 15.w, // Increased from 12.w
-                        horizontal: 10.w, // Increased from 8.w
+                        vertical: 12.w, // Increased from 12.w
+                        horizontal: 8.w, // Increased from 8.w
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
@@ -421,33 +448,6 @@ class _InteractiveDatePickerDialogState
                       ),
                       child: Text(
                         _dayController.text,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontFamily: 'Poppins',
-                          color: widget.primaryColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10.w), // Increased from 8.w
-                Expanded(
-                  flex: 2,
-                  child: GestureDetector(
-                    onTap: _showYearPicker,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 15.w, // Increased from 12.w
-                        horizontal: 10.w, // Increased from 8.w
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Text(
-                        _yearController.text,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16.sp,

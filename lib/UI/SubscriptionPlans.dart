@@ -1,16 +1,16 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
+import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/widgets/auth/auth_header.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/payment_service.dart';
 import 'package:jainverse/utils/PlanUtils.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/services/payment_service.dart';
+import 'package:jainverse/widgets/auth/auth_header.dart';
 
 class SubscriptionPlans extends StatefulWidget {
   const SubscriptionPlans({super.key});
@@ -878,7 +878,7 @@ class _PlanTabBarState extends State<PlanTabBar>
                 width: (MediaQuery.of(context).size.width - 60.w - 8.r) / 2,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEE5533),
+                    color: appColors().primaryColorApp,
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                 ),

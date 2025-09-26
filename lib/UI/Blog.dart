@@ -1,17 +1,18 @@
+import 'dart:convert';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/widgets/common/app_header.dart';
-import 'dart:convert';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:jainverse/Model/BlogModel.dart';
 import 'package:jainverse/Presenter/BlogPresenter.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/widgets/common/app_header.dart';
 
 class Blog extends StatefulWidget {
   const Blog({super.key});
