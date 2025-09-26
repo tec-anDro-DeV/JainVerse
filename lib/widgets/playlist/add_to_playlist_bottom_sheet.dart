@@ -1,5 +1,6 @@
-import 'dart:ui';
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -638,12 +639,12 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
         Container(
           padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
+            color: appColors().primaryColorApp.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20.r),
           ),
           child: Icon(
             Icons.error_outline_rounded,
-            color: Colors.red,
+            color: appColors().primaryColorApp,
             size: 48.sp,
           ),
         ),

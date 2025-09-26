@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
-import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
 
 /// Provides a clean, overlay-style menu with various music actions
 class ThreeDotOptionsMenu extends StatefulWidget {
@@ -461,7 +461,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
         _buildMenuOption(
           icon: Icons.delete_outline,
           title: 'Delete from Library',
-          iconColor: Colors.red.withOpacity(0.8),
+          iconColor: appColors().primaryColorApp.withOpacity(0.8),
           onTap: () {
             HapticFeedback.lightImpact();
             Navigator.pop(context);
@@ -478,7 +478,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
         _buildMenuOption(
           icon: Icons.history_outlined,
           title: 'Remove from Recent',
-          iconColor: Colors.red.withOpacity(0.8),
+          iconColor: appColors().primaryColorApp.withOpacity(0.8),
           onTap: () {
             HapticFeedback.lightImpact();
             Navigator.pop(context);
@@ -568,7 +568,9 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
               icon: isFavorite ? Icons.favorite : Icons.favorite_border,
               title: isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
               iconColor:
-                  isFavorite ? Colors.red : Colors.white.withOpacity(0.8),
+                  isFavorite
+                      ? appColors().primaryColorApp
+                      : Colors.white.withOpacity(0.8),
               onTap: () {
                 print(
                   '🔥 ThreeDotMenu: Favorite toggle tapped for songId: ${widget.songId}',
@@ -601,7 +603,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
                           opacity: _heartOpacityAnimation.value,
                           child: Icon(
                             Icons.favorite,
-                            color: Colors.red,
+                            color: appColors().primaryColorApp,
                             size: 22.w,
                           ),
                         ),
@@ -720,7 +722,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Download failed: ${widget.title}'),
-              backgroundColor: Colors.red,
+              backgroundColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -734,7 +736,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Download error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: appColors().primaryColorApp,
           ),
         );
       }
@@ -765,7 +767,7 @@ class _ThreeDotOptionsMenuState extends State<ThreeDotOptionsMenu>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to remove download: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: appColors().primaryColorApp,
           ),
         );
       }

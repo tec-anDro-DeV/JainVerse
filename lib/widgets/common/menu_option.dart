@@ -1,12 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'dart:math';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
 
 /// Enhanced responsive menu options widget that intelligently avoids UI conflicts
 ///
@@ -355,7 +355,7 @@ class MenuOption extends StatelessWidget {
       context,
       rootNavigator: true,
     );
-    final BuildContext rootContext = rootNavigator?.context ?? context;
+    final BuildContext rootContext = rootNavigator.context ?? context;
 
     return showModalBottomSheet(
       context: rootContext,
@@ -817,7 +817,7 @@ class MenuOption extends StatelessWidget {
             HapticFeedback.lightImpact();
             onDeleteFromLibrary?.call();
           },
-          iconColor: Colors.red.withOpacity(0.8),
+          iconColor: appColors().primaryColorApp.withOpacity(0.8),
         ),
       );
     }
@@ -931,7 +931,7 @@ class MenuOption extends StatelessWidget {
       },
       iconColor:
           isFavorite
-              ? Colors.red.withOpacity(0.8)
+              ? appColors().primaryColorApp.withOpacity(0.8)
               : Colors.white.withOpacity(0.8),
     );
   }

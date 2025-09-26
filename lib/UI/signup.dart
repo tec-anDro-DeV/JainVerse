@@ -832,7 +832,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['firstName']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,
@@ -901,7 +903,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['lastName']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,
@@ -970,7 +974,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['phone']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,
@@ -1038,7 +1044,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['email']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,
@@ -1226,7 +1234,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['password']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,
@@ -1288,7 +1298,9 @@ class _State extends State<signup> with SingleTickerProviderStateMixin {
                                                         child: Text(
                                                           _validationErrors['confirmPassword']!,
                                                           style: TextStyle(
-                                                            color: Colors.red,
+                                                            color:
+                                                                appColors()
+                                                                    .primaryColorApp,
                                                             fontSize:
                                                                 AppSizes
                                                                     .fontSmall,

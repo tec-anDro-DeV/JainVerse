@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/services/token_expiration_handler.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/services/token_expiration_handler.dart';
 
 import 'AppSettingsPresenter.dart';
 
@@ -211,7 +212,7 @@ class ProfilePresenter {
           msg: errorMessage,
           toastLength: Toast.LENGTH_LONG,
           timeInSecForIosWeb: 2,
-          backgroundColor: Colors.red,
+          backgroundColor: appColors().primaryColorApp,
           textColor: Colors.white,
           fontSize: 14.0,
         );
@@ -254,7 +255,7 @@ class ProfilePresenter {
         msg: errorMessage,
         toastLength: Toast.LENGTH_LONG,
         timeInSecForIosWeb: 2,
-        backgroundColor: Colors.red,
+        backgroundColor: appColors().primaryColorApp,
         textColor: Colors.white,
         fontSize: 14.0,
       );
@@ -271,7 +272,7 @@ class ProfilePresenter {
         msg: "Unexpected error occurred. Please try again.",
         toastLength: Toast.LENGTH_LONG,
         timeInSecForIosWeb: 2,
-        backgroundColor: Colors.red,
+        backgroundColor: appColors().primaryColorApp,
         textColor: Colors.white,
         fontSize: 14.0,
       );

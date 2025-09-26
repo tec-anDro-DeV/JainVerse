@@ -61,7 +61,10 @@ class SongOptionsBottomSheet extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               alignment: Alignment.centerLeft,
               width: 68,
-              child: Image.asset('assets/icons/fav2.png', color: Colors.red),
+              child: Image.asset(
+                'assets/icons/fav2.png',
+                color: appColors().primaryColorApp,
+              ),
             ),
             Container(
               width: 200,
@@ -102,7 +105,10 @@ class SongOptionsBottomSheet extends StatelessWidget {
               width: 68,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.all(14),
-              child: Image.asset('assets/icons/addto.png', color: Colors.red),
+              child: Image.asset(
+                'assets/icons/addto.png',
+                color: appColors().primaryColorApp,
+              ),
             ),
             Container(
               width: 200,
@@ -136,7 +142,10 @@ class SongOptionsBottomSheet extends StatelessWidget {
               width: 68,
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.all(14),
-              child: Image.asset('assets/icons/share.png', color: Colors.red),
+              child: Image.asset(
+                'assets/icons/share.png',
+                color: appColors().primaryColorApp,
+              ),
             ),
             Container(
               width: 200,
@@ -172,7 +181,7 @@ class SongOptionsBottomSheet extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Image.asset(
                 'assets/icons/download.png',
-                color: Colors.red,
+                color: appColors().primaryColorApp,
               ),
             ),
             Container(

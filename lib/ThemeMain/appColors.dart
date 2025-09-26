@@ -27,46 +27,46 @@ class appColors {
     800: Color(0xFF000000),
     900: Color(0xFF000000),
   });
-  final primaryColorApp = const MaterialColor(0xFFE84625, <int, Color>{
-    50: Color(0xFFE84625),
-    100: Color(0xFFE84625),
-    200: Color(0xFFE84625),
-    300: Color(0xFFE84625),
-    400: Color(0xFFE84625),
-    500: Color(0xFFE84625),
-    600: Color(0xFFE84625),
-    700: Color(0xFFE84625),
-    800: Color(0xFFE84625),
-    900: Color(0xFFE84625),
+  final primaryColorApp = const MaterialColor(0xFFAC8447, <int, Color>{
+    50: Color(0xFFAC8447),
+    100: Color(0xFFAC8447),
+    200: Color(0xFFAC8447),
+    300: Color(0xFFAC8447),
+    400: Color(0xFFAC8447),
+    500: Color(0xFFAC8447),
+    600: Color(0xFFAC8447),
+    700: Color(0xFFAC8447),
+    800: Color(0xFFAC8447),
+    900: Color(0xFFAC8447),
   });
-  // final PrimaryDarkColorApp = const MaterialColor(0xFFE84625, <int, Color>{
-  //   50: Color(0xFFE84625),
-  //   100: Color(0xFFE84625),
-  //   200: Color(0xFFE84625),
-  //   300: Color(0xFFE84625),
-  //   400: Color(0xFFE84625),
-  //   500: Color(0xFFE84625),
-  //   600: Color(0xFFE84625),
-  //   700: Color(0xFFE84625),
-  //   800: Color(0xFFE84625),
-  //   900: Color(0xFFE84625),
+  // final PrimaryDarkColorApp = const MaterialColor(0xFFAC8447, <int, Color>{
+  //   50: Color(0xFFAC8447),
+  //   100: Color(0xFFAC8447),
+  //   200: Color(0xFFAC8447),
+  //   300: Color(0xFFAC8447),
+  //   400: Color(0xFFAC8447),
+  //   500: Color(0xFFAC8447),
+  //   600: Color(0xFFAC8447),
+  //   700: Color(0xFFAC8447),
+  //   800: Color(0xFFAC8447),
+  //   900: Color(0xFFAC8447),
   // });
-  // final colorAccent = const MaterialColor(0xFFE84625, <int, Color>{
-  //   50: Color(0xFFE84625),
-  //   100: Color(0xFFE84625),
-  //   200: Color(0xFFE84625),
-  //   300: Color(0xFFE84625),
-  //   400: Color(0xFFE84625),
-  //   500: Color(0xFFE84625),
-  //   600: Color(0xFFE84625),
-  //   700: Color(0xFFE84625),
-  //   800: Color(0xFFE84625),
-  //   900: Color(0xFFE84625),
+  // final colorAccent = const MaterialColor(0xFFAC8447, <int, Color>{
+  //   50: Color(0xFFAC8447),
+  //   100: Color(0xFFAC8447),
+  //   200: Color(0xFFAC8447),
+  //   300: Color(0xFFAC8447),
+  //   400: Color(0xFFAC8447),
+  //   500: Color(0xFFAC8447),
+  //   600: Color(0xFFAC8447),
+  //   700: Color(0xFFAC8447),
+  //   800: Color(0xFFAC8447),
+  //   900: Color(0xFFAC8447),
   // });
   // Use explicit Color values for primary and accent to avoid confusing identical swatches
-  // final Color primary = const Color(0xFFE84625);
+  // final Color primary = const Color(0xFFAC8447);
   // final Color primaryDark = const Color(0xFFCF3E20);
-  //final Color accent = const Color(0xFFE84625);
+  //final Color accent = const Color(0xFFAC8447);
   final gray = const MaterialColor(0xFFdddddd, <int, Color>{
     50: Color(0xFFf5f5f5),
     100: Color(0xFFeeeeee),
@@ -225,7 +225,7 @@ class appColors {
 
   // Navigation bar colors
   // final navBackground = const Color(0xFFF5F5F5);
-  // final navActiveIcon = const Color(0xFFE84625);
+  // final navActiveIcon = const Color(0xFFAC8447);
   // final navInactiveIcon = const Color.fromARGB(255, 129, 129, 129);
   // final navShadow = const Color(
   //   0x33000000,
@@ -239,7 +239,7 @@ class appColors {
   //   0x26FF6B6B,
   // ); // Very light red with opacity
   // final playerShadow = const Color(0x40000000); // Softer shadow
-  // final playerGradientStart = const Color(0xFFE84625);
+  // final playerGradientStart = const Color(0xFFAC8447);
   // final playerGradientEnd = const Color(0xFFFF6B6B);
   // final playerButtonBackground = const Color(
   //   0x269E9E9E,

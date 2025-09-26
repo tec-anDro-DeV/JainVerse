@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/UI/CreatePlaylist.dart';
-import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/utils/performance_debouncer.dart';
+import 'package:jainverse/UI/CreatePlaylist.dart';
 import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/performance_debouncer.dart';
 
 class SearchMusicCard extends StatelessWidget {
   final DataMusic item;
@@ -205,7 +205,7 @@ class SearchMusicCard extends StatelessWidget {
                                   : 'Add to Favorite',
                           iconColor:
                               item.favourite == "1"
-                                  ? Colors.red
+                                  ? appColors().primaryColorApp
                                   : Colors.grey[600]!,
                           onTap: () async {
                             Navigator.pop(context);

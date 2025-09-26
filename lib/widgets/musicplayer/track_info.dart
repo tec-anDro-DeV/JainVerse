@@ -1,22 +1,24 @@
+import 'dart:convert';
+
+import 'package:audio_service/audio_service.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/artist_detail_screen.dart';
-import 'package:jainverse/widgets/musicplayer/three_dot_options_menu.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/services/favorite_service.dart';
-import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
-import 'package:jainverse/services/audio_player_service.dart'; // Import for AudioPlayerHandler
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
-import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:jainverse/services/station_service.dart';
-import 'dart:convert';
-import 'package:flutter/gestures.dart';
-import 'package:jainverse/services/tab_navigation_service.dart';
+import 'package:jainverse/UI/artist_detail_screen.dart';
+import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart'; // Import for AudioPlayerHandler
+import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/services/station_service.dart';
+import 'package:jainverse/services/tab_navigation_service.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
+import 'package:jainverse/widgets/musicplayer/three_dot_options_menu.dart';
 
 /// Modern track info widget displaying song title, artist, and menu options
 class ModernTrackInfo extends StatefulWidget {
@@ -452,9 +454,9 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
         print('No audio ID available for station creation');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Unable to create station: Missing track ID'),
-              backgroundColor: Colors.red,
+              backgroundColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -533,9 +535,9 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Failed to create station. Please try again.'),
-              backgroundColor: Colors.red,
+              backgroundColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -546,7 +548,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Station creation error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: appColors().primaryColorApp,
           ),
         );
       }

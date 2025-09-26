@@ -1,11 +1,12 @@
 import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
+// sizes not required here
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-// sizes not required here
-import 'package:flutter/cupertino.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 /// Enum to define the type of music content
 enum MusicType { song, playlist, album }
@@ -445,7 +446,7 @@ class _MusicContextMenuState extends State<MusicContextMenu>
                                 fontFamily: 'Poppins',
                                 color:
                                     action.isDestructive
-                                        ? Colors.red
+                                        ? appColors().primaryColorApp
                                         : Colors.black87,
                               ),
                             ),
@@ -453,7 +454,8 @@ class _MusicContextMenuState extends State<MusicContextMenu>
                           Icon(
                             icon,
                             size: 20.w,
-                            color: action.iconColor ?? Colors.red,
+                            color:
+                                action.iconColor ?? appColors().primaryColorApp,
                           ),
                         ],
                       );
@@ -468,7 +470,10 @@ class _MusicContextMenuState extends State<MusicContextMenu>
                       fontSize: 16.sp, // Consistent font size
                       fontWeight: FontWeight.w500,
                       fontFamily: 'Poppins',
-                      color: action.isDestructive ? Colors.red : Colors.black87,
+                      color:
+                          action.isDestructive
+                              ? appColors().primaryColorApp
+                              : Colors.black87,
                     ),
                   ),
                 ),
@@ -481,9 +486,10 @@ class _MusicContextMenuState extends State<MusicContextMenu>
                   size: 20.w,
                   color:
                       action.isDestructive
-                          ? Colors.red
+                          ? appColors().primaryColorApp
                           : (action.iconColor ??
-                              Colors.red), // Red icons like in design
+                              appColors()
+                                  .primaryColorApp), // Red icons like in design
                 ),
             ],
           ),
@@ -601,6 +607,7 @@ class MusicContextMenuHelper {
               title: 'Add to Queue',
               icon: CupertinoIcons.list_bullet_indent,
               onTap: onAddToQueue,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -624,7 +631,7 @@ class MusicContextMenuHelper {
                   // swallow errors from callback
                 }
               },
-              iconColor: Colors.red,
+              iconColor: appColors().primaryColorApp,
               favoriteNotifier: favNotifier,
               closeOnTap: false, // keep the menu open for live toggle
             ),
@@ -636,6 +643,7 @@ class MusicContextMenuHelper {
               title: 'Download',
               icon: CupertinoIcons.cloud_download,
               onTap: onDownload,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -645,6 +653,7 @@ class MusicContextMenuHelper {
               title: 'Add to Playlist',
               icon: CupertinoIcons.add_circled,
               onTap: onAddToPlaylist,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -654,6 +663,7 @@ class MusicContextMenuHelper {
               title: 'Share',
               icon: CupertinoIcons.share,
               onTap: onShare,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -664,6 +674,7 @@ class MusicContextMenuHelper {
               icon: CupertinoIcons.trash,
               onTap: onRemove,
               isDestructive: true,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -676,6 +687,7 @@ class MusicContextMenuHelper {
               title: 'Share Playlist',
               icon: CupertinoIcons.share,
               onTap: onShare,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }
@@ -688,6 +700,7 @@ class MusicContextMenuHelper {
               title: 'Share Album',
               icon: CupertinoIcons.share,
               onTap: onShare,
+              iconColor: appColors().primaryColorApp,
             ),
           );
         }

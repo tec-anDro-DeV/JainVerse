@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../services/offline_mode_service.dart';
+
 import '../ThemeMain/appColors.dart';
+import '../services/offline_mode_service.dart';
 
 /// Floating prompt widget that appears when connectivity is lost
 /// Allows user to choose whether to switch to offline mode
@@ -325,7 +326,7 @@ class _OfflineModeFABState extends State<OfflineModeFAB>
                   ),
                 ],
               ),
-              backgroundColor: Colors.red[600],
+              backgroundColor: appColors().primaryColorApp.withOpacity(0.6),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.r),

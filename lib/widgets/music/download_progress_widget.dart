@@ -105,7 +105,7 @@ class DownloadStatusIndicator extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Image.asset(
                 'assets/icons/download.png',
-                color: Colors.red,
+                color: appColors().primaryColorApp,
               ),
             ),
             Container(

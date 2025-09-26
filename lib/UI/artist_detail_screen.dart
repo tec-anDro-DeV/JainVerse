@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
@@ -9,29 +13,25 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
-import '../Presenter/HistoryPresenter.dart';
-import 'dart:ui';
+import 'package:provider/provider.dart';
+import 'package:rxdart/rxdart.dart';
 
+import '../Presenter/HistoryPresenter.dart';
+import '../providers/favorites_provider.dart';
+import '../services/favorite_service.dart';
 // TODO: Add other services when needed
 // import '../services/download_manager.dart';
 // import '../services/asset_manager.dart';
 import '../widgets/common/loader.dart';
-import '../services/favorite_service.dart';
-import 'package:jainverse/utils/music_action_handler.dart';
 import '../widgets/common/music_context_menu.dart';
 import '../widgets/common/music_long_press_handler.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/visualizer_music_integration.dart';
-import 'package:provider/provider.dart';
-import '../providers/favorites_provider.dart';
-
-import 'dart:async';
-import 'dart:developer' as developer;
-import 'dart:math' as math;
-import 'package:rxdart/rxdart.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
   final String catName;
@@ -827,18 +827,18 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
       height: 65.h,
       child: ElevatedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, color: Colors.red, size: 22.sp),
+        icon: Icon(icon, color: color, size: 22.sp),
         label: Text(
           label,
           style: TextStyle(
-            color: Colors.red,
+            color: color,
             fontWeight: FontWeight.bold,
             fontSize: 16.sp,
             fontFamily: 'Poppins',
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 253, 229, 222),
+          backgroundColor: color.withOpacity(0.3),
           elevation: 2,
           shadowColor: Colors.black.withOpacity(0.08),
           shape: RoundedRectangleBorder(

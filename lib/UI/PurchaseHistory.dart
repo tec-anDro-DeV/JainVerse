@@ -1,18 +1,19 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
 import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 import 'package:jainverse/Model/ModelPurchaseInfo.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/PurchaseHistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
 
 class PurchaseHistory extends StatefulWidget {
   const PurchaseHistory({super.key});
@@ -276,14 +277,14 @@ class purchase_state extends State {
         margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.w),
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          color: Colors.red[50],
+          color: appColors().primaryColorApp.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: Colors.red.shade300),
+          border: Border.all(color: appColors().primaryColorApp),
         ),
         child: Text(
           'Error loading plan data',
           style: TextStyle(
-            color: Colors.red,
+            color: appColors().primaryColorApp,
             fontSize: AppSizes.fontSmall,
             fontFamily: 'Poppins',
           ),
@@ -372,14 +373,14 @@ class purchase_state extends State {
         margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.w),
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          color: Colors.red[50],
+          color: appColors().primaryColorApp.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: Colors.red.shade300),
+          border: Border.all(color: appColors().primaryColorApp),
         ),
         child: Text(
           'Error loading audio data',
           style: TextStyle(
-            color: Colors.red,
+            color: appColors().primaryColorApp,
             fontSize: AppSizes.fontSmall,
             fontFamily: 'Poppins',
           ),

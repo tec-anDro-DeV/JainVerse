@@ -1,31 +1,33 @@
 import 'dart:convert';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:jainverse/Model/ModelTheme.dart';
+import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:jainverse/utils/AdHelper.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/utils/AdHelper.dart';
+import 'package:jainverse/utils/CacheManager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
-import 'package:jainverse/Model/UserModel.dart';
+import 'package:session_storage/session_storage.dart';
+
 import '../main.dart';
 import '../widgets/common/app_header.dart';
 import '../widgets/common/search_bar.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:session_storage/session_storage.dart';
-import '../widgets/music/search_music_card.dart';
 import '../widgets/music/recent_search_card.dart';
-import 'package:jainverse/utils/CacheManager.dart';
+import '../widgets/music/search_music_card.dart';
 import 'AccountPage.dart';
 
 AudioPlayerHandler? _audioHandler;
@@ -811,7 +813,11 @@ class _SearchPageState extends State<SearchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 60.w, color: Colors.red[400]),
+          Icon(
+            Icons.error_outline,
+            size: 60.w,
+            color: appColors().primaryColorApp.withOpacity(0.4),
+          ),
           SizedBox(height: AppSizes.paddingM),
           Text(
             'Search failed',

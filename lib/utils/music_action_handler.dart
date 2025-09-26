@@ -1,20 +1,21 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:flutter/widgets.dart';
-import 'package:jainverse/utils/share_helper.dart';
+import 'package:jainverse/Model/ModelMusicList.dart'; // Import DataMusic model
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/UI/MusicEntryPoint.dart'; // Add access to global data
+import 'package:jainverse/controllers/download_controller.dart';
+import 'package:jainverse/hooks/favorites_hook.dart'; // Import favorites hook
+import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
-import 'package:jainverse/UI/MusicEntryPoint.dart'; // Add access to global data
-import 'package:jainverse/Model/ModelMusicList.dart'; // Import DataMusic model
-import 'package:jainverse/utils/music_player_state_manager.dart'; // Import state manager
-import 'package:jainverse/hooks/favorites_hook.dart'; // Import favorites hook
 import 'package:jainverse/utils/AppConstant.dart'; // Import for base URL constants
+import 'package:jainverse/utils/music_player_state_manager.dart'; // Import state manager
+import 'package:jainverse/utils/share_helper.dart';
+import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Enhanced Music Action Handler with Play Next and Add to Queue functionality
 /// Supports both songs and non-song items (playlists, albums, etc.)
@@ -606,7 +607,10 @@ class MusicActionHandler {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: appColors().primaryColorApp,
+      ),
     );
   }
 

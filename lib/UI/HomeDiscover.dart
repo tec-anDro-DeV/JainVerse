@@ -1961,14 +1961,16 @@ class _state extends State<HomeDiscover>
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(
+                  foregroundColor: appColors().primaryColorApp,
+                ),
                 child: Text(
                   'Remove',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Poppins',
-                    color: Colors.red,
+                    color: appColors().primaryColorApp,
                   ),
                 ),
               ),
@@ -2006,12 +2008,6 @@ class _state extends State<HomeDiscover>
       }
     } catch (e) {
       print('❌ Error removing $itemType: $e');
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(
-      //     content: Text('Failed to remove $itemName'),
-      //     backgroundColor: Colors.red,
-      //   ),
-      // );
     }
   }
 

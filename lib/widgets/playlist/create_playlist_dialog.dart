@@ -397,10 +397,10 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog>
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.w),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: appColors().primaryColorApp.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
-                  color: Colors.red.withOpacity(0.3),
+                  color: appColors().primaryColorApp.withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -408,7 +408,7 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog>
                 children: [
                   Icon(
                     Icons.error_outline_rounded,
-                    color: Colors.red,
+                    color: appColors().primaryColorApp,
                     size: 18.sp,
                   ),
                   SizedBox(width: 8.w),
@@ -417,7 +417,7 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog>
                       _errorMessage!,
                       style: TextStyle(
                         fontSize: 13.sp,
-                        color: Colors.red,
+                        color: appColors().primaryColorApp,
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w500,
                       ),

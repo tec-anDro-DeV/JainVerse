@@ -458,7 +458,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       child: Text(
                                         _validationErrors['email']!,
                                         style: TextStyle(
-                                          color: Colors.red,
+                                          color: appColors().primaryColorApp,
                                           fontSize: AppSizes.fontSmall,
                                         ),
                                       ),
@@ -525,7 +525,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       child: Text(
                                         _validationErrors['otp']!,
                                         style: TextStyle(
-                                          color: Colors.red,
+                                          color: appColors().primaryColorApp,
                                           fontSize: AppSizes.fontSmall,
                                         ),
                                       ),
@@ -560,7 +560,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       child: Text(
                                         _validationErrors['password']!,
                                         style: TextStyle(
-                                          color: Colors.red,
+                                          color: appColors().primaryColorApp,
                                           fontSize: AppSizes.fontSmall,
                                         ),
                                       ),
@@ -596,7 +596,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                       child: Text(
                                         _validationErrors['confirmPassword']!,
                                         style: TextStyle(
-                                          color: Colors.red,
+                                          color: appColors().primaryColorApp,
                                           fontSize: AppSizes.fontSmall,
                                         ),
                                       ),

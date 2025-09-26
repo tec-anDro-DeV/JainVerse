@@ -352,7 +352,7 @@ class StateClass extends State {
             fontSize: 14.sp,
           ),
         ),
-        backgroundColor: Colors.red[600],
+        backgroundColor: appColors().primaryColorApp.withOpacity(0.6),
         duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.all(16.w),
@@ -943,7 +943,10 @@ class StateClass extends State {
             ),
           ],
           border: Border.all(
-            color: isBeingDeleted ? Colors.red.shade200 : Colors.grey.shade100,
+            color:
+                isBeingDeleted
+                    ? appColors().primaryColorApp.withOpacity(0.2)
+                    : Colors.grey.shade100,
             width: 1.w,
           ),
         ),
@@ -1038,7 +1041,7 @@ class StateClass extends State {
         MusicContextAction(
           title: 'Remove from Downloads',
           icon: Icons.delete_outline,
-          iconColor: Colors.red[600],
+          iconColor: appColors().primaryColorApp.withOpacity(0.6),
           isDestructive: true,
           onTap: () => _removeFromDownloadsAPI(index),
         ),
@@ -1421,7 +1424,7 @@ class StateClass extends State {
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'Poppins',
-                      color: Colors.red[600],
+                      color: appColors().primaryColorApp.withOpacity(0.6),
                     ),
                   ),
                 ),

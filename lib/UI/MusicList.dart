@@ -1,43 +1,43 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:math' as math;
+
+import 'package:audio_service/audio_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
+import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
-import '../Presenter/HistoryPresenter.dart';
+import 'package:jainverse/widgets/playlist/playlist_service.dart';
+import 'package:provider/provider.dart';
+import 'package:rxdart/rxdart.dart';
 
+import '../Presenter/HistoryPresenter.dart';
 // TODO: Add other services when needed
 // import '../services/download_manager.dart';
 // import '../services/asset_manager.dart';
 import '../main.dart';
-import 'AllCategoryByName.dart';
-import '../widgets/common/app_header.dart';
-import '../widgets/common/loader.dart';
+import '../providers/favorites_provider.dart';
 import '../services/favorite_service.dart';
+import '../widgets/common/app_header.dart';
 import '../widgets/common/expandable_description.dart';
-import 'package:jainverse/utils/music_action_handler.dart';
+import '../widgets/common/loader.dart';
 import '../widgets/common/music_context_menu.dart';
 import '../widgets/common/music_long_press_handler.dart';
-import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
-import 'package:jainverse/widgets/playlist/playlist_service.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/visualizer_music_integration.dart';
-import 'package:provider/provider.dart';
-import '../providers/favorites_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
-import 'dart:async';
-import 'dart:developer' as developer;
-import 'dart:math' as math;
-import 'package:rxdart/rxdart.dart';
+import 'AllCategoryByName.dart';
 
 class MusicList extends StatefulWidget {
   final AudioPlayerHandler? audioHandler;
@@ -689,18 +689,18 @@ class StateClass extends State<MusicList> {
       height: 65.h,
       child: ElevatedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, color: Colors.red, size: 22.sp),
+        icon: Icon(icon, color: color, size: 22.sp),
         label: Text(
           label,
           style: TextStyle(
-            color: Colors.red,
+            color: color,
             fontWeight: FontWeight.bold,
             fontSize: 16.sp,
             fontFamily: 'Poppins',
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 253, 229, 222),
+          backgroundColor: appColors().primaryColorApp.withOpacity(0.3),
           elevation: 2,
           shadowColor: Colors.black.withOpacity(0.08),
           shape: RoundedRectangleBorder(
@@ -1006,7 +1006,7 @@ class StateClass extends State<MusicList> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Failed to remove song. Try again.'),
-          backgroundColor: Colors.red,
+          backgroundColor: appColors().primaryColorApp,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -1115,8 +1115,8 @@ class StateClass extends State<MusicList> {
             crossAxisSpacing: 0.w,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
-            children: tiles,
             shrinkWrap: true,
+            children: tiles,
           ),
         ),
       ),

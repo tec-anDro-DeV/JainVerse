@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -13,24 +13,26 @@ import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart'; // Add this import
-// import 'package:jainverse/utils/AdHelper.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+// import 'package:jainverse/utils/AdHelper.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/CacheManager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:session_storage/session_storage.dart';
 import 'package:we_slide/we_slide.dart';
+
 import '../main.dart';
 import '../widgets/common/app_header.dart';
-import '../widgets/common/search_bar.dart';
 import '../widgets/common/loader.dart';
-import 'CreatePlaylist.dart';
-import 'package:session_storage/session_storage.dart';
-import 'package:jainverse/utils/CacheManager.dart';
+import '../widgets/common/search_bar.dart';
 import '../widgets/music/recent_search_card.dart';
 import 'AccountPage.dart';
+import 'CreatePlaylist.dart';
 
 AudioPlayerHandler? _audioHandler;
 // String yt = ""; // COMMENTED OUT - YouTube parameter
@@ -381,7 +383,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               width: 265,
               height: 260,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.red),
+                border: Border.all(color: appColors().primaryColorApp),
                 gradient: LinearGradient(
                   colors: [
                     appColors().colorBackground,
@@ -1026,7 +1028,11 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 60.w, color: Colors.red[400]),
+          Icon(
+            Icons.error_outline,
+            size: 60.w,
+            color: appColors().primaryColorApp.withOpacity(0.4),
+          ),
           SizedBox(height: AppSizes.paddingM),
           Text(
             _errorMessage.isNotEmpty ? _errorMessage : 'Search failed',
@@ -1126,7 +1132,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               width: 265,
               height: 260,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.red),
+                border: Border.all(color: appColors().primaryColorApp),
                 gradient: LinearGradient(
                   colors: [
                     appColors().colorBackground,
@@ -1282,7 +1288,9 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                             ? 'Remove Favorite'
                             : 'Add to Favorite',
                     iconColor:
-                        favTag.contains("1") ? Colors.red : Colors.grey[600]!,
+                        favTag.contains("1")
+                            ? appColors().primaryColorApp
+                            : Colors.grey[600]!,
                     onTap: () {
                       addRemoveAPI(ids, tag);
                       Navigator.pop(context);

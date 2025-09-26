@@ -461,7 +461,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
                                       _otpError!,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Colors.red,
+                                        color: appColors().primaryColorApp,
                                         fontSize: 14.sp,
                                         fontFamily: 'Poppins',
                                       ),
@@ -645,7 +645,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
               _otpFocusNodes[index].hasFocus
                   ? appColors().primaryColorApp
                   : _otpError != null && _autoValidate
-                  ? Colors.red.withOpacity(0.8)
+                  ? appColors().primaryColorApp.withOpacity(0.8)
                   : appColors().black.withOpacity(0.08),
           width: _otpFocusNodes[index].hasFocus ? 2.0 : 1.5,
         ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/widgets/musicplayer/three_dot_options_menu.dart';
-import 'package:jainverse/services/favorite_service.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
 
 class RecentSearchCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -187,7 +187,7 @@ class _RecentSearchCardState extends State<RecentSearchCard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Failed to remove item'),
-            backgroundColor: Colors.red,
+            backgroundColor: appColors().primaryColorApp,
             behavior: SnackBarBehavior.floating,
             margin: EdgeInsets.all(16.w),
             shape: RoundedRectangleBorder(

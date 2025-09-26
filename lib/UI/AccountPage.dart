@@ -905,7 +905,7 @@ class MyState extends State<AccountPage>
       ModernMenuItem(
         icon: Icons.info_outline,
         title: 'App Info',
-        iconColor: const Color(0xFFFF6B47),
+        iconColor: appColors().primaryColorApp,
         onTap: () {
           Navigator.push(
             context,
@@ -947,7 +947,7 @@ class MyState extends State<AccountPage>
       ModernMenuItem(
         icon: Icons.music_note_outlined,
         title: 'Change Favorite Genres',
-        iconColor: const Color(0xFFFF6B47),
+        iconColor: appColors().primaryColorApp,
         onTap: () async {
           await Navigator.push(
             context,
@@ -965,7 +965,7 @@ class MyState extends State<AccountPage>
       ModernMenuItem(
         icon: Icons.call_outlined,
         title: 'Contact Us',
-        iconColor: const Color(0xFFFF6B47),
+        iconColor: appColors().primaryColorApp,
         onTap: () {
           Navigator.push(
             context,
@@ -979,13 +979,13 @@ class MyState extends State<AccountPage>
       ModernMenuItem(
         icon: Icons.logout,
         title: 'Logout',
-        iconColor: const Color(0xFFFF6B47),
+        iconColor: appColors().primaryColorApp,
         onTap: () => _showLogoutDialog(context),
       ),
       ModernMenuItem(
         icon: Icons.delete_outline,
         title: 'Delete Account',
-        iconColor: const Color(0xFFFF6B47),
+        iconColor: appColors().primaryColorApp,
         onTap: () {
           _showDeleteAccountDialog(context);
         },
@@ -1108,13 +1108,13 @@ class MyState extends State<AccountPage>
                   width: 80.w,
                   height: 80.w,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF5722).withOpacity(0.1),
+                    color: appColors().primaryColorApp.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.logout,
                     size: 40.w,
-                    color: const Color(0xFFFF5722),
+                    color: appColors().primaryColorApp,
                   ),
                 ),
 
@@ -1144,7 +1144,7 @@ class MyState extends State<AccountPage>
                         height: 48.h,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: const Color(0xFFFF5722),
+                            color: appColors().primaryColorApp,
                             width: 1.5,
                           ),
                           borderRadius: BorderRadius.circular(14.w),
@@ -1162,7 +1162,7 @@ class MyState extends State<AccountPage>
                           child: Text(
                             'Cancel',
                             style: TextStyle(
-                              color: const Color(0xFFFF5722),
+                              color: appColors().primaryColorApp,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w500,
                               fontFamily: 'Poppins',
@@ -1179,7 +1179,7 @@ class MyState extends State<AccountPage>
                       child: Container(
                         height: 48.h,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF5722),
+                          color: appColors().primaryColorApp,
                           borderRadius: BorderRadius.circular(14.w),
                         ),
                         child: TextButton(
@@ -1262,13 +1262,13 @@ class MyState extends State<AccountPage>
                   width: 80.w,
                   height: 80.w,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF5722).withOpacity(0.1),
+                    color: appColors().primaryColorApp.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.delete_forever_outlined,
                     size: 60.w,
-                    color: const Color(0xFFFF5722),
+                    color: appColors().primaryColorApp,
                   ),
                 ),
 
@@ -1312,7 +1312,7 @@ class MyState extends State<AccountPage>
                         height: 48.h,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: const Color(0xFFFF5722),
+                            color: appColors().primaryColorApp,
                             width: 1.5,
                           ),
                           borderRadius: BorderRadius.circular(14.w),
@@ -1330,7 +1330,7 @@ class MyState extends State<AccountPage>
                           child: Text(
                             'Cancel',
                             style: TextStyle(
-                              color: const Color(0xFFFF5722),
+                              color: appColors().primaryColorApp,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w500,
                               fontFamily: 'Poppins',
@@ -1347,7 +1347,7 @@ class MyState extends State<AccountPage>
                       child: Container(
                         height: 48.h,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF5722),
+                          color: appColors().primaryColorApp,
                           borderRadius: BorderRadius.circular(14.w),
                         ),
                         child: TextButton(

@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/UI/Login.dart';
 import 'package:jainverse/main.dart';
-import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/utils/CacheManager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TokenExpirationHandler {
   static final TokenExpirationHandler _instance =
@@ -130,13 +132,13 @@ class TokenExpirationHandler {
                   width: 80.w,
                   height: 80.w,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF5722).withOpacity(0.1),
+                    color: appColors().primaryColorApp.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.access_time_rounded,
                     size: 40.w,
-                    color: const Color(0xFFFF5722),
+                    color: appColors().primaryColorApp,
                   ),
                 ),
 
@@ -179,8 +181,8 @@ class TokenExpirationHandler {
                       height: 16.w,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.w,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFFFF5722),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          appColors().primaryColorApp,
                         ),
                       ),
                     ),

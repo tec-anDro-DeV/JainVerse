@@ -1,12 +1,15 @@
+import 'dart:developer' as developer;
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+
 import '../UI/Download.dart';
-import '../widgets/music/mini_music_player.dart';
 import '../services/audio_player_service.dart';
+import '../widgets/music/mini_music_player.dart';
 import '../widgets/offline_mode_prompt.dart';
-import 'dart:developer' as developer;
 
 class OfflineDownloadScreen extends StatefulWidget {
   const OfflineDownloadScreen({super.key});
@@ -36,7 +39,8 @@ class _OfflineDownloadScreenState extends State<OfflineDownloadScreen> {
             await AudioService.init(
               builder: () => AudioPlayerHandlerImpl(),
               config: const AudioServiceConfig(
-                androidNotificationChannelId: 'com.jainverse.music.channel.audio',
+                androidNotificationChannelId:
+                    'com.jainverse.music.channel.audio',
                 androidNotificationChannelName: 'Music playback',
                 androidNotificationOngoing: true,
               ),
@@ -318,7 +322,11 @@ class _ErrorBoundary extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48.sp, color: Colors.red),
+                  Icon(
+                    Icons.error_outline,
+                    size: 48.sp,
+                    color: appColors().primaryColorApp,
+                  ),
                   SizedBox(height: 16.w),
                   Text(
                     'Error in $context',

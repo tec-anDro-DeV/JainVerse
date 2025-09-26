@@ -112,11 +112,17 @@ class InputField extends StatelessWidget {
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
-            borderSide: BorderSide(color: Colors.red, width: 1.w),
+            borderSide: BorderSide(
+              color: appColors().primaryColorApp,
+              width: 1.w,
+            ),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
-            borderSide: BorderSide(color: Colors.red, width: 1.5.w),
+            borderSide: BorderSide(
+              color: appColors().primaryColorApp,
+              width: 1.5.w,
+            ),
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
@@ -216,11 +222,17 @@ class _PasswordInputFieldState extends State<PasswordInputField> {
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
-            borderSide: BorderSide(color: Colors.red, width: 1.w),
+            borderSide: BorderSide(
+              color: appColors().primaryColorApp,
+              width: 1.w,
+            ),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16.r),
-            borderSide: BorderSide(color: Colors.red, width: 1.5.w),
+            borderSide: BorderSide(
+              color: appColors().primaryColorApp,
+              width: 1.5.w,
+            ),
           ),
         ),
         style: TextStyle(color: Colors.black87, fontSize: 16.sp),

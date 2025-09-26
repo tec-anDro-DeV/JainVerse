@@ -1,25 +1,26 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/services/music_player_theme_service.dart';
-import 'package:jainverse/widgets/musicplayer/visual_area.dart';
-import 'package:jainverse/widgets/musicplayer/control_panel.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
-import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
-import 'package:jainverse/services/favorite_service.dart';
-import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
-import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/services/station_service.dart';
-import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
+import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/services/music_player_theme_service.dart';
+import 'package:jainverse/services/station_service.dart';
+import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
+import 'package:jainverse/widgets/musicplayer/control_panel.dart';
+import 'package:jainverse/widgets/musicplayer/visual_area.dart';
+import 'package:jainverse/widgets/playlist/add_to_playlist_bottom_sheet.dart';
 
 class MusicPlayerView extends StatefulWidget {
   final AudioPlayerHandler audioHandler;
@@ -963,7 +964,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
         if (mounted) {
           _showMessage(
             'Unable to create station: Missing track ID',
-            Colors.red,
+            appColors().primaryColorApp,
           );
         }
         return;
@@ -1017,7 +1018,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
         } else {
           Fluttertoast.showToast(
             msg: 'Failed to create station. Please try again.',
-            backgroundColor: Colors.red,
+            backgroundColor: appColors().primaryColorApp,
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
           );
@@ -1028,7 +1029,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
       if (mounted) {
         Fluttertoast.showToast(
           msg: 'Station creation error: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: appColors().primaryColorApp,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
         );

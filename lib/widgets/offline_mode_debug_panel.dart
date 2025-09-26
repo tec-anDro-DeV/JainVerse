@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+
 import '../services/offline_mode_service.dart';
 
 /// Debug panel for testing offline mode functionality
@@ -61,7 +63,8 @@ class _OfflineModeDebugPanelState extends State<OfflineModeDebugPanel> {
                       Text(
                         'Connectivity: ${hasConnectivity ? "🟢 Online" : "🔴 Offline"}',
                         style: TextStyle(
-                          color: hasConnectivity ? Colors.green : Colors.red,
+                          color:
+                              hasConnectivity ? Colors.green : appColors().red,
                           fontSize: 12.sp,
                           fontFamily: 'Poppins',
                         ),
@@ -80,7 +83,7 @@ class _OfflineModeDebugPanelState extends State<OfflineModeDebugPanel> {
                           color:
                               _offlineModeService.isUserLoggedIn
                                   ? Colors.green
-                                  : Colors.red,
+                                  : appColors().red,
                           fontSize: 12.sp,
                           fontFamily: 'Poppins',
                         ),
@@ -94,7 +97,7 @@ class _OfflineModeDebugPanelState extends State<OfflineModeDebugPanel> {
                             'Simulate No Internet',
                             () =>
                                 _offlineModeService.simulateConnectivityLoss(),
-                            Colors.red,
+                            appColors().red,
                           ),
                           _buildDebugButton(
                             'Simulate Internet Back',

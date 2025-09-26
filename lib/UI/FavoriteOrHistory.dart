@@ -587,18 +587,18 @@ class StateClass extends State<Favorite> {
       height: 65.h,
       child: ElevatedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, color: Colors.red, size: 22.sp),
+        icon: Icon(icon, color: color, size: 22.sp),
         label: Text(
           label,
           style: TextStyle(
-            color: Colors.red,
+            color: color,
             fontWeight: FontWeight.bold,
             fontSize: 16.sp,
             fontFamily: 'Poppins',
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 253, 229, 222),
+          backgroundColor: appColors().primaryColorApp.withOpacity(0.3),
           elevation: 2,
           shadowColor: Colors.black.withOpacity(0.08),
           shape: RoundedRectangleBorder(
