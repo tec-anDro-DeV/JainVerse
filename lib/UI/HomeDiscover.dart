@@ -31,6 +31,7 @@ import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/widgets/auth/auth_tabbar.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
 import 'package:upgrader/upgrader.dart';
@@ -46,7 +47,6 @@ import '../widgets/music/new_albums_card.dart';
 import '../widgets/music/playlist_card.dart';
 import '../widgets/music/popular_song_card.dart';
 import '../widgets/music/song_card.dart';
-// Navigation to Music* components removed as we're using mini player directly
 import 'AccountPage.dart';
 import 'Login.dart';
 
@@ -63,6 +63,39 @@ class HomeDiscover extends StatefulWidget {
 
 class _state extends State<HomeDiscover>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+  // Returns the main sliver content for the scroll view
+  Widget _buildContentSliver() {
+    if (_selectedMedia == 'Video') {
+      // Show 'Coming Soon' message centered when Video tab is selected
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'Coming Soon',
+            style: TextStyle(
+              fontSize: 28.w,
+              fontWeight: FontWeight.bold,
+              color: appColors().black,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else if (_cachedMusicData != null) {
+      return SliverToBoxAdapter(
+        child: _buildMusicCategories(_cachedMusicData!),
+      );
+    } else if (_isLoading) {
+      return SliverToBoxAdapter(child: _buildLoadingWidget());
+    } else if (_hasError || !connected) {
+      return SliverToBoxAdapter(child: _buildErrorWidget());
+    } else {
+      return SliverToBoxAdapter(child: _buildErrorWidget());
+    }
+  }
+
+  // Media selection for AuthTabBar (Audio/Video)
+  String _selectedMedia = 'Audio';
   late UserModel model;
   SharedPref sharePrefs = SharedPref();
   bool isOpen = false;
@@ -924,6 +957,43 @@ class _state extends State<HomeDiscover>
             sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
 
+          // AuthTabBar as a sliver so it scrolls with content
+          SliverToBoxAdapter(
+            child: Container(
+              margin: EdgeInsets.symmetric(
+                horizontal: 18.w,
+              ), // Increased margin for better spacing
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  vertical: 5.w,
+                  horizontal: AppSizes.contentHorizontalPadding,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18.w),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 8.w,
+                        offset: Offset(0, 2.w),
+                      ),
+                    ],
+                  ),
+                  child: AuthTabBar(
+                    selectedRole: _selectedMedia,
+                    onRoleChanged: (media) {
+                      setState(() {
+                        _selectedMedia = media;
+                      });
+                    },
+                    options: const ['Audio', 'Video'],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Main content
           StreamBuilder<MediaItem?>(
             stream: _audioHandler!.mediaItem,
@@ -948,21 +1018,6 @@ class _state extends State<HomeDiscover>
         ],
       ),
     );
-  }
-
-  Widget _buildContentSliver() {
-    // If we have cached data, show it immediately
-    if (_cachedMusicData != null) {
-      return SliverToBoxAdapter(
-        child: _buildMusicCategories(_cachedMusicData!),
-      );
-    } else if (_isLoading) {
-      return SliverToBoxAdapter(child: _buildLoadingWidget());
-    } else if (_hasError || !connected) {
-      return SliverToBoxAdapter(child: _buildErrorWidget());
-    } else {
-      return SliverToBoxAdapter(child: _buildErrorWidget());
-    }
   }
 
   // Helper method to build category headers
