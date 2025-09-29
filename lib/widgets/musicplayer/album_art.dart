@@ -1,6 +1,6 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/widgets/common/smart_image_widget.dart';
 
@@ -47,7 +47,7 @@ class _ModernAlbumArtState extends State<ModernAlbumArt>
     _scaleAnimation = Tween<double>(
       begin: 1.1, // Paused state (normal size)
       end:
-          1.45, // Playing state (slightly larger, minimal scaling to prevent blur)
+          1.40, // Playing state (slightly larger, minimal scaling to prevent blur)
     ).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );

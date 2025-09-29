@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'package:just_audio/just_audio.dart';
+
 import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
 
 /// Helper service to integrate audio visualizer with just_audio player
 class JustAudioVisualizerIntegration {

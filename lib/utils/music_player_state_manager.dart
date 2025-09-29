@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
 
 /// Global state manager for music player UI visibility
 class MusicPlayerStateManager extends ChangeNotifier {

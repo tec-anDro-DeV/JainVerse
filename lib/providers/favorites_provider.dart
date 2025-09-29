@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
 import 'package:jainverse/main.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Global provider for managing favorites state across the entire app
 /// This provider ensures consistent favorite status across all screens and widgets

@@ -29,7 +29,7 @@ class ArtistSignUp extends StatefulWidget {
 }
 
 class myState extends State {
-  final bool _passwordVisible = false;
+  //final bool _passwordVisible = false;
   TextEditingController passwordController = TextEditingController();
   TextEditingController mobileController = TextEditingController();
   TextEditingController nameController = TextEditingController();

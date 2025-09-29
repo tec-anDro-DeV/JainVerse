@@ -8,17 +8,19 @@ class AppInfoPresenter {
     Response<String> response;
     if (token.isNotEmpty) {
       response = await _dio.get(
-          AppConstant.BaseUrl + AppConstant.API_GET_APP_INFO,
-          options: Options(headers: {
+        AppConstant.BaseUrl + AppConstant.API_GET_APP_INFO,
+        options: Options(
+          headers: {
             "Accept": "application/json",
-            "authorization": "Bearer $token"
-          }));
+            "authorization": "Bearer $token",
+          },
+        ),
+      );
     } else {
-      response =
-          await _dio.get(AppConstant.BaseUrl + AppConstant.API_GET_APP_INFO,
-              options: Options(headers: {
-                "Accept": "application/json",
-              }));
+      response = await _dio.get(
+        AppConstant.BaseUrl + AppConstant.API_GET_APP_INFO,
+        options: Options(headers: {"Accept": "application/json"}),
+      );
     }
 
     try {

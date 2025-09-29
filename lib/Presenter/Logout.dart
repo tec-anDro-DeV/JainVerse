@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:jainverse/presenters/base_presenter.dart';
+import 'package:jainverse/services/token_expiration_handler.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/services/token_expiration_handler.dart';
-import 'package:jainverse/presenters/base_presenter.dart';
 
 class Logout extends BasePresenter {
   final TokenExpirationHandler _tokenHandler = TokenExpirationHandler();

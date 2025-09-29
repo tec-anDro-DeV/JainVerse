@@ -286,7 +286,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
                         // Description Text
                         Text(
-                          'Step into a sacred space of peace and devotion, where every note brings you closer to the divine.',
+                          'A divine space of stavan and bhakti, guiding your soul towards peace.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,

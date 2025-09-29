@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/paymentgateway/Stripe.dart';
 // import 'package:jainverse/paymentgateway/Razorpay.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/paymentgateway/Stripe.dart';
 
 /// Payment gateway selection dialog
 class PaymentGatewayDialog extends StatelessWidget {

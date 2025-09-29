@@ -1,22 +1,23 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui';
-import 'dart:math' as math;
+import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/MusicList.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/tab_navigation_service.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
 import 'package:jainverse/widgets/common/search_bar.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/main.dart';
-import 'package:jainverse/Model/ModelPlayList.dart';
-import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/utils/AppConstant.dart';
-import 'package:jainverse/widgets/playlist/playlist_service.dart';
-import 'package:jainverse/UI/MusicList.dart';
-import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/widgets/playlist/create_playlist_dialog.dart';
-import 'package:jainverse/services/tab_navigation_service.dart';
+import 'package:jainverse/widgets/playlist/playlist_service.dart';
 
 class PlaylistScreen extends StatefulWidget {
   const PlaylistScreen({super.key});

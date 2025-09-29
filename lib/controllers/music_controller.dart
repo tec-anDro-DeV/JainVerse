@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
@@ -13,11 +14,11 @@ import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/Presenter/PlanPresenter.dart';
-import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/audio_preloader_service.dart';
 import 'package:jainverse/services/image_url_normalizer.dart';
-import 'package:jainverse/main.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Music controller responsible for managing music playback state,
 /// user interactions, and business logic

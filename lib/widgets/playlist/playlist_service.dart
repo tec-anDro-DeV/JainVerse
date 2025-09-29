@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 /// Service class for managing playlist operations

@@ -1,6 +1,8 @@
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:video_player/video_player.dart';
 
@@ -20,9 +22,65 @@ class CommonVideoPlayerScreen extends StatefulWidget {
 }
 
 class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
+  Widget _buildVideoHeader() {
+    // Use ScreenUtil for responsive sizing
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8.w,
+            offset: Offset(0, 2.w),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.black, size: 24.w),
+            onPressed: () => Navigator.of(context).pop(),
+            tooltip: 'Back',
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              widget.videoTitle.isNotEmpty ? widget.videoTitle : 'Video',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+                fontSize: 18.w,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: _isFavorite ? appColors().primaryColorApp : Colors.black,
+              size: 24.w,
+            ),
+            onPressed: _toggleFavorite,
+            tooltip: _isFavorite ? 'Remove from favorites' : 'Add to favorites',
+          ),
+        ],
+      ),
+    );
+  }
+
   late VideoPlayerController _videoPlayerController;
   ChewieController? _chewieController;
   VoidCallback? _videoListener;
+  bool _isFavorite = false;
+
+  void _toggleFavorite() {
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+    // TODO: Add favorite logic (API, local storage, etc.)
+  }
 
   @override
   void initState() {
@@ -57,8 +115,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
             fullScreenByDefault: false,
             allowMuting: true,
             materialProgressColors: ChewieProgressColors(
-              playedColor: Colors.red,
-              handleColor: Colors.redAccent,
+              playedColor: appColors().primaryColorApp,
+              handleColor: appColors().primaryColorApp.withOpacity(0.8),
               backgroundColor: Colors.white,
               bufferedColor: Colors.grey,
             ),
@@ -87,12 +145,13 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Video player at the top, full width
+            _buildVideoHeader(),
+            // Video player below the header
             AspectRatio(
               aspectRatio:
                   _chewieController != null
@@ -112,7 +171,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                 child: Center(
                   child: Text(
                     'Video details will appear here.',
-                    style: TextStyle(color: Colors.white54, fontSize: 16),
+                    style: TextStyle(color: Colors.black, fontSize: 16),
                   ),
                 ),
               ),

@@ -1,29 +1,31 @@
 import 'dart:io';
 import 'dart:math';
+
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:jainverse/models/downloaded_music.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/utils/optimized_image_widget.dart';
 import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/services/startup_controller.dart';
-import 'package:jainverse/services/offline_mode_service.dart';
-import 'package:jainverse/services/app_router_manager.dart';
-import 'package:jainverse/providers/favorites_provider.dart';
 import 'package:jainverse/controllers/user_music_controller.dart';
-import 'package:session_storage/session_storage.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/models/downloaded_music.dart';
+import 'package:jainverse/providers/favorites_provider.dart';
+import 'package:jainverse/services/app_router_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/offline_mode_service.dart';
+import 'package:jainverse/services/startup_controller.dart';
+import 'package:jainverse/utils/optimized_image_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:provider/provider.dart';
+import 'package:session_storage/session_storage.dart';
+
 import 'ThemeMain/appColors.dart';
-import 'UI/SplashScreen.dart';
 import 'UI/MainNavigation.dart';
+import 'UI/SplashScreen.dart';
 
 AudioPlayerHandler? _audioHandler;
 const String home = '/';
@@ -186,7 +188,8 @@ Future<void> main() async {
     config: AudioServiceConfig(
       androidNotificationChannelId: 'com.jainverse.audio.channel',
       androidNotificationChannelName: 'JainVerse',
-      androidNotificationChannelDescription: 'JainVerse music playback controls',
+      androidNotificationChannelDescription:
+          'JainVerse music playback controls',
       androidNotificationIcon: 'mipmap/ic_launcher',
       androidShowNotificationBadge: true,
       // CRITICAL: Keep service alive when paused for background playback

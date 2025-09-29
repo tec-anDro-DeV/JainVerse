@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+
 import '../../ThemeMain/sizes.dart';
 
 class CommonSearchBar extends StatelessWidget {

@@ -4,8 +4,8 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 List<DataMusic> list = [];
 

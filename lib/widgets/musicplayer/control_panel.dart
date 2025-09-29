@@ -1,19 +1,20 @@
 import 'dart:io';
 import 'dart:ui';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/widgets/musicplayer/track_info.dart';
-import 'package:jainverse/widgets/musicplayer/seek_bar.dart';
-import 'package:jainverse/widgets/musicplayer/playback_controls.dart';
-import 'package:jainverse/widgets/musicplayer/integrated_lyrics_overlay.dart';
-import 'package:jainverse/widgets/musicplayer/volume_slider_widget.dart';
+import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/enhanced_audio_visualizer.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/widgets/musicplayer/integrated_lyrics_overlay.dart';
+import 'package:jainverse/widgets/musicplayer/playback_controls.dart';
+import 'package:jainverse/widgets/musicplayer/seek_bar.dart';
+import 'package:jainverse/widgets/musicplayer/track_info.dart';
+import 'package:jainverse/widgets/musicplayer/volume_slider_widget.dart';
 
 /// Modern control panel widget containing track info, seek bar, and playback controls
 class ModernControlPanel extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:jainverse/providers/favorites_provider.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/providers/favorites_provider.dart';
+import 'package:provider/provider.dart';
 
 /// Hook for easy access to favorites functionality across the app
 /// This provides a clean, consistent interface for managing favorites

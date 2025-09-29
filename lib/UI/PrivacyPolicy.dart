@@ -1,15 +1,16 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 // import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
 // import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
 
 String title = '';
 String detail = '';

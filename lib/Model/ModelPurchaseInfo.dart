@@ -7,7 +7,10 @@ class ModelPurchaseInfo {
 
   factory ModelPurchaseInfo.fromJson(Map<dynamic, dynamic> json) {
     return ModelPurchaseInfo(
-        json['status'], json['msg'], Data.fromJson(json['data']));
+      json['status'],
+      json['msg'],
+      Data.fromJson(json['data']),
+    );
   }
 }
 
@@ -19,10 +22,15 @@ class Data {
 
   factory Data.fromJson(Map<dynamic, dynamic> json) {
     return Data(
-        List<AudioPurchaseHistory>.from(json["audioPurchaseHistory"]
-            .map((x) => AudioPurchaseHistory.fromJson(x))),
-        List<PlanPurchaseHistory>.from(json["planPurchaseHistory"]
-            .map((x) => PlanPurchaseHistory.fromJson(x))));
+      List<AudioPurchaseHistory>.from(
+        json["audioPurchaseHistory"].map(
+          (x) => AudioPurchaseHistory.fromJson(x),
+        ),
+      ),
+      List<PlanPurchaseHistory>.from(
+        json["planPurchaseHistory"].map((x) => PlanPurchaseHistory.fromJson(x)),
+      ),
+    );
   }
 }
 
@@ -33,11 +41,19 @@ class AudioPurchaseHistory {
   String payment_data;
 
   AudioPurchaseHistory(
-      this.created_at, this.order_id, this.audio_data, this.payment_data);
+    this.created_at,
+    this.order_id,
+    this.audio_data,
+    this.payment_data,
+  );
 
   factory AudioPurchaseHistory.fromJson(Map<dynamic, dynamic> json) {
-    return AudioPurchaseHistory(json['created_at'], json['order_id'],
-        json['audio_data'], json['payment_data']);
+    return AudioPurchaseHistory(
+      json['created_at'],
+      json['order_id'],
+      json['audio_data'],
+      json['payment_data'],
+    );
   }
 }
 
@@ -48,11 +64,21 @@ class PlanPurchaseHistory {
   String payment_data;
   String expiry_date;
 
-  PlanPurchaseHistory(this.created_at, this.order_id, this.plan_data,
-      this.payment_data, this.expiry_date);
+  PlanPurchaseHistory(
+    this.created_at,
+    this.order_id,
+    this.plan_data,
+    this.payment_data,
+    this.expiry_date,
+  );
 
   factory PlanPurchaseHistory.fromJson(Map<dynamic, dynamic> json) {
-    return PlanPurchaseHistory(json['created_at'], json['order_id'],
-        json['plan_data'], json['payment_data'], json['expiry_date']);
+    return PlanPurchaseHistory(
+      json['created_at'],
+      json['order_id'],
+      json['plan_data'],
+      json['payment_data'],
+      json['expiry_date'],
+    );
   }
 }

@@ -8,11 +8,13 @@ abstract class DaoAccess {
   Future<List<ListEntity>> findAllList(String userId);
 
   @Query(
-      'SELECT * FROM ListEntity WHERE userId = :userId and name LIKE %search%')
+    'SELECT * FROM ListEntity WHERE userId = :userId and name LIKE %search%',
+  )
   Future<List<ListEntity>> searchAllList(String userId, String search);
 
   @Query(
-      'SELECT * FROM ListEntity WHERE AudioId = :AudioId and userId = :userId')
+    'SELECT * FROM ListEntity WHERE AudioId = :AudioId and userId = :userId',
+  )
   Stream<ListEntity?> findById(String AudioId, String userId);
 
   @insert

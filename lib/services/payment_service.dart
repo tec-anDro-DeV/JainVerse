@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:developer' as developer;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/Presenter/PlanPresenter.dart';
-import 'package:jainverse/UI/PaymentSuccess.dart';
 import 'package:jainverse/UI/HomeDiscover.dart';
+import 'package:jainverse/UI/PaymentSuccess.dart';
 import 'package:jainverse/paymentgateway/Stripe.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Unified Payment Service for handling platform-specific payments
 /// iOS: Apple In-App Purchase (Sandbox/Test Mode)
@@ -279,9 +280,7 @@ class PaymentService {
     // productId can be either a logical plan id (eg 'family_monthly') or an App Store product id.
     String? iOSProductId = _iOSProductIds[productId];
     // If mapping not found, maybe productId already is the App Store id
-    if (iOSProductId == null) {
-      iOSProductId = productId;
-    }
+    iOSProductId ??= productId;
 
     // Get product details
     final ProductDetails? productDetails = _productMap[iOSProductId];

@@ -1,12 +1,13 @@
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/presenters/base_presenter.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/presenters/base_presenter.dart';
 
 class LoginDataPresenter extends BasePresenter {
   SharedPref sharePrefs = SharedPref();

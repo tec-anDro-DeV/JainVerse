@@ -1,17 +1,19 @@
 import 'dart:math';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/managers/music_manager.dart';
-import '../common/music_context_menu.dart';
-import '../common/music_long_press_handler.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import '../../providers/favorites_provider.dart';
+import '../common/music_context_menu.dart';
+import '../common/music_long_press_handler.dart';
 
 /// Grid View Card for Songs - Visual-first layout
 /// Features:
@@ -78,11 +80,6 @@ class MediaGridCard extends StatefulWidget {
 class _MediaGridCardState extends State<MediaGridCard>
     with MusicCardLongPressHandler {
   bool _pressed = false;
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void didUpdateWidget(MediaGridCard oldWidget) {
@@ -194,7 +191,7 @@ class _MediaGridCardState extends State<MediaGridCard>
                           musicManager:
                               widget
                                   .musicManager, // Use music manager for auto state management
-                          child: Container(
+                          child: SizedBox(
                             width: imageSize,
                             height: imageSize,
                             child:
@@ -231,7 +228,7 @@ class _MediaGridCardState extends State<MediaGridCard>
                                     ),
                           ),
                         )
-                        : Container(
+                        : SizedBox(
                           width: imageSize,
                           height: imageSize,
                           child:

@@ -326,6 +326,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.11"
+  dependency_validator:
+    dependency: "direct dev"
+    description:
+      name: dependency_validator
+      sha256: f727a5627aa405965fab4aef4f468e50a9b632ba0737fd2f98c932fec6d712b9
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.3"
   dev_build:
     dependency: transitive
     description:
@@ -430,14 +438,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
-  flash:
-    dependency: "direct main"
-    description:
-      name: flash
-      sha256: f8b6ed7410df7581b35824967427b79b4e66d59c8f24012ed10f26667a4d44b1
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.1.1"
   floor:
     dependency: "direct main"
     description:
@@ -725,14 +725,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.8.3"
-  fwfh_text_style:
-    dependency: "direct main"
-    description:
-      name: fwfh_text_style
-      sha256: "5f8b587fd223a6bf14aad3d3da5e7ced0628becbd0768f8e7ae25ff6b9f3d2ec"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.23.8"
   fwfh_url_launcher:
     dependency: transitive
     description:
@@ -813,14 +805,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
-  http_auth:
-    dependency: "direct main"
-    description:
-      name: http_auth
-      sha256: b7625acba2987fa69140d9600c679819f33227d665f525fbb2f394e08cf917d1
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.4"
   http_multi_server:
     dependency: transitive
     description:
@@ -942,7 +926,7 @@ packages:
     source: hosted
     version: "3.2.3"
   in_app_purchase_android:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: in_app_purchase_android
       sha256: "5a02da1399a8faafb36d9b4acca85001b7eefa629f0eeeebf5ad0b04b9df302a"
@@ -1293,14 +1277,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
-  photo_view:
-    dependency: "direct main"
-    description:
-      name: photo_view
-      sha256: "1fc3d970a91295fbd1364296575f854c9863f225505c28c46e0a03e48960c75e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.15.0"
   platform:
     dependency: transitive
     description:
@@ -1373,14 +1349,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
-  rotated_corner_decoration:
-    dependency: "direct main"
-    description:
-      name: rotated_corner_decoration
-      sha256: "4ad15b18e0c2dacbfb1061370ab48c2baec62b02ec8ecdf6cdf20fbcc6de7ad6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.0+1"
   rxdart:
     dependency: "direct main"
     description:
@@ -1971,7 +1939,7 @@ packages:
     source: hosted
     version: "4.13.0"
   webview_flutter_android:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: webview_flutter_android
       sha256: "9a25f6b4313978ba1c2cda03a242eea17848174912cfb4d2d8ee84a556f248e3"
@@ -1995,7 +1963,7 @@ packages:
     source: hosted
     version: "3.23.0"
   win32:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: win32
       sha256: "329edf97fdd893e0f1e3b9e88d6a0e627128cc17cc316a8d67fda8f1451178ba"

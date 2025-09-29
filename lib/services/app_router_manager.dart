@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../UI/MainNavigation.dart';
+
 import '../UI/Login.dart';
-import '../UI/onboarding.dart';
+import '../UI/MainNavigation.dart';
 import '../UI/OfflineDownloadScreen.dart';
+import '../UI/onboarding.dart';
 import 'offline_mode_service.dart';
 
 /// Global app router manager for handling navigation based on connectivity and offline mode

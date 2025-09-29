@@ -1,5 +1,6 @@
-import 'package:flutter/widgets.dart';
 import 'dart:io' show Platform;
+
+import 'package:flutter/widgets.dart';
 
 /// Utility to compute a sharePositionOrigin Rect for Share.share on iPad.
 ///

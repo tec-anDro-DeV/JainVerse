@@ -1,7 +1,8 @@
 import 'dart:ui';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 
 /// An integrated lyrics overlay that animates from the bottom

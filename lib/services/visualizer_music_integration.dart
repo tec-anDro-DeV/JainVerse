@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:audio_service/audio_service.dart';
-import 'enhanced_audio_visualizer.dart';
+import 'package:flutter/material.dart';
+
 import '../managers/music_manager.dart';
+import 'enhanced_audio_visualizer.dart';
 
 /// Service that integrates the enhanced audio visualizer with the music playback system
 class VisualizerMusicIntegration {

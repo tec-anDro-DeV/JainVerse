@@ -1,8 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter/gestures.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-
 import 'package:jainverse/ThemeMain/sizes.dart';
 
 class ExpandableDescription extends StatelessWidget {
@@ -11,11 +10,11 @@ class ExpandableDescription extends StatelessWidget {
   final TextAlign textAlign;
 
   const ExpandableDescription({
-    Key? key,
+    super.key,
     required this.text,
     this.style,
     this.textAlign = TextAlign.start,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

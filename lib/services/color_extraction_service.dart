@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:jainverse/widgets/common/smart_image_widget.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 
 /// Service for extracting dominant colors from album artwork
 class ColorExtractionService {

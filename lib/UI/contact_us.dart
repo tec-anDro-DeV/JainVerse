@@ -1,14 +1,15 @@
+import 'dart:io';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/main.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io';
 
 class ContactUs extends StatefulWidget {
   const ContactUs({super.key});

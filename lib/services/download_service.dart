@@ -1,8 +1,9 @@
-import 'dart:io';
 import 'dart:developer' as developer;
+import 'dart:io';
+
 import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:jainverse/models/downloaded_music.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Service for handling file downloads and local storage operations
 class DownloadService {

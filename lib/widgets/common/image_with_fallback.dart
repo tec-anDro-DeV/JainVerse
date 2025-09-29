@@ -1,6 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class ImageWithFallback extends StatelessWidget {
   final String imageUrl;
@@ -71,7 +71,7 @@ class _ImageWithErrorHandling extends StatefulWidget {
 }
 
 class _ImageWithErrorHandlingState extends State<_ImageWithErrorHandling> {
-  bool _hasError = false;
+  final bool _hasError = false;
   // _isLoading is now handled by CachedNetworkImage placeholders
 
   @override

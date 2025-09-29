@@ -1,9 +1,10 @@
+import 'dart:developer' as developer;
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:volume_controller/volume_controller.dart';
-import 'dart:developer' as developer;
 
 /// Cross-platform volume slider widget for the music player
 ///

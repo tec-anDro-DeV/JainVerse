@@ -7,7 +7,10 @@ class ModelChannelYT {
 
   factory ModelChannelYT.fromJson(Map<dynamic, dynamic> json) {
     return ModelChannelYT(
-        json['status'], json['msg'], Data.fromJson(json['data']));
+      json['status'],
+      json['msg'],
+      Data.fromJson(json['data']),
+    );
   }
 }
 
@@ -18,7 +21,8 @@ class Data {
 
   factory Data.fromJson(Map<dynamic, dynamic> json) {
     return Data(
-        List<Results>.from(json["results"].map((x) => Results.fromJson(x))));
+      List<Results>.from(json["results"].map((x) => Results.fromJson(x))),
+    );
   }
 }
 

@@ -1,9 +1,10 @@
 import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Presenter/DownloadPresenter.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/main.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Repository for managing download-related API calls
 class DownloadRepository {

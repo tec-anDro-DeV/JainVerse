@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:animations/animations.dart';
 
 class AppHeader extends StatefulWidget {
   static const double defaultScrollUpThreshold = 15.0;

@@ -195,15 +195,10 @@ class _SplashScreenState extends State<SplashScreen>
     // List of all image paths to preload
     final List<String> imagePaths = [
       'assets/images/onboard_bg_1.png',
-      // 'assets/images/onboard_1.png',
       'assets/images/onboard_bg_2.png',
-      // 'assets/images/onboard_2.png',
       'assets/images/onboard_bg_3.png',
-      // 'assets/images/onboard_3.png',
       'assets/images/onboard_bg_4.png',
-      // 'assets/images/onboard_4.png',
       'assets/images/onboard_bg_5.png',
-      // 'assets/images/onboard_5.png',
     ];
 
     // Initialize all images as not loaded

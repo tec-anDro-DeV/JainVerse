@@ -1,13 +1,14 @@
+import 'dart:io'; // For platform detection
+import 'dart:ui' as ui;
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:ui' as ui;
-import 'dart:io'; // For platform detection
-import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/widgets/musicplayer/album_art.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
 // For haptic feedback
 import 'package:jainverse/widgets/common/smart_image_widget.dart'; // Import smart image widget
+import 'package:jainverse/widgets/musicplayer/album_art.dart';
 
 /// Modern visual area widget containing background image and album art
 ///

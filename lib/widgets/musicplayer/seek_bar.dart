@@ -1,11 +1,12 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:rxdart/rxdart.dart';
-import 'dart:ui' as ui;
-import 'dart:async';
 
 /// Modern seek bar widget for audio playback control
 class ModernSeekBar extends StatefulWidget {

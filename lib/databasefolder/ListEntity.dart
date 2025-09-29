@@ -14,6 +14,14 @@ class ListEntity {
   final String duration;
   final String artistname;
 
-  ListEntity(this.AudioId, this.userId, this.duration, this.id, this.name,
-      this.url, this.image, this.artistname);
+  ListEntity(
+    this.AudioId,
+    this.userId,
+    this.duration,
+    this.id,
+    this.name,
+    this.url,
+    this.image,
+    this.artistname,
+  );
 }

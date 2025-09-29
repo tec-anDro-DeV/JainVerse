@@ -1,12 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/PlanPresenter.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
-import 'dart:async';
-import 'dart:convert';
+
 import 'HomeDiscover.dart';
-import 'package:jainverse/ThemeMain/appColors.dart';
 
 String plan_id = '';
 String payment_id = '';

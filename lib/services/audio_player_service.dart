@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:jainverse/Presenter/HistoryPresenter.dart';
+// import 'package:jainverse/ThemeMain/appColors.dart';  // Comment out: unused import after removing toast messages
+import 'package:jainverse/services/media_item_image_fixer.dart';
 import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/BackgroundAudioManager.dart';
 // import 'package:flutter/material.dart';  // Comment out: unused import after removing toast messages
 // import 'package:fluttertoast/fluttertoast.dart';  // Comment out: unused import after removing toast messages
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:jainverse/utils/BackgroundAudioManager.dart';
-// import 'package:jainverse/ThemeMain/appColors.dart';  // Comment out: unused import after removing toast messages
-import 'package:jainverse/services/media_item_image_fixer.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
 
 /// Queue state for managing audio queue
 class QueueState {

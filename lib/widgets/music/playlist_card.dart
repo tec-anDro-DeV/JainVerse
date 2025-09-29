@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+
 import '../common/image_with_fallback.dart';
 import '../common/music_context_menu.dart';
 import '../common/music_long_press_handler.dart';

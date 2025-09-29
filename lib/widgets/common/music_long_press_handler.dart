@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'music_context_menu.dart';
 
 /// Mixin to add long-press context menu functionality to music cards

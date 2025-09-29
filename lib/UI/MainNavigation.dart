@@ -1,21 +1,22 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:session_storage/session_storage.dart';
-import 'package:flutter/services.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:jainverse/utils/share_helper.dart';
-import '../widgets/music/mini_music_player.dart';
-import '../utils/music_player_state_manager.dart';
-import '../services/offline_mode_service.dart';
-import '../widgets/offline_mode_prompt.dart';
+import 'package:session_storage/session_storage.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../main.dart';
+import '../services/offline_mode_service.dart';
+import '../services/tab_navigation_service.dart';
+import '../utils/music_player_state_manager.dart';
+import '../widgets/music/mini_music_player.dart';
+import '../widgets/offline_mode_prompt.dart';
 import 'HomeDiscover.dart';
 import 'MyLibrary.dart';
 import 'Search.dart';
-import '../services/tab_navigation_service.dart';
 
 class MainNavigationWrapper extends StatefulWidget {
   final int initialIndex;

@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:jainverse/main.dart' show routeObserver;
 
 /// Enhanced audio visualizer service that directly integrates with music playback

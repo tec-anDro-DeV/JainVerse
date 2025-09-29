@@ -1,13 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/hooks/favorites_hook.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:jainverse/hooks/favorites_hook.dart';
+
 import '../common/music_context_menu.dart';
 import '../common/music_long_press_handler.dart';
 
@@ -80,11 +81,6 @@ class _MediaListCardState extends State<MediaListCard>
     with MusicCardLongPressHandler {
   bool _pressed = false;
   // Removed isPlaying-based pulse animation; visualizer handles motion
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void didUpdateWidget(MediaListCard oldWidget) {

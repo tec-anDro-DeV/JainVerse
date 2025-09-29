@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
-import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Service to handle favorite music operations with reactive UI updates
 /// Now works with the global FavoritesProvider for consistent state management

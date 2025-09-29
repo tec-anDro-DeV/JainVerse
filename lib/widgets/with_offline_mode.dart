@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../widgets/offline_mode_prompt.dart';
 
 /// Wrapper widget that adds offline mode capabilities to any screen

@@ -1,2 +1,0 @@
-// Add this to your pubspec.yaml dependencies:
-// video_player: ^2.8.1

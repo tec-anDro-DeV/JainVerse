@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
@@ -18,7 +19,8 @@ class SeekBar extends StatefulWidget {
   final ValueChanged<Duration>? onChanged;
   final ValueChanged<Duration>? onChangeEnd;
 
-  const SeekBar({super.key, 
+  const SeekBar({
+    super.key,
     required this.duration,
     required this.position,
     this.bufferedPosition = Duration.zero,
@@ -39,9 +41,7 @@ class _SeekBarState extends State<SeekBar> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    _sliderThemeData = SliderTheme.of(context).copyWith(
-      trackHeight: 2.0,
-    );
+    _sliderThemeData = SliderTheme.of(context).copyWith(trackHeight: 2.0);
   }
 
   @override
@@ -65,8 +65,10 @@ class _SeekBarState extends State<SeekBar> {
             child: Slider(
               min: 0.0,
               max: widget.duration.inMilliseconds.toDouble(),
-              value: min(widget.bufferedPosition.inMilliseconds.toDouble(),
-                  widget.duration.inMilliseconds.toDouble()),
+              value: min(
+                widget.bufferedPosition.inMilliseconds.toDouble(),
+                widget.duration.inMilliseconds.toDouble(),
+              ),
               onChanged: (value) {},
             ),
           ),
@@ -102,11 +104,12 @@ class _SeekBarState extends State<SeekBar> {
           right: 16.0,
           bottom: 0.0,
           child: Text(
-              RegExp(r'((^0*[1-9]\d*:)?\d{2}:\d{2})\.\d+$')
-                      .firstMatch("$_remaining")
-                      ?.group(1) ??
-                  '$_remaining',
-              style: Theme.of(context).textTheme.bodySmall),
+            RegExp(
+                  r'((^0*[1-9]\d*:)?\d{2}:\d{2})\.\d+$',
+                ).firstMatch("$_remaining")?.group(1) ??
+                '$_remaining',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
       ],
     );
@@ -174,8 +177,10 @@ class LoggingAudioHandler extends CompositeAudioHandler {
   }
 
   @override
-  Future<void> prepareFromMediaId(String mediaId,
-      [Map<String, dynamic>? extras]) {
+  Future<void> prepareFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) {
     _log('prepareFromMediaId($mediaId, $extras)');
     return super.prepareFromMediaId(mediaId, extras);
   }
@@ -361,8 +366,10 @@ class LoggingAudioHandler extends CompositeAudioHandler {
   }
 
   @override
-  Future<dynamic> customAction(String name,
-      [Map<String, dynamic>? extras]) async {
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
     _log('customAction($name, extras)');
     final dynamic result = await super.customAction(name, extras);
     _log('customAction -> $result');
@@ -382,8 +389,10 @@ class LoggingAudioHandler extends CompositeAudioHandler {
   }
 
   @override
-  Future<List<MediaItem>> getChildren(String parentMediaId,
-      [Map<String, dynamic>? options]) async {
+  Future<List<MediaItem>> getChildren(
+    String parentMediaId, [
+    Map<String, dynamic>? options,
+  ]) async {
     _log('getChildren($parentMediaId, $options)');
     final result = await super.getChildren(parentMediaId, options);
     _log('getChildren -> $result');
@@ -409,8 +418,10 @@ class LoggingAudioHandler extends CompositeAudioHandler {
   }
 
   @override
-  Future<List<MediaItem>> search(String query,
-      [Map<String, dynamic>? extras]) async {
+  Future<List<MediaItem>> search(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async {
     _log('search($query, $extras)');
     final result = await super.search(query, extras);
     _log('search -> $result');
@@ -444,30 +455,35 @@ void showSliderDialog({
 }) {
   showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title, textAlign: TextAlign.center),
-      content: StreamBuilder<double>(
-        stream: stream,
-        builder: (context, snapshot) => SizedBox(
-          height: 100.0,
-          child: Column(
-            children: [
-              Text('${snapshot.data?.toStringAsFixed(1)}$valueSuffix',
-                  style: const TextStyle(
-                      fontFamily: 'Fixed',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24.0)),
-              Slider(
-                divisions: divisions,
-                min: min,
-                max: max,
-                value: snapshot.data ?? value,
-                onChanged: onChanged,
-              ),
-            ],
+    builder:
+        (context) => AlertDialog(
+          title: Text(title, textAlign: TextAlign.center),
+          content: StreamBuilder<double>(
+            stream: stream,
+            builder:
+                (context, snapshot) => SizedBox(
+                  height: 100.0,
+                  child: Column(
+                    children: [
+                      Text(
+                        '${snapshot.data?.toStringAsFixed(1)}$valueSuffix',
+                        style: const TextStyle(
+                          fontFamily: 'Fixed',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24.0,
+                        ),
+                      ),
+                      Slider(
+                        divisions: divisions,
+                        min: min,
+                        max: max,
+                        value: snapshot.data ?? value,
+                        onChanged: onChanged,
+                      ),
+                    ],
+                  ),
+                ),
           ),
         ),
-      ),
-    ),
   );
 }
