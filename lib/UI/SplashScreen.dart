@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import StringsLocalization directly
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/utils/SharedPref.dart';
-import 'package:jainverse/services/offline_mode_service.dart';
-import 'package:jainverse/services/app_router_manager.dart';
 import 'package:jainverse/UI/Login.dart'
     as login_page; // Import with prefix to avoid ambiguity
-import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import StringsLocalization directly
+import 'package:jainverse/services/app_router_manager.dart';
+import 'package:jainverse/services/offline_mode_service.dart';
+import 'package:jainverse/utils/SharedPref.dart';
+
 import 'onboarding.dart';
 // Import with prefix to avoid ambiguity
 

@@ -11,6 +11,7 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  chewie: ^1.7.4
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -66,7 +67,7 @@ dependencies:
   flutter_local_notifications: ^19.3.0
 
   # Content Display
-  flutter_widget_from_html: ^0.16.0
+  flutter_widget_from_html: ^0.15.3
   fwfh_text_style: ^2.23.8
   flutter_svg: ^2.0.9
 
@@ -108,6 +109,7 @@ dependencies:
   audio_service_web: any
   animations: ^2.0.11
   image: ^4.0.17
+  video_player: ^2.8.1
 
 dev_dependencies:
   flutter_test:

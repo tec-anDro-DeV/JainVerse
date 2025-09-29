@@ -171,7 +171,7 @@ class AudioVisualizerPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Str
 
             // Use the audio session ID from the media player to analyze playback audio
             audioSessionId = if (sessionId > 0) sessionId else 0
-            println("[AudioVisualizerPlugin] Starting visualizer with session ID: $audioSessionId")
+          //  println("[AudioVisualizerPlugin] Starting visualizer with session ID: $audioSessionId")
 
             // Create new visualizer for audio playback analysis
             visualizer = Visualizer(audioSessionId).apply {
@@ -240,14 +240,14 @@ class AudioVisualizerPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Str
             val bandData = FloatArray(bands)
             val n = fft.size / 2
 
-            println("[AudioVisualizerPlugin] Processing FFT data: size=${fft.size}, samplingRate=$samplingRate")
+           // println("[AudioVisualizerPlugin] Processing FFT data: size=${fft.size}, samplingRate=$samplingRate")
 
             // Check if we're getting real data or all zeros
             val hasRealData = fft.any { it != 0.toByte() }
 
             if (!hasRealData) {
                 // If we're getting all zeros, generate some test data to verify the pipeline works
-                println("[AudioVisualizerPlugin] No real FFT data detected, generating test data")
+              //  println("[AudioVisualizerPlugin] No real FFT data detected, generating test data")
                 val time = System.currentTimeMillis() / 100.0
                 for (i in 0 until bands) {
                     bandData[i] = (0.3 + 0.3 * kotlin.math.sin(time + i * 0.5)).toFloat()
@@ -286,7 +286,7 @@ class AudioVisualizerPlugin : FlutterPlugin, MethodCallHandler, EventChannel.Str
                 eventSink?.success(bandData.toList())
             }
         } catch (e: Exception) {
-            println("[AudioVisualizerPlugin] Error processing FFT data: ${e.message}")
+           // println("[AudioVisualizerPlugin] Error processing FFT data: ${e.message}")
         }
     }
 

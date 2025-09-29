@@ -1,26 +1,28 @@
+import 'dart:developer' as developer;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
-import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/managers/music_manager.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/utils/performance_debouncer.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:jainverse/widgets/common/smart_image_widget.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import '../../UI/MusicEntryPoint.dart'
-    show Music, listCopy, idTag, type, indixes;
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/enhanced_audio_visualizer.dart';
+import 'package:jainverse/utils/performance_debouncer.dart';
+import 'package:jainverse/widgets/common/smart_image_widget.dart';
 // ...existing code...
 import 'package:jainverse/widgets/musicplayer/MusicPlayerView.dart';
-import 'dart:developer' as developer;
-import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/services/enhanced_audio_visualizer.dart';
+import 'package:rxdart/rxdart.dart';
+
+import '../../UI/MusicEntryPoint.dart'
+    show Music, listCopy, idTag, type, indixes;
 
 /// Configuration constants for the mini music player
 class _MiniPlayerConfig {
   static const String placeholderImage = 'assets/images/song_placeholder.png';
-  static const Color primaryColor = Color(0xFFFF4444);
+  static Color primaryColor = appColors().primaryColorApp;
   static const Color backgroundColor = Colors.white;
   static const Duration animationDuration = Duration(milliseconds: 200);
 
