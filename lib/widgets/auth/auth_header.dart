@@ -10,7 +10,7 @@ class AuthHeader extends StatelessWidget {
   const AuthHeader({
     super.key,
     required this.height,
-    this.logoPath = 'assets/images/Hear-God-Logo-Main.png',
+    this.logoPath = 'assets/images/logo-transparent.png',
     this.backgroundImagePath = 'assets/images/music-note-illustrator.png',
     this.heroTag,
     this.logoWidth = 0.7, // Default width is 70% of screen width

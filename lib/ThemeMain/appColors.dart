@@ -27,7 +27,8 @@ class appColors {
     800: Color(0xFF000000),
     900: Color(0xFF000000),
   });
-  final primaryColorApp = const MaterialColor(0xFFAC8447, <int, Color>{
+
+  final primaryColorApp = const MaterialColor(0xFFC28D50, <int, Color>{
     50: Color(0xFFAC8447),
     100: Color(0xFFAC8447),
     200: Color(0xFFAC8447),
@@ -39,6 +40,7 @@ class appColors {
     800: Color(0xFFAC8447),
     900: Color(0xFFAC8447),
   });
+
   // final PrimaryDarkColorApp = const MaterialColor(0xFFAC8447, <int, Color>{
   //   50: Color(0xFFAC8447),
   //   100: Color(0xFFAC8447),
@@ -245,5 +247,5 @@ class appColors {
   //   0x269E9E9E,
   // ); // Very light grey with opacity
 
-  final backgroundLogin = const Color.fromARGB(255, 255, 224, 178);
+  final backgroundLogin = const Color(0xFFFFEFDC);
 }

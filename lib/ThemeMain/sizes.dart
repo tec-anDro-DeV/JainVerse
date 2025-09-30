@@ -34,9 +34,9 @@ class AppSizes {
   static double splashOuterCircle = 250.w;
   static double splashMiddleCircle = 200.w;
   static double splashInnerCircle = 150.w;
-  static double splashLogoContainer = 87.w;
+  static double splashLogoContainer = 100.w;
   static double splashLogoPadding = 16.w;
-  static double splashLogoRadius = 44.w;
+  static double splashLogoRadius = 50.w;
   static double splashSpacing = 37.w;
 
   // Navigation bar sizes - completely redesigned for modern look

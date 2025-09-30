@@ -238,7 +238,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     child: FadeTransition(
                       opacity: _logoAnimationController!,
                       child: Image.asset(
-                        'assets/images/logo-heargod.png',
+                        'assets/images/logo-transparent.png',
                         // width:
                         //     MediaQuery.of(context).size.width *
                         //     0.7, // Use width-based sizing

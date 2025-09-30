@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import StringsLocalization directly
+import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/Login.dart'
     as login_page; // Import with prefix to avoid ambiguity
@@ -386,7 +387,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5C6B8),
+      backgroundColor: appColors().backgroundLogin,
       body: SafeArea(
         // Apply SafeArea with maintainBottomViewPadding to avoid animation issues
         maintainBottomViewPadding: true,
@@ -400,7 +401,7 @@ class _SplashScreenState extends State<SplashScreen>
                   angle: note.angle,
                   child: Icon(
                     Icons.music_note,
-                    color: const Color.fromRGBO(232, 70, 37, 0.35),
+                    color: const Color(0xFFFFD39E),
                     size: note.size,
                   ),
                 ),
@@ -429,7 +430,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleOneAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color.fromRGBO(232, 70, 37, 0.30),
+                                color: const Color(0xFFFFE6C8),
                               ),
                             );
                           },
@@ -446,7 +447,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleTwoAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color.fromRGBO(232, 70, 37, 0.45),
+                                color: const Color(0xFFFFD39E),
                               ),
                             );
                           },
@@ -463,7 +464,7 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleThreeAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color.fromRGBO(232, 70, 37, 0.65),
+                                color: appColors().primaryColorApp,
                               ),
                             );
                           },
