@@ -144,7 +144,7 @@ class _NewAlbumsCardState extends State<NewAlbumsCard>
                                         .sharedPreThemeData
                                         .themeImageBack
                                         .isEmpty)
-                                    ? Color(int.parse(AppSettings.colorText))
+                                    ? appColors().colorText
                                     : appColors().colorText,
                           ),
                         ),

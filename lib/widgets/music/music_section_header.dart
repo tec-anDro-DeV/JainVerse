@@ -33,7 +33,7 @@ class MusicSectionHeader extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color:
                   (sharedPreThemeData.themeImageBack.isEmpty)
-                      ? Color(int.parse(AppSettings.colorText))
+                      ? appColors().colorText
                       : appColors().colorText,
             ),
           ),

@@ -68,7 +68,7 @@ class CircularCard extends StatelessWidget {
                 height: 1, // Reduced line height
                 color:
                     (sharedPreThemeData.themeImageBack.isEmpty)
-                        ? Color(int.parse(AppSettings.colorText))
+                        ? appColors().colorText
                         : appColors().colorText,
               ),
             ),
@@ -93,7 +93,7 @@ class CircularCard extends StatelessWidget {
                   height: 1.1, // Reduced line height
                   color:
                       (sharedPreThemeData.themeImageBack.isEmpty)
-                          ? Color(int.parse(AppSettings.colorText))
+                          ? appColors().colorText
                           : appColors().colorText,
                 ),
               ),

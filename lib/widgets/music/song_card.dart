@@ -179,7 +179,7 @@ class _SongCardState extends State<SongCard> with MusicCardLongPressHandler {
                       letterSpacing: -0.2,
                       color:
                           (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? Color(int.parse(AppSettings.colorText))
+                              ? appColors().colorText
                               : appColors().colorText,
                     ),
                   ),
@@ -201,9 +201,7 @@ class _SongCardState extends State<SongCard> with MusicCardLongPressHandler {
                           height: 1.0, // Slightly reduced line height
                           color:
                               (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                                  ? Color(
-                                    int.parse(AppSettings.colorText),
-                                  ).withOpacity(0.7)
+                                  ? appColors().colorText.withOpacity(0.7)
                                   : appColors().colorText.withOpacity(0.7),
                         ),
                       ),

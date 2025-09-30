@@ -138,7 +138,7 @@ class _HistoryCardState extends State<HistoryCard>
                       fontWeight: FontWeight.w600,
                       color:
                           (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? Color(int.parse(AppSettings.colorText))
+                              ? appColors().colorText
                               : appColors().colorText,
                     ),
                   ),

@@ -210,7 +210,7 @@ class state extends State {
                             fontSize: 20,
                             color:
                                 (sharedPreThemeData.themeImageBack.isEmpty)
-                                    ? Color(int.parse(AppSettings.colorText))
+                                    ? appColors().colorText
                                     : appColors().colorText,
                             fontFamily: 'Poppins',
                             fontWeight: FontWeight.bold,
@@ -226,7 +226,7 @@ class state extends State {
                             Icons.arrow_back_ios_outlined,
                             color:
                                 (sharedPreThemeData.themeImageBack.isEmpty)
-                                    ? Color(int.parse(AppSettings.colorText))
+                                    ? appColors().colorText
                                     : appColors().colorText,
                           ),
                           onPressed: () => Navigator.of(context).pop(),
@@ -369,7 +369,7 @@ class state extends State {
                           fontSize: 19,
                           color:
                               (sharedPreThemeData.themeImageBack.isEmpty)
-                                  ? Color(int.parse(AppSettings.colorText))
+                                  ? appColors().colorText
                                   : appColors().colorText,
                         ),
                       ),
@@ -421,16 +421,7 @@ class state extends State {
                                       Text(
                                         'Nothing created!',
                                         style: TextStyle(
-                                          color:
-                                              (sharedPreThemeData
-                                                      .themeImageBack
-                                                      .isEmpty)
-                                                  ? Color(
-                                                    int.parse(
-                                                      AppSettings.colorText,
-                                                    ),
-                                                  )
-                                                  : appColors().colorText,
+                                          color: appColors().colorText,
                                           fontFamily: 'Poppins',
                                           fontSize: 20.0,
                                         ),
@@ -473,11 +464,7 @@ class state extends State {
                                                 maxLines: 1,
                                                 style: TextStyle(
                                                   fontSize: 17,
-                                                  color: Color(
-                                                    int.parse(
-                                                      AppSettings.colorText,
-                                                    ),
-                                                  ),
+                                                  color: appColors().colorText,
                                                 ),
                                               ),
                                             ),

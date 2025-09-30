@@ -1238,7 +1238,7 @@ class _state extends State<HomeDiscover>
             style: TextStyle(
               color:
                   (sharedPreThemeData.themeImageBack.isEmpty)
-                      ? Color(int.parse(AppSettings.colorText))
+                      ? appColors().colorText
                       : appColors().colorText,
               fontFamily: 'Poppins', // Explicitly using existing font family
               fontSize: 25.w,

@@ -109,7 +109,7 @@ class _PopularSongCardState extends State<PopularSongCard>
   Color _getTextColor(double opacity) {
     final baseColor =
         (widget.sharedPreThemeData.themeImageBack.isEmpty)
-            ? Color(int.parse(AppSettings.colorText))
+            ? appColors().colorText
             : appColors().colorText;
     return baseColor.withOpacity(opacity);
   }

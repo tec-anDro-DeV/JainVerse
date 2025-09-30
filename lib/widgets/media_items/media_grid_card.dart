@@ -300,7 +300,7 @@ class _MediaGridCardState extends State<MediaGridCard>
                 fontWeight: FontWeight.w600,
                 color:
                     (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                        ? Color(int.parse(AppSettings.colorText))
+                        ? appColors().colorText
                         : appColors().colorTextHead,
               ),
             ),
@@ -322,7 +322,7 @@ class _MediaGridCardState extends State<MediaGridCard>
                   fontWeight: FontWeight.w400,
                   color:
                       (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                          ? Color(int.parse(AppSettings.colorText))
+                          ? appColors().colorText
                           : appColors().colorText,
                 ),
               ),

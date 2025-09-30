@@ -321,7 +321,7 @@ class _MediaListCardState extends State<MediaListCard>
                 widget.isCurrent
                     ? appColors().primaryColorApp
                     : ((widget.sharedPreThemeData.themeImageBack.isEmpty)
-                        ? Color(int.parse(AppSettings.colorText))
+                        ? appColors().colorText
                         : appColors().colorTextHead),
           ),
         ),
@@ -339,7 +339,7 @@ class _MediaListCardState extends State<MediaListCard>
               fontWeight: FontWeight.w300,
               color:
                   (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                      ? Color(int.parse(AppSettings.colorText))
+                      ? appColors().colorText
                       : appColors().colorText,
             ),
           ),

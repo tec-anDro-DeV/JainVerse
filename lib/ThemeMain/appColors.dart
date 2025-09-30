@@ -245,5 +245,5 @@ class appColors {
   //   0x269E9E9E,
   // ); // Very light grey with opacity
 
-  final backgroundLogin = const Color(0xFFFFECEB);
+  final backgroundLogin = const Color.fromARGB(255, 255, 224, 178);
 }

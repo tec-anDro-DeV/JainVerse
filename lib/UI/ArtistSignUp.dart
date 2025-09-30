@@ -340,7 +340,7 @@ class myState extends State {
                               fontSize: 22,
                               color:
                                   (sharedPreThemeData.themeImageBack.isEmpty)
-                                      ? Color(int.parse(AppSettings.colorText))
+                                      ? appColors().colorText
                                       : appColors().colorText,
                             ),
                           ),
@@ -360,7 +360,7 @@ class myState extends State {
                               height: 20,
                               color:
                                   (sharedPreThemeData.themeImageBack.isEmpty)
-                                      ? Color(int.parse(AppSettings.colorText))
+                                      ? appColors().colorText
                                       : appColors().colorText,
                             ),
                           ),

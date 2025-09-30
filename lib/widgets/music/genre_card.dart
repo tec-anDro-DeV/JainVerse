@@ -124,7 +124,7 @@ class _GenreCardState extends State<GenreCard> {
                       letterSpacing: -0.2,
                       color:
                           (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? Color(int.parse(AppSettings.colorText))
+                              ? appColors().colorText
                               : appColors().colorText,
                     ),
                   ),
@@ -145,16 +145,7 @@ class _GenreCardState extends State<GenreCard> {
                             fontWeight: FontWeight.w400,
                             height: 1.1,
                             color:
-                                (widget
-                                        .sharedPreThemeData
-                                        .themeImageBack
-                                        .isEmpty)
-                                    ? Color(
-                                      int.parse(AppSettings.colorText),
-                                    ).withValues(alpha: 0.7)
-                                    : appColors().colorText.withValues(
-                                      alpha: 0.7,
-                                    ),
+                                  appColors().colorText.withValues(alpha: 0.7),
                           ),
                         ),
                       ),

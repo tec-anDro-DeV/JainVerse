@@ -98,7 +98,7 @@ class _PlaylistCardState extends State<PlaylistCard>
                   fontWeight: FontWeight.w500,
                   color:
                       (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                          ? Color(int.parse(AppSettings.colorText))
+                          ? appColors().colorText
                           : appColors().colorText,
                 ),
               ),

@@ -4,7 +4,7 @@ import 'appColors.dart';
 
 @immutable
 class AppSettings {
-  static String colorText = appColors().black.toString();
+  // static String colorText = appColors().black.toString();
   static String imageBackground = 'assets/images/default_screen.jpg';
 
   static ThemeData define() {
