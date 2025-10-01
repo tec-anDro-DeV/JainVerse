@@ -478,7 +478,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 width: AppSizes.splashLogoContainer,
                                 height: AppSizes.splashLogoContainer,
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: const Color(0xFFFFE6C8),
                                   borderRadius: BorderRadius.circular(
                                     AppSizes.splashLogoRadius,
                                   ),

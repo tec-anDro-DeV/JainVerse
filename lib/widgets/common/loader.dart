@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../ThemeMain/appColors.dart';
 import '../../ThemeMain/sizes.dart';
 
 class CircleLoader extends StatefulWidget {
@@ -89,7 +90,7 @@ class _CircleLoaderState extends State<CircleLoader>
     final secondCircleSize = (widget.size * 0.75).w;
     final thirdCircleSize = (widget.size * 0.5).w;
     final innerCircleSize = (widget.size * 0.35).w;
-    final logoContainerSize = (widget.size * 0.25).w;
+    final logoContainerSize = (widget.size * 0.4).w;
 
     return Container(
       width: widget.showBackground ? double.infinity : null,
@@ -114,7 +115,7 @@ class _CircleLoaderState extends State<CircleLoader>
                     height: outerCircleSize * _circleOneAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey.withOpacity(0.2),
+                      color: appColors().primaryColorApp.withOpacity(0.2),
                     ),
                   );
                 },
@@ -128,7 +129,7 @@ class _CircleLoaderState extends State<CircleLoader>
                     height: secondCircleSize * _circleTwoAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey.withOpacity(0.4),
+                      color: appColors().primaryColorApp.withOpacity(0.4),
                     ),
                   );
                 },
@@ -142,7 +143,7 @@ class _CircleLoaderState extends State<CircleLoader>
                     height: thirdCircleSize * _circleThreeAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey.withOpacity(0.6),
+                      color: appColors().primaryColorApp.withOpacity(0.6),
                     ),
                   );
                 },
