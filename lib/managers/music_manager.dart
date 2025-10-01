@@ -214,7 +214,7 @@ class MusicManager extends ChangeNotifier {
 
     // If already a complete URL, validate it's from our server
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      if (imagePath.contains('143.244.213.49') ||
+      if (imagePath.contains('musicvideo.techcronus.com') ||
           imagePath.startsWith('file://')) {
         return imagePath; // Only allow our server URLs or local files
       }

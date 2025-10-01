@@ -2,7 +2,7 @@ class AppConstant {
   //app name
   static const String appName = 'JainVerse';
 
-  static const String SiteUrl = "http://143.244.213.49/heargod-staging/";
+  static const String SiteUrl = "https://musicvideo.techcronus.com/";
 
   static const String BaseUrl = "${AppConstant.SiteUrl}api/v2/";
   static const String ImageUrl = "${AppConstant.SiteUrl}public/";
