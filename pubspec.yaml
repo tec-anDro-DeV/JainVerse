@@ -137,7 +137,6 @@ flutter:
     - assets/images/Camera.png
     - assets/images/Cancel.png
     - assets/images/Gallery.png
-    - assets/images/logo-heargod.png
     - assets/images/logo-transparent.png
     - assets/images/music-note-illustrator.png
     - assets/images/onboard_bg_1.png
@@ -145,7 +144,7 @@ flutter:
     - assets/images/onboard_bg_3.png
     - assets/images/onboard_bg_4.png
     - assets/images/onboard_bg_5.png
-    - assets/images/Hear-God-Logo-Main.png
+    - assets/images/JainVerse-Logo-Main.png
     - assets/images/discover_active.svg
     - assets/images/discover_inactive.svg
     - assets/images/library_active.svg
