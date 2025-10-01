@@ -30,6 +30,7 @@ import 'FavoriteGenres.dart';
 import 'Login.dart';
 import 'ProfileEdit.dart';
 import 'contact_us.dart';
+import 'ArtistSignUp.dart';
 
 // Helper class for modern menu items
 class ModernMenuItem {
@@ -855,23 +856,23 @@ class MyState extends State<AccountPage>
 
   Widget _buildMenuItemsSection() {
     final menuItems = [
-      // if (model.data.artist_verify_status != 'A')
-      //   ModernMenuItem(
-      //     icon: Icons.library_music_outlined,
-      //     title: 'Request as Artist',
-      //     iconColor: const Color(0xFFFF6B47),
-      //     onTap: () {
-      //       Navigator.push(
-      //         context,
-      //         MaterialPageRoute(
-      //           builder: (context) => const ArtistSignUp(),
-      //           settings: const RouteSettings(
-      //             name: '/AccountPage/RequestArtist',
-      //           ),
-      //         ),
-      //       );
-      //     },
-      //   ),
+      if (model.data.artist_verify_status != 'A')
+        ModernMenuItem(
+          icon: Icons.library_music_outlined,
+          title: 'Request as Artist',
+          iconColor: appColors().primaryColorApp,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ArtistSignUp(),
+                settings: const RouteSettings(
+                  name: '/AccountPage/RequestArtist',
+                ),
+              ),
+            );
+          },
+        ),
       // if (model.data.artist_verify_status == 'A')
       //   ModernMenuItem(
       //     icon: Icons.library_music_outlined,
