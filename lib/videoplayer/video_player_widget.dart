@@ -86,6 +86,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 };
                 _videoPlayerController.addListener(_videoListener!);
                 setState(() {
+                  // dispose previous ChewieController to avoid resource leaks
+                  _chewieController?.dispose();
                   _chewieController = ChewieController(
                     videoPlayerController: _videoPlayerController,
                     aspectRatio: _videoPlayerController.value.aspectRatio,
@@ -131,6 +133,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _videoPlayerController.addListener(_videoListener!);
       await _videoPlayerController.initialize();
       setState(() {
+        // dispose previous ChewieController to avoid resource leaks
+        _chewieController?.dispose();
         _chewieController = ChewieController(
           videoPlayerController: _videoPlayerController,
           aspectRatio: _videoPlayerController.value.aspectRatio,
@@ -176,6 +180,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           };
           _videoPlayerController.addListener(_videoListener!);
           setState(() {
+            // dispose previous ChewieController to avoid resource leaks
+            _chewieController?.dispose();
             _chewieController = ChewieController(
               videoPlayerController: _videoPlayerController,
               aspectRatio: _videoPlayerController.value.aspectRatio,
