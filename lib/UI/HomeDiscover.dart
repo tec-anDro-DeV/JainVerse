@@ -32,7 +32,7 @@ import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/auth/auth_tabbar.dart';
-import 'package:jainverse/widgets/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/common_video_player_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
 import 'package:upgrader/upgrader.dart';
@@ -93,8 +93,8 @@ class _state extends State<HomeDiscover>
                   builder:
                       (context) => CommonVideoPlayerScreen(
                         videoUrl:
-                            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                        videoTitle: 'Big Buck Bunny',
+                            'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+                        videoTitle: 'Tears of Steel',
                       ),
                 ),
               );
