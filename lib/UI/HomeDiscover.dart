@@ -32,7 +32,7 @@ import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/auth/auth_tabbar.dart';
-import 'package:jainverse/videoplayer/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/screens/video_list_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
 import 'package:upgrader/upgrader.dart';
@@ -67,39 +67,13 @@ class _state extends State<HomeDiscover>
   // Returns the main sliver content for the scroll view
   Widget _buildContentSliver() {
     if (_selectedMedia == 'Video') {
-      // Show 'Play Sample Video' button centered when Video tab is selected
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.play_circle_fill, size: 32),
-            label: const Text(
-              'Play Sample Video',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-              backgroundColor:
-                  Colors.deepPurple, // Or appColors().primaryColorApp
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 4,
-            ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder:
-                      (context) => CommonVideoPlayerScreen(
-                        videoUrl:
-                            'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-                        videoTitle: 'Tears of Steel',
-                      ),
-                ),
-              );
-            },
-          ),
+      // Show the real video listing inline (using VideoListBody)
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height:
+              MediaQuery.of(context).size.height -
+              (MediaQuery.of(context).padding.top + 160.w),
+          child: const VideoListBody(),
         ),
       );
     } else if (_cachedMusicData != null) {
