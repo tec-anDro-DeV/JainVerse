@@ -267,7 +267,8 @@ class MyState extends State<AccountPage>
     _audioHandler = const MyApp().called();
 
     // Initialize data
-    _initializeData();
+    // Start initialization once and keep the future so UI can wait on it
+    _initFuture = _initializeData();
 
     // Initialize ads
     _initGoogleMobileAds();
@@ -291,6 +292,9 @@ class MyState extends State<AccountPage>
     await checkUserChannel();
     await value();
   }
+
+  // A single future used by the UI to wait for initial load
+  late Future<void> _initFuture;
 
   void displayBottomSheet(BuildContext context) {
     Future<void> future = showModalBottomSheet(
@@ -658,9 +662,11 @@ class MyState extends State<AccountPage>
   Widget _buildContentSliver() {
     return SliverToBoxAdapter(
       child: FutureBuilder<dynamic>(
-        future: value(),
+        // Wait for the one-time initialization future so channel data
+        // and settings are available before building the UI.
+        future: _initFuture,
         builder: (context, projectSnap) {
-          if (projectSnap.hasData) {
+          if (projectSnap.connectionState == ConnectionState.done) {
             return _buildAccountContent();
           } else {
             return _buildLoadingWidget();

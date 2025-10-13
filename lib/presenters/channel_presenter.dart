@@ -144,7 +144,9 @@ class ChannelPresenter {
   Future<Map<String, dynamic>> updateChannel({
     required String name,
     required String handle,
+    String? description,
     File? image,
+    File? bannerImage,
   }) async {
     try {
       final token = await _sharedPref.getToken();
@@ -158,6 +160,10 @@ class ChannelPresenter {
       request.fields['name'] = name.trim();
       request.fields['handle'] = handle.trim();
 
+      if (description != null && description.trim().isNotEmpty) {
+        request.fields['description'] = description.trim();
+      }
+
       if (image != null && await image.exists()) {
         final fileStream = http.ByteStream(image.openRead());
         final length = await image.length();
@@ -166,6 +172,18 @@ class ChannelPresenter {
           fileStream,
           length,
           filename: image.path.split('/').last,
+        );
+        request.files.add(multipartFile);
+      }
+
+      if (bannerImage != null && await bannerImage.exists()) {
+        final fileStream = http.ByteStream(bannerImage.openRead());
+        final length = await bannerImage.length();
+        final multipartFile = http.MultipartFile(
+          'banner_image',
+          fileStream,
+          length,
+          filename: bannerImage.path.split('/').last,
         );
         request.files.add(multipartFile);
       }
