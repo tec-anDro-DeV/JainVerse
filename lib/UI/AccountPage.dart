@@ -16,6 +16,8 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/AppInfo.dart';
 import 'package:jainverse/main.dart';
+import 'package:jainverse/models/channel_model.dart';
+import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -31,6 +33,8 @@ import 'Login.dart';
 import 'ProfileEdit.dart';
 import 'contact_us.dart';
 import 'ArtistSignUp.dart';
+import 'CreateChannel.dart';
+import 'UserChannel.dart';
 
 // Helper class for modern menu items
 class ModernMenuItem {
@@ -90,6 +94,8 @@ class MyState extends State<AccountPage>
   static String imagePresent = '';
   late ModelSettings modelSettings;
   bool hasPre = false;
+  bool hasChannel = false;
+  Map<String, dynamic>? channelData;
 
   get audioHandler => null;
   final session = SessionStorage();
@@ -214,6 +220,25 @@ class MyState extends State<AccountPage>
     setState(() {});
   }
 
+  Future<void> checkUserChannel() async {
+    try {
+      final presenter = ChannelPresenter();
+      final result = await presenter.getChannel();
+
+      if (result['status'] == true && result['data'] != null) {
+        hasChannel = true;
+        channelData = result['data'];
+      } else {
+        hasChannel = false;
+        channelData = null;
+      }
+      setState(() {});
+    } catch (e) {
+      hasChannel = false;
+      channelData = null;
+    }
+  }
+
   Future<void> checkConn() async {
     connected = await ConnectionCheck().checkConnection();
     setState(() {});
@@ -263,6 +288,7 @@ class MyState extends State<AccountPage>
     await loadd();
     await checkConn();
     await getSettings();
+    await checkUserChannel();
     await value();
   }
 
@@ -903,6 +929,55 @@ class MyState extends State<AccountPage>
       //     );
       //   },
       // ),
+      // New Create Channel menu item
+      ModernMenuItem(
+        icon:
+            hasChannel
+                ? Icons.video_library_outlined
+                : Icons.video_call_outlined,
+        title: hasChannel ? 'Your Channel' : 'Create Channel',
+        iconColor: appColors().primaryColorApp,
+        onTap: () async {
+          if (hasChannel && channelData != null) {
+            // Navigate to user channel screen
+            final channel = ChannelModel.fromJson(channelData!);
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserChannel(channel: channel),
+                settings: const RouteSettings(name: '/AccountPage/UserChannel'),
+              ),
+            );
+            // Refresh channel data after returning
+            if (result != null) {
+              // If result is a ChannelModel, update local data
+              if (result is ChannelModel) {
+                setState(() {
+                  channelData = result.toJson();
+                });
+              } else if (result == true) {
+                // Channel was deleted
+                await checkUserChannel();
+              }
+            }
+          } else {
+            // Navigate to create channel screen
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateChannel(),
+                settings: const RouteSettings(
+                  name: '/AccountPage/CreateChannel',
+                ),
+              ),
+            );
+            // If channel was created, refresh the data
+            if (result != null) {
+              await checkUserChannel();
+            }
+          }
+        },
+      ),
       ModernMenuItem(
         icon: Icons.info_outline,
         title: 'App Info',

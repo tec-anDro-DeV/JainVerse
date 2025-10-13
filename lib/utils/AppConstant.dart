@@ -51,6 +51,10 @@ class AppConstant {
   static const String API_USER_PURCHASE_HISTORY = "user_purchase_history";
   static const String API_CREATE_STATION = "station";
   static const String API_GET_COUNTRY = "get_country";
+  static const String API_CREATE_CHANNEL = "create_channel";
+  static const String API_GET_CHANNEL = "get_channel";
+  static const String API_UPDATE_CHANNEL = "update_channel";
+  static const String API_DELETE_CHANNEL = "delete_channel";
 
   //strings or paramenter name below
   static const String currency = "\$";
