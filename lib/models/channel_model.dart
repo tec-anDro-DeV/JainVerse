@@ -10,6 +10,9 @@ class ChannelModel {
   final String bannerImageUrl;
   final String createdAt;
   final String updatedAt;
+  final int totalVideos;
+  final int totalSubscribers;
+  final int totalViews;
 
   ChannelModel({
     required this.id,
@@ -23,6 +26,9 @@ class ChannelModel {
     this.bannerImageUrl = '',
     required this.createdAt,
     required this.updatedAt,
+    this.totalVideos = 0,
+    this.totalSubscribers = 0,
+    this.totalViews = 0,
   });
 
   factory ChannelModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +46,18 @@ class ChannelModel {
       bannerImageUrl: json['banner_image_url'] ?? json['banner_url'] ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      totalVideos:
+          json['total_videos'] is int
+              ? json['total_videos'] as int
+              : int.tryParse((json['total_videos'] ?? '').toString()) ?? 0,
+      totalSubscribers:
+          json['total_subscribers'] is int
+              ? json['total_subscribers'] as int
+              : int.tryParse((json['total_subscribers'] ?? '').toString()) ?? 0,
+      totalViews:
+          json['total_views'] is int
+              ? json['total_views'] as int
+              : int.tryParse((json['total_views'] ?? '').toString()) ?? 0,
     );
   }
 
@@ -56,6 +74,9 @@ class ChannelModel {
       'banner_image_url': bannerImageUrl,
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'total_videos': totalVideos,
+      'total_subscribers': totalSubscribers,
+      'total_views': totalViews,
     };
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,6 +15,14 @@ import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/compact_video_card.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
 import 'package:jainverse/videoplayer/screens/video_list_screen.dart';
+import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
+import 'package:jainverse/videoplayer/widgets/compact_video_card_skeleton.dart';
+import 'package:jainverse/videoplayer/widgets/animated_subscribe_button.dart';
+import 'package:jainverse/videoplayer/services/subscription_service.dart';
+import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
+import 'package:jainverse/videoplayer/widgets/animated_like_dislike_buttons.dart';
+import 'package:jainverse/videoplayer/services/like_dislike_service.dart';
+import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 
 class CommonVideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -46,6 +55,16 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   bool _loadingChannelVideos = false;
   late final VideoListViewModel _videoListViewModel;
   bool _loadingVideoList = false;
+  int? _channelSkeletonCount;
+  int? _recommendedSkeletonCount;
+
+  // Subscription state
+  late final SubscriptionService _subscriptionService;
+  bool _isSubscribed = false;
+
+  // Like/Dislike state
+  late final LikeDislikeService _likeDislikeService;
+  int _likeState = 0; // 0=neutral, 1=liked, 2=disliked
 
   // The top header UI has been removed. A floating back button will be
   // drawn over the video player using a Stack. Favorite toggle remains
@@ -68,6 +87,30 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       perPage: 10,
     );
     _videoListViewModel = VideoListViewModel(perPage: 10);
+    _subscriptionService = SubscriptionService();
+    _likeDislikeService = LikeDislikeService();
+
+    // Initialize subscription status from video item or global state
+    final channelId = widget.videoItem?.channelId;
+    if (channelId != null) {
+      // Check global state first, fallback to video item value
+      final globalState = SubscriptionStateManager().getSubscriptionState(
+        channelId,
+      );
+      _isSubscribed = globalState ?? widget.videoItem?.subscribed ?? false;
+    } else {
+      _isSubscribed = widget.videoItem?.subscribed ?? false;
+    }
+
+    // Initialize like/dislike state from video item or global state
+    final videoId = widget.videoItem?.id;
+    if (videoId != null) {
+      final globalLikeState = LikeDislikeStateManager().getLikeState(videoId);
+      _likeState = globalLikeState ?? widget.videoItem?.like ?? 0;
+    } else {
+      _likeState = widget.videoItem?.like ?? 0;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeLoadChannelVideos();
       _loadVideoList();
@@ -87,6 +130,110 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   }
 
   // Double-tap skip handling is now contained in the CommonVideoPlayer widget.
+
+  Future<void> _toggleSubscription() async {
+    final channelId = widget.videoItem?.channelId;
+    if (channelId == null) return;
+
+    // Optimistically update UI immediately
+    final previousState = _isSubscribed;
+    setState(() => _isSubscribed = !_isSubscribed);
+
+    try {
+      final success =
+          previousState
+              ? await _subscriptionService.unsubscribeChannel(
+                channelId: channelId,
+              )
+              : await _subscriptionService.subscribeChannel(
+                channelId: channelId,
+              );
+
+      // If failed, revert the UI
+      if (!success && mounted) {
+        setState(() => _isSubscribed = previousState);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to ${previousState ? "unsubscribe" : "subscribe"}. Please try again.',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() => _isSubscribed = previousState);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to ${previousState ? "unsubscribe" : "subscribe"}. Please try again.',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    final videoId = widget.videoItem?.id;
+    if (videoId == null) return;
+
+    // Optimistically update UI immediately
+    final previousState = _likeState;
+    final newState = _likeState == 1 ? 0 : 1;
+    setState(() => _likeState = newState);
+
+    try {
+      final success = await _likeDislikeService.likeVideo(
+        videoId: videoId,
+        currentState: previousState,
+      );
+
+      // If failed, revert the UI
+      if (!success && mounted) {
+        setState(() => _likeState = previousState);
+      }
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() => _likeState = previousState);
+      }
+    }
+  }
+
+  Future<void> _toggleDislike() async {
+    final videoId = widget.videoItem?.id;
+    if (videoId == null) return;
+
+    // Optimistically update UI immediately
+    final previousState = _likeState;
+    final newState = _likeState == 2 ? 0 : 2;
+    setState(() => _likeState = newState);
+
+    try {
+      final success = await _likeDislikeService.dislikeVideo(
+        videoId: videoId,
+        currentState: previousState,
+      );
+
+      // If failed, revert the UI
+      if (!success && mounted) {
+        setState(() => _likeState = previousState);
+      }
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() => _likeState = previousState);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -181,28 +328,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                     ),
                   ),
                   SizedBox(height: 12.h),
+
+                  // Row: views  •  duration  •  uploaded ago
                   Row(
                     children: [
-                      // channel avatar + name when available
-                      if (widget.videoItem?.channelImageUrl != null &&
-                          widget.videoItem!.channelImageUrl!.isNotEmpty)
-                        CircleAvatar(
-                          radius: 12.w,
-                          backgroundImage: CachedNetworkImageProvider(
-                            widget.videoItem!.channelImageUrl!,
-                          ),
-                        ),
-                      if (widget.videoItem?.channelName != null)
-                        Padding(
-                          padding: EdgeInsets.only(left: 8.w, right: 8.w),
-                          child: Text(
-                            widget.videoItem!.channelName!,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14.sp,
-                            ),
-                          ),
-                        ),
                       Icon(
                         Icons.remove_red_eye_outlined,
                         size: 18.w,
@@ -216,7 +345,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                           fontSize: 14.sp,
                         ),
                       ),
-                      SizedBox(width: 16.w),
+                      SizedBox(width: 12.w),
                       Icon(
                         Icons.access_time,
                         size: 18.w,
@@ -234,6 +363,61 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                           color: Colors.grey.shade600,
                           fontSize: 14.sp,
                         ),
+                      ),
+                      SizedBox(width: 12.w),
+                      if (widget.videoItem?.createdAt != null)
+                        Text(
+                          '• ${_formatTimeAgo(widget.videoItem!.createdAt)}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // Channel info row below: avatar + channel name + subscribe button
+                  Row(
+                    children: [
+                      if (widget.videoItem?.channelImageUrl != null &&
+                          widget.videoItem!.channelImageUrl!.isNotEmpty)
+                        CircleAvatar(
+                          radius: 24.w,
+                          backgroundImage: CachedNetworkImageProvider(
+                            widget.videoItem!.channelImageUrl!,
+                          ),
+                        ),
+                      SizedBox(width: 8.w),
+                      if (widget.videoItem?.channelName != null)
+                        Expanded(
+                          child: Text(
+                            widget.videoItem!.channelName!,
+                            style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      SizedBox(width: 8.w),
+                      // Subscribe button on the right
+                      if (widget.videoItem?.channelId != null)
+                        AnimatedSubscribeButton(
+                          isSubscribed: _isSubscribed,
+                          onPressed: _toggleSubscription,
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+
+                  // Like/Dislike buttons row
+                  Row(
+                    children: [
+                      AnimatedLikeDislikeButtons(
+                        likeState: _likeState,
+                        onLike: _toggleLike,
+                        onDislike: _toggleDislike,
                       ),
                     ],
                   ),
@@ -423,6 +607,23 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     return '${twoDigits(minutes)}:${twoDigits(seconds)}';
   }
 
+  String _formatTimeAgo(DateTime? dt) {
+    if (dt == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    final weeks = (diff.inDays / 7).floor();
+    if (weeks < 5) return '${weeks}w ago';
+    final months = (diff.inDays / 30).floor();
+    if (months < 12) return '${months}mo ago';
+    final years = (diff.inDays / 365).floor();
+    return '${years}y ago';
+  }
+
   void _maybeLoadChannelVideos() {
     final channelId = widget.videoItem?.channelId;
     if (channelId == null) return;
@@ -430,7 +631,15 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
 
     setState(() => _loadingChannelVideos = true);
     _channelVideosViewModel.refresh(channelId: channelId).whenComplete(() {
-      if (mounted) setState(() => _loadingChannelVideos = false);
+      if (mounted) {
+        setState(() {
+          _loadingChannelVideos = false;
+          // Reset skeleton count when data arrives
+          if (_channelVideosViewModel.items.isNotEmpty) {
+            _channelSkeletonCount = null;
+          }
+        });
+      }
     });
   }
 
@@ -439,14 +648,32 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
 
     setState(() => _loadingVideoList = true);
     _videoListViewModel.refresh().whenComplete(() {
-      if (mounted) setState(() => _loadingVideoList = false);
+      if (mounted) {
+        setState(() {
+          _loadingVideoList = false;
+          // Reset skeleton count when data arrives
+          if (_videoListViewModel.items.isNotEmpty) {
+            _recommendedSkeletonCount = null;
+          }
+        });
+      }
     });
   }
 
   Widget _buildChannelVideosList() {
     // show loading, error or horizontal list
     if (_loadingChannelVideos && _channelVideosViewModel.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      // Show 4-8 skeleton cards (compute once per loading session)
+      final skeletonCount = _channelSkeletonCount ??= (Random().nextInt(5) + 4);
+      return Column(
+        children: List.generate(
+          skeletonCount,
+          (index) => Padding(
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: VideoCardSkeleton(),
+          ),
+        ),
+      );
     }
 
     if (_channelVideosViewModel.hasError &&
@@ -507,7 +734,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
               (v) => Padding(
                 padding: EdgeInsets.only(bottom: 16.h),
                 child: VideoCard(
-                  item: v,
+                  item:
+                      v
+                          .syncWithGlobalState()
+                          .syncLikeWithGlobalState(), // Sync with global subscription and like state
                   showPopupMenu: true, // Show popup menu in vertical layout
                   onTap: () {
                     final nav = Navigator.of(context);
@@ -566,7 +796,21 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   Widget _buildRecommendedVideosList() {
     // Show loading, error or vertical list
     if (_loadingVideoList && _videoListViewModel.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      // Show 4-8 compact skeleton cards (compute once per loading session)
+      final skeletonCount =
+          _recommendedSkeletonCount ??= (Random().nextInt(5) + 4);
+      return Column(
+        children: List.generate(
+          skeletonCount,
+          (index) => Column(
+            children: [
+              CompactVideoCardSkeleton(),
+              if (index < skeletonCount - 1)
+                Divider(height: 1.h, color: Colors.grey.shade200),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_videoListViewModel.hasError && _videoListViewModel.items.isEmpty) {
@@ -622,7 +866,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
           return Column(
             children: [
               CompactVideoCard(
-                item: item,
+                item:
+                    item
+                        .syncWithGlobalState()
+                        .syncLikeWithGlobalState(), // Sync with global subscription and like state
                 showPopupMenu: true,
                 onTap: () {
                   final nav = Navigator.of(context);

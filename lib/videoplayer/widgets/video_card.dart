@@ -103,16 +103,7 @@ class VideoCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Center play overlay to communicate tap target
-                    Positioned.fill(
-                      child: Center(
-                        child: Icon(
-                          Icons.play_circle_fill,
-                          size: 56.w,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ),
+                    // (Removed center play overlay - tap is still handled by InkWell)
 
                     // Duration badge (bottom-right) with rounded pill and shadow
                     Positioned(

@@ -127,31 +127,7 @@ class CompactVideoCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Play icon overlay
-                  Positioned.fill(
-                    child: Center(
-                      child: Container(
-                        width: 36.w,
-                        height: 36.w,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.75),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.play_arrow_rounded,
-                          size: 22.w,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
+                  // (Removed center play overlay - tap is still handled by InkWell)
 
                   // Duration badge
                   if (item.duration.isNotEmpty)

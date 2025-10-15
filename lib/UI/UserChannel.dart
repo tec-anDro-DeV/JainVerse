@@ -7,10 +7,11 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/widgets/common/app_header.dart';
 import 'package:jainverse/models/channel_model.dart';
 import 'package:jainverse/presenters/channel_presenter.dart';
-import 'package:jainverse/UI/ChannelSettings.dart';
 import 'package:jainverse/main.dart';
+import 'package:jainverse/UI/ChannelSettings.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 
 class UserChannel extends StatefulWidget {
@@ -525,46 +526,44 @@ class _UserChannelState extends State<UserChannel>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: appColors().colorBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20.w),
-          onPressed: () => Navigator.of(context).pop(),
-          color: appColors().colorTextHead,
-        ),
-        actions: [
-          if (!_isEditMode)
-            IconButton(
-              icon: Icon(
-                Icons.settings_outlined,
-                color: appColors().colorTextHead,
-                size: 22.w,
-              ),
-              onPressed: () async {
-                // Open dedicated ChannelSettings screen
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) => ChannelSettings(
-                          channelId: _currentChannel.id,
-                          channelName: _currentChannel.name,
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(64.w),
+        child: AppHeader(
+          title: _isEditMode ? 'Edit Channel' : 'Your Channel',
+          backgroundColor: Colors.transparent,
+          showBackButton: true,
+          showProfileIcon: false,
+          onBackPressed: () => Navigator.of(context).pop(),
+          trailingWidget:
+              !_isEditMode
+                  ? IconButton(
+                    icon: Icon(
+                      Icons.settings,
+                      size: 22.w,
+                      color: appColors().colorTextHead,
+                    ),
+                    onPressed: () async {
+                      // Open dedicated ChannelSettings screen and handle result
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ChannelSettings(
+                                channelId: _currentChannel.id,
+                                channelName: _currentChannel.name,
+                              ),
                         ),
-                  ),
-                );
+                      );
 
-                // If settings returned true (deleted), propagate to AccountPage
-                if (result == true) {
-                  Navigator.of(context).pop(true);
-                }
-              },
-            ),
-        ],
-        centerTitle: true,
-        title: Text(
-          _isEditMode ? 'Edit Channel' : 'Your Channel',
-          style: TextStyle(
+                      // If settings returned true (deleted), propagate to previous route
+                      if (result == true && mounted) {
+                        Navigator.of(context).pop(true);
+                      }
+                    },
+                  )
+                  : null,
+          elevation: 0,
+          titleStyle: TextStyle(
             fontSize: 18.sp,
             fontWeight: FontWeight.w600,
             color: appColors().colorTextHead,
@@ -604,6 +603,11 @@ class _UserChannelState extends State<UserChannel>
                           ),
                           child: Column(
                             children: [
+                              // Action Buttons (only in non-edit mode)
+                              if (!_isEditMode) _buildCustomizeButton(),
+
+                              if (!_isEditMode) SizedBox(height: 24.w),
+
                               // Channel Info Card or Edit Form
                               if (_isEditMode)
                                 _buildEditForm()
@@ -611,14 +615,6 @@ class _UserChannelState extends State<UserChannel>
                                 _buildInfoCard(),
 
                               SizedBox(height: 24.w),
-
-                              // Action Buttons
-                              if (_isEditMode)
-                                _buildEditModeButtons()
-                              else
-                                _buildCustomizeButton(),
-
-                              SizedBox(height: 32.w),
                             ],
                           ),
                         ),
@@ -838,38 +834,25 @@ class _UserChannelState extends State<UserChannel>
   }
 
   Widget _buildInfoCard() {
+    // Simplified info layout: plain background, rows separated by dividers.
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18.w),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(24.w),
+      padding: EdgeInsets.symmetric(vertical: 8.w),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoRow(
+          _buildInfoListTile(
             icon: Icons.badge_outlined,
             label: 'Channel Name',
             value: _currentChannel.name,
           ),
-          SizedBox(height: 20.w),
-          _buildInfoRow(
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
             icon: Icons.alternate_email,
             label: 'Channel Handle',
             value: '@${_currentChannel.handle}',
           ),
-          // Always show the description row. If empty, display a muted placeholder
-          SizedBox(height: 20.w),
-          _buildInfoRow(
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
             icon: Icons.description_outlined,
             label: 'Description',
             value:
@@ -878,11 +861,81 @@ class _UserChannelState extends State<UserChannel>
                     : 'No description yet',
             isPlaceholder: _currentChannel.description.isEmpty,
           ),
-          SizedBox(height: 20.w),
-          _buildInfoRow(
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
             icon: Icons.calendar_today_outlined,
             label: 'Created On',
             value: _formatDate(_currentChannel.createdAt),
+          ),
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
+            icon: Icons.video_library_outlined,
+            label: 'Total Videos',
+            value: _currentChannel.totalVideos.toString(),
+          ),
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
+            icon: Icons.group_outlined,
+            label: 'Subscribers',
+            value: _currentChannel.totalSubscribers.toString(),
+          ),
+          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
+          _buildInfoListTile(
+            icon: Icons.visibility_outlined,
+            label: 'Total Views',
+            value: _currentChannel.totalViews.toString(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // New helper: render a ListTile-like row for info without a card.
+  Widget _buildInfoListTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool isPlaceholder = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 12.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: appColors().primaryColorApp.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10.w),
+            ),
+            child: Icon(icon, size: 20.w, color: appColors().primaryColorApp),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: appColors().colorTextHead,
+                  ),
+                ),
+                SizedBox(height: 4.w),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15.sp,
+                    color:
+                        isPlaceholder
+                            ? Colors.grey[500]
+                            : appColors().colorTextHead,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -960,6 +1013,67 @@ class _UserChannelState extends State<UserChannel>
             maxLines: null,
             expands: false,
           ),
+          SizedBox(height: 24.w),
+
+          // Save Changes Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appColors().primaryColorApp,
+                padding: EdgeInsets.symmetric(vertical: 16.w),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.w),
+                ),
+                elevation: 2,
+              ),
+              onPressed: _isUpdating ? null : _updateChannel,
+              child:
+                  _isUpdating
+                      ? SizedBox(
+                        height: 20.w,
+                        width: 20.w,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                      : Text(
+                        'Save Changes',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+            ),
+          ),
+          SizedBox(height: 12.w),
+
+          // Cancel Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: appColors().primaryColorApp),
+                padding: EdgeInsets.symmetric(vertical: 16.w),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.w),
+                ),
+              ),
+              onPressed: _isUpdating ? null : _toggleEditMode,
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                  color: appColors().primaryColorApp,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -997,67 +1111,6 @@ class _UserChannelState extends State<UserChannel>
     );
   }
 
-  Widget _buildEditModeButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: appColors().primaryColorApp,
-              padding: EdgeInsets.symmetric(vertical: 16.w),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.w),
-              ),
-              elevation: 2,
-            ),
-            onPressed: _isUpdating ? null : _updateChannel,
-            child:
-                _isUpdating
-                    ? SizedBox(
-                      height: 20.w,
-                      width: 20.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                    : Text(
-                      'Save Changes',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-          ),
-        ),
-        SizedBox(height: 12.w),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: appColors().primaryColorApp),
-              padding: EdgeInsets.symmetric(vertical: 16.w),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.w),
-              ),
-            ),
-            onPressed: _isUpdating ? null : _toggleEditMode,
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w500,
-                color: appColors().primaryColorApp,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPlaceholderAvatar() {
     return Container(
       color: appColors().primaryColorApp.withOpacity(0.1),
@@ -1068,55 +1121,6 @@ class _UserChannelState extends State<UserChannel>
           color: appColors().primaryColorApp,
         ),
       ),
-    );
-  }
-
-  Widget _buildInfoRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    bool isPlaceholder = false,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            color: appColors().primaryColorApp.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10.w),
-          ),
-          child: Icon(icon, size: 20.w, color: appColors().primaryColorApp),
-        ),
-        SizedBox(width: 16.w),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 4.w),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color:
-                      isPlaceholder
-                          ? Colors.grey[500]
-                          : appColors().colorTextHead,
-                  fontWeight: isPlaceholder ? FontWeight.w400 : FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

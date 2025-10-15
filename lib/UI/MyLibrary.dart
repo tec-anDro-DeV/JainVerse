@@ -39,6 +39,8 @@ import 'Download.dart';
 import 'FavoriteOrHistory.dart';
 import 'MusicEntryPoint.dart'; // Contains Music class
 import 'playlist_screen.dart';
+import '../videoplayer/screens/liked_videos_screen.dart';
+import '../videoplayer/screens/subscribed_channels_screen.dart';
 
 // LibraryItem class for UI items
 class LibraryItem {
@@ -110,6 +112,16 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     LibraryItem(
       icon: Icons.queue_music_outlined,
       title: 'Playlist',
+      color: appColors().primaryColorApp,
+    ),
+    LibraryItem(
+      icon: Icons.thumb_up_outlined,
+      title: 'My Liked Videos',
+      color: appColors().primaryColorApp,
+    ),
+    LibraryItem(
+      icon: Icons.subscriptions_outlined,
+      title: 'Subscribed Channels',
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
@@ -567,6 +579,26 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           MaterialPageRoute(
             builder: (context) => const PlaylistScreen(),
             settings: const RouteSettings(name: '/MyLibrary/playlist_screen'),
+          ),
+        );
+        break;
+      case 'My Liked Videos':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LikedVideosScreen(),
+            settings: const RouteSettings(name: '/MyLibrary/LikedVideos'),
+          ),
+        );
+        break;
+      case 'Subscribed Channels':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SubscribedChannelsScreen(),
+            settings: const RouteSettings(
+              name: '/MyLibrary/SubscribedChannels',
+            ),
           ),
         );
         break;
