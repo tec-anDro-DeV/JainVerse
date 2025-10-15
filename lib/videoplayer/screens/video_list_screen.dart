@@ -35,7 +35,9 @@ class VideoListBody extends StatefulWidget {
 }
 
 class _VideoListBodyState extends State<VideoListBody>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final ScrollController _scrollController = ScrollController();
   late final VideoListViewModel _viewModel;
   int? _skeletonCount;
@@ -125,7 +127,9 @@ class _VideoListBodyState extends State<VideoListBody>
 
     // Mark as scrolling and pause current video
     if (!_isScrolling) {
-      setState(() => _isScrolling = true);
+      if (mounted) {
+        setState(() => _isScrolling = true);
+      }
       _pauseCurrentVideo();
     }
 
@@ -189,9 +193,11 @@ class _VideoListBodyState extends State<VideoListBody>
       // No video is visible enough - pause current if playing
       if (_currentlyPlayingIndex != null) {
         _pauseCurrentVideo();
-        setState(() {
-          _currentlyPlayingIndex = null;
-        });
+        if (mounted) {
+          setState(() {
+            _currentlyPlayingIndex = null;
+          });
+        }
       }
     }
   }
@@ -210,10 +216,12 @@ class _VideoListBodyState extends State<VideoListBody>
     final oldController = _sharedController;
 
     // Clear state immediately to prevent stale UI
-    setState(() {
-      _sharedController = null;
-      _currentlyPlayingIndex = null;
-    });
+    if (mounted) {
+      setState(() {
+        _sharedController = null;
+        _currentlyPlayingIndex = null;
+      });
+    }
 
     // Dispose old controller asynchronously (don't block)
     oldController?.dispose().catchError((e) {
@@ -241,10 +249,12 @@ class _VideoListBodyState extends State<VideoListBody>
       await controller.setLooping(true);
 
       // Update state with new controller
-      setState(() {
-        _sharedController = controller;
-        _currentlyPlayingIndex = index;
-      });
+      if (mounted) {
+        setState(() {
+          _sharedController = controller;
+          _currentlyPlayingIndex = index;
+        });
+      }
 
       // Start playing
       await controller.play();
@@ -260,6 +270,8 @@ class _VideoListBodyState extends State<VideoListBody>
   }
 
   void _onItemVisibilityChanged(int index, double visibilityFraction) {
+    if (!mounted) return; // Guard against disposed state
+
     _itemVisibility[index] = visibilityFraction;
 
     // If currently playing video becomes less visible, pause it immediately
@@ -267,9 +279,11 @@ class _VideoListBodyState extends State<VideoListBody>
         visibilityFraction < _visibilityThreshold) {
       _pauseCurrentVideo();
       // Clear the playing index so new video can start
-      setState(() {
-        _currentlyPlayingIndex = null;
-      });
+      if (mounted) {
+        setState(() {
+          _currentlyPlayingIndex = null;
+        });
+      }
     }
   }
 
@@ -293,6 +307,7 @@ class _VideoListBodyState extends State<VideoListBody>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Must call super for AutomaticKeepAliveClientMixin
     // Add bottom padding so list content isn't hidden behind the
     // app's bottom navigation or the mini player. We reuse AppSizes
     // to keep sizing consistent across the app.
@@ -307,7 +322,7 @@ class _VideoListBodyState extends State<VideoListBody>
         slivers: [
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
-              0.w,
+              12.w,
               20.h,
               12.w,
               (AppSizes.basePadding + AppSizes.miniPlayerPadding + 8.w),

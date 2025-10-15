@@ -66,17 +66,8 @@ class _state extends State<HomeDiscover>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   // Returns the main sliver content for the scroll view
   Widget _buildContentSliver() {
-    if (_selectedMedia == 'Video') {
-      // Show the real video listing inline (using VideoListBody)
-      return SliverToBoxAdapter(
-        child: SizedBox(
-          height:
-              MediaQuery.of(context).size.height -
-              (MediaQuery.of(context).padding.top + 160.w),
-          child: const VideoListBody(),
-        ),
-      );
-    } else if (_cachedMusicData != null) {
+    // For video tab, we don't use this - see _buildMainScrollableContent
+    if (_cachedMusicData != null) {
       return SliverToBoxAdapter(
         child: _buildMusicCategories(_cachedMusicData!),
       );
@@ -87,9 +78,8 @@ class _state extends State<HomeDiscover>
     } else {
       return SliverToBoxAdapter(child: _buildErrorWidget());
     }
-  }
+  } // Media selection for AuthTabBar (Audio/Video)
 
-  // Media selection for AuthTabBar (Audio/Video)
   String _selectedMedia = 'Audio';
   late UserModel model;
   SharedPref sharePrefs = SharedPref();
@@ -150,6 +140,9 @@ class _state extends State<HomeDiscover>
 
   // Add timer for periodic background refresh
   Timer? _periodicRefreshTimer;
+
+  // Create persistent video list widget to maintain state
+  late final Widget _videoListWidget;
 
   Future<void> getSettings() async {
     String? sett = await sharePrefs.getSettings();
@@ -547,6 +540,11 @@ class _state extends State<HomeDiscover>
       duration: const Duration(milliseconds: 300),
     );
 
+    // Initialize persistent video list widget
+    _videoListWidget = const VideoListBody(
+      key: PageStorageKey<String>('video_list_body'),
+    );
+
     // Ensure session page is set to 0 immediately
     session['page'] = "0";
 
@@ -813,6 +811,12 @@ class _state extends State<HomeDiscover>
 
   // Optimized refresh method
   Future<void> _refreshData() async {
+    // Only refresh audio data when on Audio tab
+    // Video tab has its own RefreshIndicator in VideoListBody
+    if (_selectedMedia == 'Video') {
+      return;
+    }
+
     await checkConn();
 
     // Force cache refresh for pull-to-refresh
@@ -930,34 +934,108 @@ class _state extends State<HomeDiscover>
   }
 
   Widget _buildMainScrollableContent() {
-    return RefreshIndicator(
-      onRefresh: _refreshData,
-      color: appColors().primaryColorApp,
-      backgroundColor: Colors.white,
-      displacement:
-          MediaQuery.of(context).padding.top + AppSizes.refreshDisplacement,
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
+    // Use IndexedStack to keep both tabs alive and preserve their state
+    return IndexedStack(
+      index: _selectedMedia == 'Video' ? 1 : 0,
+      children: [
+        // Audio tab content (index 0)
+        RefreshIndicator(
+          onRefresh: _refreshData,
+          color: appColors().primaryColorApp,
+          backgroundColor: Colors.white,
+          displacement:
+              MediaQuery.of(context).padding.top + AppSizes.refreshDisplacement,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              // Top padding for header
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  top:
+                      MediaQuery.of(context).padding.top +
+                      AppSizes.topPaddingOffset,
+                ),
+                sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
+              ),
+
+              // AuthTabBar as a sliver so it scrolls with content
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: EdgeInsets.symmetric(
+                    horizontal: 18.w,
+                  ), // Increased margin for better spacing
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: 5.w,
+                      horizontal: AppSizes.contentHorizontalPadding,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18.w),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8.w,
+                            offset: Offset(0, 2.w),
+                          ),
+                        ],
+                      ),
+                      child: AuthTabBar(
+                        selectedRole: _selectedMedia,
+                        onRoleChanged: (media) {
+                          setState(() {
+                            _selectedMedia = media;
+                          });
+                        },
+                        options: const ['Audio', 'Video'],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Main content
+              StreamBuilder<MediaItem?>(
+                stream: _audioHandler!.mediaItem,
+                builder: (context, snapshot) {
+                  final hasMiniPlayer = snapshot.hasData;
+                  final bottomPadding =
+                      hasMiniPlayer
+                          ? AppSizes.basePadding +
+                              AppSizes.miniPlayerPadding +
+                              15.w
+                          : AppSizes.basePadding;
+
+                  return SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSizes.contentHorizontalPadding,
+                      AppSizes.contentTopPadding,
+                      AppSizes.contentRightPadding,
+                      bottomPadding,
+                    ),
+                    sliver: _buildContentSliver(),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
-        slivers: [
-          // Top padding for header
-          SliverPadding(
-            padding: EdgeInsets.only(
-              top:
+        // Video tab content (index 1)
+        Column(
+          children: [
+            // Top padding for header space
+            SizedBox(
+              height:
                   MediaQuery.of(context).padding.top +
                   AppSizes.topPaddingOffset,
             ),
-            sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-
-          // AuthTabBar as a sliver so it scrolls with content
-          SliverToBoxAdapter(
-            child: Container(
-              margin: EdgeInsets.symmetric(
-                horizontal: 18.w,
-              ), // Increased margin for better spacing
+            // AuthTabBar
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 18.w),
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   vertical: 5.w,
@@ -987,31 +1065,12 @@ class _state extends State<HomeDiscover>
                 ),
               ),
             ),
-          ),
-
-          // Main content
-          StreamBuilder<MediaItem?>(
-            stream: _audioHandler!.mediaItem,
-            builder: (context, snapshot) {
-              final hasMiniPlayer = snapshot.hasData;
-              final bottomPadding =
-                  hasMiniPlayer
-                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 15.w
-                      : AppSizes.basePadding;
-
-              return SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSizes.contentHorizontalPadding,
-                  AppSizes.contentTopPadding,
-                  AppSizes.contentRightPadding,
-                  bottomPadding,
-                ),
-                sliver: _buildContentSliver(),
-              );
-            },
-          ),
-        ],
-      ),
+            SizedBox(height: AppSizes.contentTopPadding),
+            // Video list content
+            Expanded(child: _videoListWidget),
+          ],
+        ),
+      ],
     );
   }
 
