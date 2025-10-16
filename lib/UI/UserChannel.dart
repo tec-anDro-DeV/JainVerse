@@ -13,6 +13,11 @@ import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/UI/ChannelSettings.dart';
 import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/my_videos_service.dart';
+import 'package:jainverse/videoplayer/models/video_item.dart';
+import 'package:jainverse/videoplayer/widgets/video_card.dart';
+import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
+import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
 
 class UserChannel extends StatefulWidget {
   final ChannelModel channel;
@@ -56,6 +61,12 @@ class _UserChannelState extends State<UserChannel>
   // Store updated channel data
   late ChannelModel _currentChannel;
 
+  // My Videos state
+  final MyVideosService _myVideosService = MyVideosService();
+  List<VideoItem> _myVideos = [];
+  bool _isLoadingVideos = true;
+  String? _videosError;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +96,29 @@ class _UserChannelState extends State<UserChannel>
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
     _slideController.forward();
+
+    // Load my videos
+    _loadMyVideos();
+  }
+
+  Future<void> _loadMyVideos() async {
+    setState(() {
+      _isLoadingVideos = true;
+      _videosError = null;
+    });
+
+    try {
+      final videos = await _myVideosService.getMyVideos();
+      setState(() {
+        _myVideos = videos;
+        _isLoadingVideos = false;
+      });
+    } catch (e) {
+      setState(() {
+        _videosError = 'Failed to load videos: $e';
+        _isLoadingVideos = false;
+      });
+    }
   }
 
   @override
@@ -613,6 +647,12 @@ class _UserChannelState extends State<UserChannel>
                                 _buildEditForm()
                               else
                                 _buildInfoCard(),
+
+                              // My Videos Section (only in non-edit mode)
+                              if (!_isEditMode) ...[
+                                SizedBox(height: 32.w),
+                                _buildMyVideosSection(),
+                              ],
 
                               SizedBox(height: 24.w),
                             ],
@@ -1278,6 +1318,194 @@ class _UserChannelState extends State<UserChannel>
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     } catch (e) {
       return dateString;
+    }
+  }
+
+  /// Build the My Videos section
+  Widget _buildMyVideosSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.video_library_outlined,
+                  size: 24.w,
+                  color: appColors().primaryColorApp,
+                ),
+                SizedBox(width: 12.w),
+                Text(
+                  'My Videos',
+                  style: TextStyle(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w700,
+                    color: appColors().colorTextHead,
+                  ),
+                ),
+              ],
+            ),
+            if (_myVideos.isNotEmpty)
+              Text(
+                '${_myVideos.length} ${_myVideos.length == 1 ? 'video' : 'videos'}',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+
+        SizedBox(height: 16.w),
+
+        // Videos List or Loading/Error State
+        if (_isLoadingVideos)
+          _buildLoadingVideos()
+        else if (_videosError != null)
+          _buildErrorState()
+        else if (_myVideos.isEmpty)
+          _buildEmptyState()
+        else
+          _buildVideosList(),
+      ],
+    );
+  }
+
+  Widget _buildLoadingVideos() {
+    return Column(
+      children: List.generate(
+        3,
+        (index) => Padding(
+          padding: EdgeInsets.only(bottom: 16.w),
+          child: const VideoCardSkeleton(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      padding: EdgeInsets.all(32.w),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12.w),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, size: 48.w, color: Colors.red.shade400),
+          SizedBox(height: 16.w),
+          Text(
+            'Failed to load videos',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.red.shade700,
+            ),
+          ),
+          SizedBox(height: 8.w),
+          Text(
+            _videosError ?? 'Unknown error',
+            style: TextStyle(fontSize: 13.sp, color: Colors.red.shade600),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16.w),
+          ElevatedButton.icon(
+            onPressed: _loadMyVideos,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: EdgeInsets.all(32.w),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12.w),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.video_library_outlined,
+            size: 64.w,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: 16.w),
+          Text(
+            'No videos yet',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          SizedBox(height: 8.w),
+          Text(
+            'Upload your first video to get started',
+            style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideosList() {
+    return Column(
+      children:
+          _myVideos.map((video) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: 16.w),
+              child: VideoCard(
+                item: video,
+                onTap: () => _openVideoPlayer(video),
+                showPopupMenu: true,
+                onMenuAction: (action) => _handleVideoAction(action, video),
+              ),
+            );
+          }).toList(),
+    );
+  }
+
+  void _openVideoPlayer(VideoItem video) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => CommonVideoPlayerScreen(
+              videoUrl: video.videoUrl,
+              videoTitle: video.title,
+              videoItem: video,
+            ),
+      ),
+    );
+  }
+
+  void _handleVideoAction(String action, VideoItem video) {
+    switch (action) {
+      case 'watch_later':
+        _showSuccessSnackbar('Added to Watch Later');
+        break;
+      case 'add_playlist':
+        _showSuccessSnackbar('Added to Playlist');
+        break;
+      case 'share':
+        _showSuccessSnackbar('Share functionality coming soon');
+        break;
+      case 'not_interested':
+        _showSuccessSnackbar('Video hidden');
+        break;
     }
   }
 }

@@ -64,6 +64,7 @@ class AppConstant {
   static const String API_GET_CHANNEL = "get_channel";
   static const String API_UPDATE_CHANNEL = "update_channel";
   static const String API_DELETE_CHANNEL = "delete_channel";
+  static const String API_MY_VIDEOS = "my_videos";
   static const String API_WATCH_HISTORY = "watch_history";
   //strings or paramenter name below
   static const String currency = "\$";

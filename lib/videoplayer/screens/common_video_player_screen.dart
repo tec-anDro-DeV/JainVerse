@@ -303,6 +303,21 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     }
   }
 
+  /// Navigate to the full channel videos screen for the current video's channel
+  void _openChannel() {
+    final channelId = widget.videoItem?.channelId;
+    if (channelId == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder:
+            (_) => ChannelVideosScreen(
+              channelId: channelId,
+              channelName: widget.videoItem?.channelName,
+            ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -455,21 +470,29 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                     children: [
                       if (widget.videoItem?.channelImageUrl != null &&
                           widget.videoItem!.channelImageUrl!.isNotEmpty)
-                        CircleAvatar(
-                          radius: 24.w,
-                          backgroundImage: CachedNetworkImageProvider(
-                            widget.videoItem!.channelImageUrl!,
+                        GestureDetector(
+                          onTap: _openChannel,
+                          child: CircleAvatar(
+                            radius: 24.w,
+                            backgroundImage: CachedNetworkImageProvider(
+                              widget.videoItem!.channelImageUrl!,
+                            ),
                           ),
                         ),
                       SizedBox(width: 8.w),
                       if (widget.videoItem?.channelName != null)
                         Expanded(
-                          child: Text(
-                            widget.videoItem!.channelName!,
-                            style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
+                          child: GestureDetector(
+                            onTap: _openChannel,
+                            child: Text(
+                              widget.videoItem!.channelName!,
+                              style: TextStyle(
+                                color: Colors.grey.shade800,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
