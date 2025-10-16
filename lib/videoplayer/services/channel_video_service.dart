@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 /// Production-grade service to fetch channel videos with pagination and
@@ -32,7 +33,7 @@ class ChannelVideoService {
 
     try {
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/get_channel_videos',
+        AppConstant.BaseUrl + AppConstant.API_GET_CHANNEL_VIDEOS,
         data: FormData.fromMap({
           'channel_id': channelId.toString(),
           'per_page': perPage.toString(),

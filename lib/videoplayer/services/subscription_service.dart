@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 
 /// Service to handle channel subscription/unsubscription
@@ -26,7 +27,7 @@ class SubscriptionService {
 
     try {
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/subscribe_channel',
+        AppConstant.BaseUrl + AppConstant.API_SUBSCRIBE_CHANNEL,
         data: {'channel_id': channelId},
         options: Options(
           headers: {
@@ -71,7 +72,7 @@ class SubscriptionService {
 
     try {
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/unsubscribe_channel',
+        AppConstant.BaseUrl + AppConstant.API_UNSUBSCRIBE_CHANNEL,
         data: {'channel_id': channelId},
         options: Options(
           headers: {

@@ -236,12 +236,15 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
                       item: v.syncWithGlobalState().syncLikeWithGlobalState(),
                       onTap: () {
                         final nav = Navigator.of(context);
+                        // Sync video item with latest global state before navigation
+                        final syncedItem =
+                            v.syncWithGlobalState().syncLikeWithGlobalState();
                         final route = MaterialPageRoute(
                           builder:
                               (_) => CommonVideoPlayerScreen(
-                                videoUrl: v.videoUrl,
-                                videoTitle: v.title,
-                                videoItem: v,
+                                videoUrl: syncedItem.videoUrl,
+                                videoTitle: syncedItem.title,
+                                videoItem: syncedItem,
                               ),
                         );
                         if (nav.canPop()) {

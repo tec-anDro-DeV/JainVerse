@@ -204,13 +204,16 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
                 item: video.syncWithGlobalState().syncLikeWithGlobalState(),
                 showPopupMenu: true,
                 onTap: () {
+                  // Sync video item with latest global state before navigation
+                  final syncedItem =
+                      video.syncWithGlobalState().syncLikeWithGlobalState();
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder:
                           (_) => CommonVideoPlayerScreen(
-                            videoUrl: video.videoUrl,
-                            videoTitle: video.title,
-                            videoItem: video,
+                            videoUrl: syncedItem.videoUrl,
+                            videoTitle: syncedItem.title,
+                            videoItem: syncedItem,
                           ),
                     ),
                   );

@@ -214,7 +214,7 @@ class MusicManager extends ChangeNotifier {
 
     // If already a complete URL, validate it's from our server
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      if (imagePath.contains('musicvideo.techcronus.com') ||
+      if (imagePath.contains(AppConstant.SiteUrl.replaceAll('/', '')) ||
           imagePath.startsWith('file://')) {
         return imagePath; // Only allow our server URLs or local files
       }
@@ -1092,9 +1092,7 @@ class MusicManager extends ChangeNotifier {
               }
             }
           } else {
-            developer.log(
-              '[MusicManager] 🎵 Station ready - playback paused',
-            );
+            developer.log('[MusicManager] 🎵 Station ready - playback paused');
           }
         } on TimeoutException {
           developer.log(

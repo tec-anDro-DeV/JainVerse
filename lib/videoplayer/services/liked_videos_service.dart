@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 
 /// Service to fetch user's liked videos
@@ -23,7 +24,7 @@ class LikedVideosService {
 
     try {
       final resp = await _dio.get(
-        'https://musicvideo.techcronus.com/api/v2/get_liked_videos',
+        AppConstant.BaseUrl + AppConstant.API_GET_LIKED_VIDEOS,
         options: Options(
           headers: {
             'Content-Type': 'application/json',

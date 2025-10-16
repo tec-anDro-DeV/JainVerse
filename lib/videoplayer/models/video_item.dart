@@ -15,6 +15,7 @@ class VideoItem {
   final DateTime? createdAt;
   final bool? subscribed;
   final int? like; // 0 = neutral, 1 = liked, 2 = disliked
+  final int? totalViews;
 
   VideoItem({
     required this.id,
@@ -30,6 +31,7 @@ class VideoItem {
     this.createdAt,
     this.subscribed,
     this.like,
+    this.totalViews,
   });
 
   factory VideoItem.fromJson(Map<String, dynamic> j) {
@@ -102,6 +104,7 @@ class VideoItem {
       createdAt: parseDate(j['created_at']),
       subscribed: parseSubscribed(j['subscribed']),
       like: parseLike(j['like']),
+      totalViews: parseInt(j['total_views']),
     );
   }
 
@@ -120,6 +123,7 @@ class VideoItem {
     DateTime? createdAt,
     bool? subscribed,
     int? like,
+    int? totalViews,
   }) {
     return VideoItem(
       id: id ?? this.id,
@@ -135,6 +139,7 @@ class VideoItem {
       createdAt: createdAt ?? this.createdAt,
       subscribed: subscribed ?? this.subscribed,
       like: like ?? this.like,
+      totalViews: totalViews ?? this.totalViews,
     );
   }
 }

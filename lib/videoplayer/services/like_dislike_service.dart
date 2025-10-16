@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 
 /// Service to handle video like/dislike actions
@@ -38,7 +39,7 @@ class LikeDislikeService {
       });
 
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/like_dislike_video',
+        AppConstant.BaseUrl + AppConstant.API_LIKE_DISLIKE_VIDEO,
         data: formData,
         options: Options(
           headers: {
@@ -93,7 +94,7 @@ class LikeDislikeService {
       });
 
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/like_dislike_video',
+        AppConstant.BaseUrl + AppConstant.API_LIKE_DISLIKE_VIDEO,
         data: formData,
         options: Options(
           headers: {
@@ -148,7 +149,7 @@ class LikeDislikeService {
       });
 
       final resp = await _dio.post(
-        'https://musicvideo.techcronus.com/api/v2/like_dislike_video',
+        AppConstant.BaseUrl + AppConstant.API_LIKE_DISLIKE_VIDEO,
         data: formData,
         options: Options(
           headers: {

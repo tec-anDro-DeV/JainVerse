@@ -23,6 +23,7 @@ import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/widgets/animated_like_dislike_buttons.dart';
 import 'package:jainverse/videoplayer/services/like_dislike_service.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
+import 'package:jainverse/videoplayer/services/watch_history_service.dart';
 
 class CommonVideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -66,6 +67,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   late final LikeDislikeService _likeDislikeService;
   int _likeState = 0; // 0=neutral, 1=liked, 2=disliked
 
+  // Watch history service
+  late final WatchHistoryService _watchHistoryService;
+  bool _watchHistoryMarked = false; // Track if we've already marked this video
+
   // The top header UI has been removed. A floating back button will be
   // drawn over the video player using a Stack. Favorite toggle remains
   // available elsewhere in the UI.
@@ -89,6 +94,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     _videoListViewModel = VideoListViewModel(perPage: 10);
     _subscriptionService = SubscriptionService();
     _likeDislikeService = LikeDislikeService();
+    _watchHistoryService = WatchHistoryService();
 
     // Initialize subscription status from video item or global state
     final channelId = widget.videoItem?.channelId;
@@ -111,6 +117,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       _likeState = widget.videoItem?.like ?? 0;
     }
 
+    // Listen to global state changes
+    SubscriptionStateManager().addListener(_onGlobalSubscriptionChanged);
+    LikeDislikeStateManager().addListener(_onGlobalLikeDislikeChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeLoadChannelVideos();
       _loadVideoList();
@@ -124,9 +134,40 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       DeviceOrientation.portraitDown,
     ]);
     MusicPlayerStateManager().setNavigationVisibility(true);
+
+    // Remove global state listeners
+    SubscriptionStateManager().removeListener(_onGlobalSubscriptionChanged);
+    LikeDislikeStateManager().removeListener(_onGlobalLikeDislikeChanged);
+
     _channelVideosViewModel.dispose();
     _videoListViewModel.dispose();
     super.dispose();
+  }
+
+  // Callback when global subscription state changes
+  void _onGlobalSubscriptionChanged() {
+    if (!mounted) return;
+    final channelId = widget.videoItem?.channelId;
+    if (channelId == null) return;
+
+    final globalState = SubscriptionStateManager().getSubscriptionState(
+      channelId,
+    );
+    if (globalState != null && globalState != _isSubscribed) {
+      setState(() => _isSubscribed = globalState);
+    }
+  }
+
+  // Callback when global like/dislike state changes
+  void _onGlobalLikeDislikeChanged() {
+    if (!mounted) return;
+    final videoId = widget.videoItem?.id;
+    if (videoId == null) return;
+
+    final globalLikeState = LikeDislikeStateManager().getLikeState(videoId);
+    if (globalLikeState != null && globalLikeState != _likeState) {
+      setState(() => _likeState = globalLikeState);
+    }
   }
 
   // Double-tap skip handling is now contained in the CommonVideoPlayer widget.
@@ -235,6 +276,33 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     }
   }
 
+  /// Mark the video as watched in watch history
+  /// This is called when video starts playing (not for autoplay)
+  Future<void> _markVideoAsWatched() async {
+    // Don't mark if already marked or if video item is null
+    if (_watchHistoryMarked || widget.videoItem?.id == null) return;
+
+    final videoId = widget.videoItem!.id;
+    _watchHistoryMarked = true; // Mark immediately to prevent duplicate calls
+
+    try {
+      final success = await _watchHistoryService.markVideoAsWatched(
+        videoId: videoId,
+      );
+
+      if (!success && mounted) {
+        // Reset flag if failed, so user can retry
+        _watchHistoryMarked = false;
+      }
+    } catch (e) {
+      // Watch history is not critical, just log and continue
+      debugPrint('Failed to mark video as watched: $e');
+      if (mounted) {
+        _watchHistoryMarked = false;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -263,6 +331,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                         setState(() {
                           _videoPlayerController = controller;
                         });
+                        // Mark video as watched when it starts playing
+                        _markVideoAsWatched();
                       },
                     ),
                   ),
@@ -339,7 +409,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                       ),
                       SizedBox(width: 6.w),
                       Text(
-                        '0 views',
+                        _formatViews(widget.videoItem?.totalViews),
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 14.sp,
@@ -624,6 +694,20 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     return '${years}y ago';
   }
 
+  String _formatViews(int? views) {
+    if (views == null || views == 0) return '0 views';
+
+    if (views < 1000) {
+      return '$views ${views == 1 ? 'view' : 'views'}';
+    } else if (views < 1000000) {
+      final k = (views / 1000).toStringAsFixed(1);
+      return '${k.endsWith('.0') ? k.substring(0, k.length - 2) : k}K views';
+    } else {
+      final m = (views / 1000000).toStringAsFixed(1);
+      return '${m.endsWith('.0') ? m.substring(0, m.length - 2) : m}M views';
+    }
+  }
+
   void _maybeLoadChannelVideos() {
     final channelId = widget.videoItem?.channelId;
     if (channelId == null) return;
@@ -741,15 +825,18 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                   showPopupMenu: true, // Show popup menu in vertical layout
                   onTap: () {
                     final nav = Navigator.of(context);
+                    // Sync video item with latest global state before navigation
+                    final syncedItem =
+                        v.syncWithGlobalState().syncLikeWithGlobalState();
                     final route = MaterialPageRoute(
                       builder:
                           (_) => CommonVideoPlayerScreen(
                             videoUrl:
-                                v.videoUrl.isNotEmpty
-                                    ? v.videoUrl
+                                syncedItem.videoUrl.isNotEmpty
+                                    ? syncedItem.videoUrl
                                     : widget.videoUrl,
-                            videoTitle: v.title,
-                            videoItem: v,
+                            videoTitle: syncedItem.title,
+                            videoItem: syncedItem,
                           ),
                     );
                     if (nav.canPop()) {
@@ -873,15 +960,18 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                 showPopupMenu: true,
                 onTap: () {
                   final nav = Navigator.of(context);
+                  // Sync video item with latest global state before navigation
+                  final syncedItem =
+                      item.syncWithGlobalState().syncLikeWithGlobalState();
                   final route = MaterialPageRoute(
                     builder:
                         (_) => CommonVideoPlayerScreen(
                           videoUrl:
-                              item.videoUrl.isNotEmpty
-                                  ? item.videoUrl
+                              syncedItem.videoUrl.isNotEmpty
+                                  ? syncedItem.videoUrl
                                   : widget.videoUrl,
-                          videoTitle: item.title,
-                          videoItem: item,
+                          videoTitle: syncedItem.title,
+                          videoItem: syncedItem,
                         ),
                   );
                   if (nav.canPop()) {

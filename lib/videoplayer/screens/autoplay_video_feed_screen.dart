@@ -64,7 +64,7 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
   final Map<int, double> _itemVisibility = {};
 
   // Configuration
-  static const Duration _autoplayDelay = Duration(milliseconds: 1500);
+  static const Duration _autoplayDelay = Duration(milliseconds: 1000);
   static const double _visibilityThreshold = 0.7;
   static const int _skeletonCount = 5;
 
@@ -253,14 +253,17 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
     // Pause autoplay
     _pauseCurrentVideo();
 
+    // Sync video item with latest global state before navigation
+    final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
+
     // Navigate to full player
     Navigator.of(context).push(
       MaterialPageRoute(
         builder:
             (_) => CommonVideoPlayerScreen(
-              videoUrl: item.videoUrl,
-              videoTitle: item.title,
-              videoItem: item,
+              videoUrl: syncedItem.videoUrl,
+              videoTitle: syncedItem.title,
+              videoItem: syncedItem,
             ),
       ),
     );

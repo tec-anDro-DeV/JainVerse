@@ -45,6 +45,20 @@ class VideoCard extends StatelessWidget {
     }
   }
 
+  String _formatViews(int? views) {
+    if (views == null || views == 0) return '0 views';
+
+    if (views < 1000) {
+      return '$views ${views == 1 ? 'view' : 'views'}';
+    } else if (views < 1000000) {
+      final k = (views / 1000).toStringAsFixed(1);
+      return '${k.endsWith('.0') ? k.substring(0, k.length - 2) : k}K views';
+    } else {
+      final m = (views / 1000000).toStringAsFixed(1);
+      return '${m.endsWith('.0') ? m.substring(0, m.length - 2) : m}M views';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -200,13 +214,14 @@ class VideoCard extends StatelessWidget {
 
                         SizedBox(height: 4.h),
 
-                        // Channel name · time ago
+                        // Channel name · views · time ago
                         Text(
                           [
                             (item.channelName != null &&
                                     item.channelName!.isNotEmpty)
                                 ? item.channelName!
                                 : 'Unknown channel',
+                            _formatViews(item.totalViews),
                             _getTimeAgo(item.createdAt),
                           ].where((s) => s.isNotEmpty).join(' · '),
                           maxLines: 1,

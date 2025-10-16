@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'video_item.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 
 class VideoListViewModel extends ChangeNotifier {
   final Dio _dio;
@@ -41,7 +42,7 @@ class VideoListViewModel extends ChangeNotifier {
     try {
       final token = await _sharedPref.getToken();
       final resp = await _dio.get(
-        'https://musicvideo.techcronus.com/api/v2/all_videos',
+        AppConstant.BaseUrl + AppConstant.API_ALL_VIDEOS,
         queryParameters: {'page': p, 'per_page': perPage},
         options: Options(
           headers: {

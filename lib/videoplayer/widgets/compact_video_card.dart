@@ -42,6 +42,20 @@ class CompactVideoCard extends StatelessWidget {
     }
   }
 
+  String _formatViews(int? views) {
+    if (views == null || views == 0) return '0 views';
+
+    if (views < 1000) {
+      return '$views ${views == 1 ? 'view' : 'views'}';
+    } else if (views < 1000000) {
+      final k = (views / 1000).toStringAsFixed(1);
+      return '${k.endsWith('.0') ? k.substring(0, k.length - 2) : k}K views';
+    } else {
+      final m = (views / 1000000).toStringAsFixed(1);
+      return '${m.endsWith('.0') ? m.substring(0, m.length - 2) : m}M views';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -254,9 +268,12 @@ class CompactVideoCard extends StatelessWidget {
 
                   SizedBox(height: 4.h),
 
-                  // Time ago
+                  // Views and time ago
                   Text(
-                    _getTimeAgo(item.createdAt),
+                    [
+                      _formatViews(item.totalViews),
+                      _getTimeAgo(item.createdAt),
+                    ].where((s) => s.isNotEmpty).join(' • '),
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w500,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/utils/SharedPref.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/videoplayer/models/channel_item.dart';
 
 /// Service to fetch user's subscribed channels
@@ -25,7 +26,7 @@ class SubscribedChannelsService {
 
     try {
       final resp = await _dio.get(
-        'https://musicvideo.techcronus.com/api/v2/get_subscribed_channels',
+        AppConstant.BaseUrl + AppConstant.API_GET_SUBSCRIBED_CHANNELS,
         options: Options(
           headers: {
             'Content-Type': 'application/json',

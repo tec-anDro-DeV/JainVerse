@@ -38,7 +38,8 @@ class _VideoListBodyState extends State<VideoListBody>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  final ScrollController _scrollController = ScrollController();
+  ScrollController? _scrollController;
+  bool _ownsScrollController = false;
   late final VideoListViewModel _viewModel;
   int? _skeletonCount;
 
@@ -52,7 +53,7 @@ class _VideoListBodyState extends State<VideoListBody>
   final Map<int, double> _itemVisibility = {};
 
   // Configuration
-  static const Duration _autoplayDelay = Duration(milliseconds: 1500);
+  static const Duration _autoplayDelay = Duration(milliseconds: 1000);
   static const double _visibilityThreshold = 0.7;
 
   @override
@@ -61,7 +62,9 @@ class _VideoListBodyState extends State<VideoListBody>
     WidgetsBinding.instance.addObserver(this);
 
     _viewModel = VideoListViewModel(perPage: 10);
-    _scrollController.addListener(_onScroll);
+    // scroll controller will be assigned in didChangeDependencies so we
+    // don't add the listener here. This ensures NestedScrollView can
+    // provide the inner PrimaryScrollController when embedding this widget.
     _viewModel.addListener(_onViewModel);
 
     // Listen to subscription and like/dislike state changes
@@ -72,17 +75,43 @@ class _VideoListBodyState extends State<VideoListBody>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Use PrimaryScrollController if available (e.g. when inside
+    // a NestedScrollView). Otherwise create and own a controller.
+    final primary = PrimaryScrollController.maybeOf(context);
+    if (primary != _scrollController) {
+      if (primary != null) {
+        _scrollController = primary;
+        _ownsScrollController = false;
+      } else {
+        _scrollController ??= ScrollController();
+        _ownsScrollController = true;
+      }
+    }
+
+    // Ensure listener is attached exactly once
+    _scrollController?.removeListener(_onScroll);
+    _scrollController?.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoplayTimer?.cancel();
-    _scrollController.removeListener(_onScroll);
+    _scrollController?.removeListener(_onScroll);
     _viewModel.removeListener(_onViewModel);
 
     // Remove subscription and like/dislike listeners
     SubscriptionStateManager().removeListener(_onSubscriptionChanged);
     LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
 
-    _scrollController.dispose();
+    if (_ownsScrollController) {
+      try {
+        _scrollController?.dispose();
+      } catch (_) {}
+    }
     _sharedController?.dispose();
     _viewModel.dispose();
     super.dispose();
@@ -123,7 +152,7 @@ class _VideoListBodyState extends State<VideoListBody>
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (_scrollController == null || !_scrollController!.hasClients) return;
 
     // Mark as scrolling and pause current video
     if (!_isScrolling) {
@@ -143,8 +172,9 @@ class _VideoListBodyState extends State<VideoListBody>
     });
 
     // Load more items when near the end
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
+    if (_scrollController != null &&
+        _scrollController!.position.pixels >=
+            _scrollController!.position.maxScrollExtent - 200 &&
         !_viewModel.isLoading &&
         _viewModel.page < _viewModel.totalPages) {
       _viewModel.loadNext();
@@ -290,12 +320,14 @@ class _VideoListBodyState extends State<VideoListBody>
   void _openPlayer(VideoItem item) {
     // Try to replace the current player if possible, otherwise push.
     final nav = Navigator.of(context);
+    // Sync video item with latest global state before navigation
+    final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
     final route = MaterialPageRoute(
       builder:
           (_) => CommonVideoPlayerScreen(
-            videoUrl: item.videoUrl,
-            videoTitle: item.title,
-            videoItem: item,
+            videoUrl: syncedItem.videoUrl,
+            videoTitle: syncedItem.title,
+            videoItem: syncedItem,
           ),
     );
     if (nav.canPop()) {

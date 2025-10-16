@@ -1025,50 +1025,59 @@ class _state extends State<HomeDiscover>
           ),
         ),
         // Video tab content (index 1)
-        Column(
-          children: [
-            // Top padding for header space
-            SizedBox(
-              height:
-                  MediaQuery.of(context).padding.top +
-                  AppSizes.topPaddingOffset,
-            ),
-            // AuthTabBar
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 18.w),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  vertical: 5.w,
-                  horizontal: AppSizes.contentHorizontalPadding,
+        // Use NestedScrollView so the AuthTabBar is part of the scrollable
+        // header and will scroll away with the video list instead of
+        // remaining sticky.
+        NestedScrollView(
+          headerSliverBuilder:
+              (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height:
+                        MediaQuery.of(context).padding.top +
+                        AppSizes.topPaddingOffset,
+                  ),
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18.w),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 8.w,
-                        offset: Offset(0, 2.w),
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 18.w),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 5.w,
+                        horizontal: AppSizes.contentHorizontalPadding,
                       ),
-                    ],
-                  ),
-                  child: AuthTabBar(
-                    selectedRole: _selectedMedia,
-                    onRoleChanged: (media) {
-                      setState(() {
-                        _selectedMedia = media;
-                      });
-                    },
-                    options: const ['Audio', 'Video'],
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18.w),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 8.w,
+                              offset: Offset(0, 2.w),
+                            ),
+                          ],
+                        ),
+                        child: AuthTabBar(
+                          selectedRole: _selectedMedia,
+                          onRoleChanged: (media) {
+                            setState(() {
+                              _selectedMedia = media;
+                            });
+                          },
+                          options: const ['Audio', 'Video'],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            SizedBox(height: AppSizes.contentTopPadding),
-            // Video list content
-            Expanded(child: _videoListWidget),
-          ],
+                SliverToBoxAdapter(
+                  child: SizedBox(height: AppSizes.contentTopPadding),
+                ),
+              ],
+          // Keep the existing VideoListBody as the body. NestedScrollView will
+          // coordinate scrolling so the header will scroll away with the list.
+          body: _videoListWidget,
         ),
       ],
     );
