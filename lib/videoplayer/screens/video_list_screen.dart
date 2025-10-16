@@ -318,6 +318,9 @@ class _VideoListBodyState extends State<VideoListBody>
   }
 
   void _openPlayer(VideoItem item) {
+    // Pause and cleanup autoplay before navigation to prevent race condition
+    _pauseCurrentVideo();
+
     // Try to replace the current player if possible, otherwise push.
     final nav = Navigator.of(context);
     // Sync video item with latest global state before navigation

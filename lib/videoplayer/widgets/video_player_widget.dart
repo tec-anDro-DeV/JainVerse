@@ -46,6 +46,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   String _errorMessage = '';
   bool _audioDisabled = false;
 
+  // Retry configuration
+  static const int _initializationTimeoutSeconds = 15;
+  static const int _maxRetryAttempts = 3;
+  int _currentRetryAttempt = 0;
+
   // Double-tap skip state
   bool _showSkipOverlay = false;
   bool _skipForward = true;
@@ -59,6 +64,29 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   void initState() {
     super.initState();
     _prepareControllerWithCache(widget.videoUrl);
+  }
+
+  @override
+  void didUpdateWidget(VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only reinitialize if the video URL actually changed
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] URL changed, reinitializing...');
+        debugPrint('[VideoPlayer] Old URL: ${oldWidget.videoUrl}');
+        debugPrint('[VideoPlayer] New URL: ${widget.videoUrl}');
+      }
+      // Clean up old controllers
+      _chewieController?.dispose();
+      _chewieController = null;
+      if (_videoListener != null) {
+        _videoPlayerController.removeListener(_videoListener!);
+      }
+      _videoPlayerController.dispose();
+
+      // Initialize with new URL
+      _prepareControllerWithCache(widget.videoUrl);
+    }
   }
 
   Future<void> _prepareControllerWithCache(String url) async {
@@ -79,29 +107,26 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       } else {
         _videoPlayerController = VideoPlayerController.networkUrl(
           Uri.parse(url),
+          httpHeaders: {'Accept': '*/*', 'Connection': 'keep-alive'},
         );
         if (kDebugMode) {
           debugPrint('[VideoPlayer] Using network URL');
         }
 
-        // Start background caching
+        // Start background caching (non-blocking)
         _videoCacheService
             .cacheFile(url)
             .then((file) async {
-              if (mounted &&
-                  !_usingCachedFile &&
-                  _videoPlayerController.value.isInitialized) {
+              if (mounted && !_usingCachedFile) {
                 if (kDebugMode) {
-                  debugPrint(
-                    '[VideoPlayer] Cache completed, switching to cached file',
-                  );
+                  debugPrint('[VideoPlayer] Cache completed for future use');
                 }
-                await _switchToCachedFile(file);
+                // Don't auto-switch during playback to avoid interruption
               }
             })
             .catchError((e) {
               if (kDebugMode) {
-                debugPrint('[VideoPlayer] Cache error: $e');
+                debugPrint('[VideoPlayer] Cache error (non-critical): $e');
               }
             });
       }
@@ -109,72 +134,191 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       // Add listener before initialization
       _videoListener = () {
         if (mounted) {
-          // Check for errors but don't stop playback if it's just audio
+          // Check for errors with better classification
           if (_videoPlayerController.value.hasError) {
             final error = _videoPlayerController.value.errorDescription ?? '';
-            if (error.contains('audio') ||
+
+            // Classify error type
+            final isAudioError =
+                error.contains('audio') ||
                 error.contains('AudioTrack') ||
-                error.contains('AudioSink')) {
-              // Audio error - mark as disabled but continue
+                error.contains('AudioSink') ||
+                (error.contains('MediaCodec') && error.contains('audio'));
+
+            final isNetworkError =
+                error.contains('network') ||
+                error.contains('connection') ||
+                error.contains('timeout') ||
+                error.contains('http');
+
+            final isFormatError =
+                error.contains('format') ||
+                error.contains('codec') ||
+                error.contains('unsupported');
+
+            if (isAudioError) {
+              // Non-critical: mark audio as disabled but continue playback
               if (!_audioDisabled) {
                 _audioDisabled = true;
                 if (kDebugMode) {
-                  debugPrint(
-                    '[VideoPlayer] Audio disabled due to error: $error',
-                  );
+                  debugPrint('[VideoPlayer] Audio disabled: $error');
                 }
+              }
+              // Don't set _playbackError - allow video to continue
+            } else if (isNetworkError || isFormatError) {
+              // Critical: these prevent video playback
+              if (kDebugMode) {
+                debugPrint('[VideoPlayer] Critical error: $error');
+              }
+              if (!_playbackError) {
+                setState(() {
+                  _playbackError = true;
+                  _errorMessage =
+                      isNetworkError
+                          ? 'Network error. Please check your connection.'
+                          : 'Video format not supported.';
+                });
               }
             }
           }
+
+          // Monitor playback state and auto-resume if paused unexpectedly
+          // Only during initial playback (first 2 seconds)
+          if (_videoPlayerController.value.isInitialized &&
+              !_videoPlayerController.value.isPlaying &&
+              !_videoPlayerController.value.hasError &&
+              _videoPlayerController.value.position.inSeconds < 2) {
+            // Check if this is an unexpected pause (not user-initiated)
+            if (_chewieController != null &&
+                _chewieController!.isPlaying == false &&
+                _videoPlayerController.value.position.inMilliseconds > 0) {
+              if (kDebugMode) {
+                debugPrint(
+                  '[VideoPlayer] Detected unexpected pause at ${_videoPlayerController.value.position}, resuming...',
+                );
+              }
+              // Resume playback
+              Future.delayed(Duration(milliseconds: 100), () {
+                if (mounted &&
+                    _videoPlayerController.value.isInitialized &&
+                    !_videoPlayerController.value.isPlaying &&
+                    !_videoPlayerController.value.hasError) {
+                  _chewieController?.play();
+                }
+              });
+            }
+          }
+
           setState(() {});
         }
       };
       _videoPlayerController.addListener(_videoListener!);
 
-      // Initialize controller with error handling
-      try {
-        await _videoPlayerController.initialize();
+      // Initialize with timeout
+      await _videoPlayerController.initialize().timeout(
+        Duration(seconds: _initializationTimeoutSeconds),
+        onTimeout: () {
+          throw TimeoutException('Video initialization timed out');
+        },
+      );
 
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Video initialized successfully');
+        debugPrint('[VideoPlayer] Size: ${_videoPlayerController.value.size}');
+        debugPrint(
+          '[VideoPlayer] Duration: ${_videoPlayerController.value.duration}',
+        );
+      }
+
+      // Check if initialization was successful
+      if (!_videoPlayerController.value.hasError) {
+        // Let Chewie handle volume control through its UI
+        // Premature volume control causes AudioTrack failures on emulators
         if (kDebugMode) {
-          debugPrint('[VideoPlayer] Video initialized successfully');
           debugPrint(
-            '[VideoPlayer] Size: ${_videoPlayerController.value.size}',
-          );
-          debugPrint(
-            '[VideoPlayer] Duration: ${_videoPlayerController.value.duration}',
+            '[VideoPlayer] Video ready, volume control delegated to Chewie',
           );
         }
 
-        // Check if initialization was successful
-        if (!_videoPlayerController.value.hasError) {
-          // Set volume to 0 to minimize audio issues
-          try {
-            await _videoPlayerController.setVolume(0.0);
-          } catch (volumeError) {
-            if (kDebugMode) {
-              debugPrint(
-                '[VideoPlayer] Volume control error (non-critical): $volumeError',
-              );
+        setState(() {
+          _chewieController?.dispose();
+          _chewieController = _createChewieController(true);
+        });
+
+        widget.onControllerInitialized?.call(_videoPlayerController);
+
+        // Wait for Chewie to fully initialize before ensuring playback starts
+        // Multiple checks to ensure playback actually starts
+        Future.delayed(Duration(milliseconds: 300), () {
+          if (mounted && _chewieController != null) {
+            // Check if Chewie controller is ready and video should be playing
+            if (_videoPlayerController.value.isInitialized &&
+                !_videoPlayerController.value.isPlaying &&
+                !_videoPlayerController.value.hasError) {
+              if (kDebugMode) {
+                debugPrint(
+                  '[VideoPlayer] Chewie ready, ensuring playback starts (first check)',
+                );
+              }
+              // Use Chewie's play method which handles everything properly
+              _chewieController!.play();
             }
           }
+        });
 
-          setState(() {
-            _chewieController?.dispose();
-            _chewieController = _createChewieController(true);
-          });
+        // Additional safety check after 800ms to catch any race conditions
+        Future.delayed(Duration(milliseconds: 800), () {
+          if (mounted && _chewieController != null) {
+            if (_videoPlayerController.value.isInitialized &&
+                !_videoPlayerController.value.isPlaying &&
+                !_videoPlayerController.value.hasError) {
+              if (kDebugMode) {
+                debugPrint(
+                  '[VideoPlayer] Second check - forcing playback to start',
+                );
+              }
+              _chewieController!.play();
+            }
+          }
+        });
 
-          widget.onControllerInitialized?.call(_videoPlayerController);
-        } else {
-          throw Exception(
-            'Video controller has error: ${_videoPlayerController.value.errorDescription}',
-          );
-        }
-      } catch (initError) {
-        if (kDebugMode) {
-          debugPrint('[VideoPlayer] Initialization error: $initError');
-        }
-        rethrow;
+        // Reset retry counter on success
+        _currentRetryAttempt = 0;
+      } else {
+        throw Exception(
+          'Video controller has error: ${_videoPlayerController.value.errorDescription}',
+        );
       }
+    } on TimeoutException catch (e) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Timeout error: $e');
+      }
+
+      // Retry logic
+      if (_currentRetryAttempt < _maxRetryAttempts) {
+        _currentRetryAttempt++;
+        if (kDebugMode) {
+          debugPrint('[VideoPlayer] Retrying... Attempt $_currentRetryAttempt');
+        }
+        await Future.delayed(Duration(seconds: 2));
+
+        // Clean up before retry
+        try {
+          if (_videoListener != null) {
+            _videoPlayerController.removeListener(_videoListener!);
+          }
+          await _videoPlayerController.dispose();
+        } catch (_) {}
+
+        await _prepareControllerWithCache(url);
+        return;
+      }
+
+      setState(() {
+        _playbackError = true;
+        _errorMessage =
+            'Video loading timed out after $_maxRetryAttempts attempts. Please check your connection.';
+      });
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[VideoPlayer] Critical error: $e');
@@ -185,11 +329,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       if (e.toString().contains('AudioTrack') ||
           e.toString().contains('AudioSink') ||
           e.toString().contains('audio')) {
+        // This shouldn't fail playback anymore, but if it does:
         errorMsg =
-            'Audio playback not supported on this device.\nVideo may still work on a physical device.';
+            'Audio not supported on this device. Video playback unavailable.';
       } else if (e.toString().contains('network') ||
-          e.toString().contains('connection')) {
+          e.toString().contains('connection') ||
+          e.toString().contains('timeout')) {
         errorMsg = 'Network error. Please check your connection.';
+      } else if (e.toString().contains('format') ||
+          e.toString().contains('codec')) {
+        errorMsg = 'Video format not supported.';
       }
 
       setState(() {
@@ -199,43 +348,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     }
   }
 
-  Future<void> _switchToCachedFile(File file) async {
-    try {
-      final currentPosition = _videoPlayerController.value.position;
-      final wasPlaying = _videoPlayerController.value.isPlaying;
-
-      if (_videoListener != null) {
-        _videoPlayerController.removeListener(_videoListener!);
-      }
-
-      await _videoPlayerController.pause();
-      await _videoPlayerController.dispose();
-
-      _usingCachedFile = true;
-      _videoPlayerController = VideoPlayerController.file(file);
-
-      await _videoPlayerController.initialize();
-      await _videoPlayerController.seekTo(currentPosition);
-
-      if (wasPlaying) {
-        await _videoPlayerController.play();
-      }
-
-      _videoListener = () {
-        if (mounted) setState(() {});
-      };
-      _videoPlayerController.addListener(_videoListener!);
-
-      setState(() {
-        _chewieController?.dispose();
-        _chewieController = _createChewieController(wasPlaying);
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[VideoPlayer] Error switching to cached file: $e');
-      }
-    }
-  }
+  // REMOVED: _switchToCachedFile method
+  // Reason: Causes playback interruptions when switching controllers mid-playback.
+  // Cached files will be used on next video load instead.
 
   ChewieController _createChewieController(bool autoPlay) {
     return ChewieController(
@@ -254,7 +369,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         DeviceOrientation.portraitDown,
       ],
       fullScreenByDefault: false,
-      allowMuting: true,
+      // Removed allowMuting to prevent audio conflicts
+      // Chewie will handle muting through its built-in controls
+      errorBuilder: (context, errorMessage) {
+        return _buildChewieErrorWidget(errorMessage);
+      },
       materialProgressColors: ChewieProgressColors(
         playedColor: appColors().primaryColorApp,
         handleColor: appColors().primaryColorApp.withOpacity(0.8),
@@ -268,6 +387,42 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         ),
       ),
       autoInitialize: true,
+    );
+  }
+
+  Widget _buildChewieErrorWidget(String errorMessage) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.play_circle_outline,
+                color: Colors.white54,
+                size: 48.w,
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'Playback Error',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                errorMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 13.sp),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

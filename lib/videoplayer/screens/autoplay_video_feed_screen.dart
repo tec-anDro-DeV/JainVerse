@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
@@ -210,21 +211,37 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
     await _sharedController?.dispose();
 
     try {
-      // Create new controller
+      // Create new controller with HTTP headers
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(item.videoUrl),
+        httpHeaders: {'Accept': '*/*', 'Connection': 'keep-alive'},
       );
 
-      // Initialize
-      await controller.initialize();
+      // Initialize with timeout
+      await controller.initialize().timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Autoplay video initialization timed out');
+        },
+      );
 
       if (!mounted) {
         controller.dispose();
         return;
       }
 
-      // Set volume to 0 (muted)
-      await controller.setVolume(0.0);
+      // Set volume to 0 for AUTOPLAY ONLY (silent scroll feed)
+      // This is acceptable here because autoplay videos are meant to be silent
+      try {
+        await controller.setVolume(0.0);
+      } catch (volumeError) {
+        if (kDebugMode) {
+          debugPrint(
+            '[Autoplay] Volume control error (ignoring): $volumeError',
+          );
+        }
+        // Continue anyway - video is more important than audio in autoplay
+      }
 
       // Enable looping
       await controller.setLooping(true);
@@ -234,10 +251,21 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
         _currentlyPlayingIndex = index;
       });
 
-      // Start playing
-      controller.play();
+      // Start playing with error handling
+      controller.play().catchError((e) {
+        if (kDebugMode) {
+          debugPrint('[Autoplay] Play error (ignoring): $e');
+        }
+        // Don't fail - just continue
+      });
+    } on TimeoutException catch (e) {
+      debugPrint('Autoplay timeout at index $index: $e');
+      setState(() {
+        _sharedController = null;
+        _currentlyPlayingIndex = null;
+      });
     } catch (e) {
-      debugPrint('Error playing video at index $index: $e');
+      debugPrint('Error playing autoplay video at index $index: $e');
       setState(() {
         _sharedController = null;
         _currentlyPlayingIndex = null;
@@ -249,9 +277,29 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
     _itemVisibility[index] = visibilityFraction;
   }
 
-  void _openFullPlayer(VideoItem item) {
-    // Pause autoplay
+  Future<void> _openFullPlayer(VideoItem item) async {
+    // Pause and dispose autoplay controller to prevent race condition
     _pauseCurrentVideo();
+
+    // Cancel any pending autoplay timers
+    _autoplayTimer?.cancel();
+
+    // Dispose the shared controller immediately to avoid conflicts
+    if (_sharedController != null) {
+      try {
+        await _sharedController!.pause();
+        await _sharedController!.dispose();
+      } catch (e) {
+        debugPrint('[AutoplayFeed] Error disposing controller: $e');
+      }
+    }
+    _sharedController = null;
+    _currentlyPlayingIndex = null;
+
+    // Small delay to ensure cleanup is complete
+    await Future.delayed(Duration(milliseconds: 100));
+
+    if (!mounted) return;
 
     // Sync video item with latest global state before navigation
     final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();

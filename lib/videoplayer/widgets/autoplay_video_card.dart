@@ -44,6 +44,13 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
     if (widget.shouldPlay != oldWidget.shouldPlay) {
       _updatePlaybackState();
     }
+
+    // If controller changed, update visibility state
+    if (widget.sharedController != oldWidget.sharedController) {
+      if (!widget.shouldPlay || widget.sharedController == null) {
+        setState(() => _isVideoVisible = false);
+      }
+    }
   }
 
   void _updatePlaybackState() {

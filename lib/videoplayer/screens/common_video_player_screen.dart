@@ -322,6 +322,9 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: VideoPlayerWidget(
+                      key: ValueKey(
+                        widget.videoUrl,
+                      ), // Prevent unnecessary widget recreation
                       videoUrl: widget.videoUrl,
                       overlayVisibleMs: widget.overlayVisibleMs,
                       fadeDurationMs: widget.fadeDurationMs,
