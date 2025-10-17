@@ -1,0 +1,538 @@
+import 'package:audio_service/audio_service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/services/panchang_service.dart';
+import 'package:jainverse/widgets/panchang/panchang_calendar_widget.dart';
+
+class PanchangCalendarScreen extends StatefulWidget {
+  const PanchangCalendarScreen({super.key});
+
+  @override
+  State<PanchangCalendarScreen> createState() => _PanchangCalendarScreenState();
+}
+
+class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
+  late DateTime selectedDate;
+  late PanchangService panchangService;
+  Map<String, dynamic>? panchangData;
+  bool isLoading = true;
+  AudioHandler? _audioHandler;
+
+  // Default location - India (can be made customizable)
+  double latitude = 23.0225; // India center
+  double longitude = 72.5714;
+  double timezone = 5.5; // IST
+
+  @override
+  void initState() {
+    super.initState();
+    // Normalize to midnight to ensure consistent calculations
+    final now = DateTime.now();
+    selectedDate = DateTime(now.year, now.month, now.day);
+    _audioHandler = const MyApp().called();
+    _loadPanchangData();
+  }
+
+  void _loadPanchangData() {
+    setState(() {
+      isLoading = true;
+    });
+
+    // Create Panchang service with selected date
+    panchangService = PanchangService(
+      date: selectedDate,
+      latitude: latitude,
+      longitude: longitude,
+      timezone: timezone,
+    );
+
+    // Get Panchang data
+    panchangData = panchangService.getPanchang();
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  void _selectDate(DateTime date) {
+    setState(() {
+      selectedDate = date;
+      _loadPanchangData();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors();
+
+    return Scaffold(
+      backgroundColor: colors.white,
+      appBar: AppBar(
+        backgroundColor: colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colors.primaryColorApp[50]),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Panchang Calendar',
+          style: TextStyle(
+            color: colors.primaryColorApp[50],
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.today, color: colors.primaryColorApp[50]),
+            onPressed: () {
+              // Normalize to midnight to ensure consistent calculations
+              final now = DateTime.now();
+              _selectDate(DateTime(now.year, now.month, now.day));
+            },
+            tooltip: 'Go to Today',
+          ),
+        ],
+      ),
+      body:
+          isLoading
+              ? Center(
+                child: CircularProgressIndicator(
+                  color: colors.primaryColorApp[50],
+                ),
+              )
+              : StreamBuilder<MediaItem?>(
+                stream: _audioHandler?.mediaItem,
+                builder: (context, snapshot) {
+                  // Calculate proper bottom padding accounting for mini player and navigation
+                  final hasMiniPlayer = snapshot.hasData;
+                  final bottomPadding =
+                      hasMiniPlayer
+                          ? AppSizes.basePadding +
+                              AppSizes.miniPlayerPadding +
+                              100.w
+                          : AppSizes.basePadding +
+                              AppSizes.miniPlayerPadding +
+                              20.w;
+
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: bottomPadding),
+                    child: Column(
+                      children: [
+                        // Calendar Widget
+                        PanchangCalendarWidget(
+                          selectedDate: selectedDate,
+                          onDateSelected: _selectDate,
+                          latitude: latitude,
+                          longitude: longitude,
+                          timezone: timezone,
+                        ),
+
+                        SizedBox(height: 20.w),
+
+                        // Date Header (simple)
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 8.w,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('EEEE').format(selectedDate),
+                                    style: TextStyle(
+                                      color: colors.colorText[50],
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2.w),
+                                  Text(
+                                    DateFormat(
+                                      'dd MMMM yyyy',
+                                    ).format(selectedDate),
+                                    style: TextStyle(
+                                      color: colors.colorText[50],
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                Icons.calendar_today,
+                                color: colors.primaryColorApp[50],
+                                size: 28.w,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: 12.w),
+
+                        // Panchang Elements
+                        _buildPanchangCard(
+                          colors,
+                          'Tithi (Lunar Day)',
+                          Icons.brightness_3,
+                          panchangData!['tithi'],
+                          Colors.indigo,
+                        ),
+
+                        _buildPanchangCard(
+                          colors,
+                          'Nakshatra (Lunar Mansion)',
+                          Icons.star,
+                          panchangData!['nakshatra'],
+                          Colors.purple,
+                        ),
+
+                        _buildPanchangCard(
+                          colors,
+                          'Yoga',
+                          Icons.self_improvement,
+                          panchangData!['yoga'],
+                          Colors.teal,
+                        ),
+
+                        _buildPanchangCard(
+                          colors,
+                          'Karana',
+                          Icons.timelapse,
+                          panchangData!['karana'],
+                          Colors.orange,
+                        ),
+
+                        _buildRashiCard(colors),
+
+                        const SizedBox(height: 16),
+
+                        // Sun Times moved to the end of the screen
+                        _buildSunTimesCard(colors),
+
+                        SizedBox(height: 20.w),
+                      ],
+                    ),
+                  );
+                },
+              ),
+    );
+  }
+
+  Widget _buildSunTimesCard(appColors colors) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: colors.white[50],
+        borderRadius: BorderRadius.circular(15.w),
+        boxShadow: [
+          BoxShadow(
+            color: colors.gray[300]!.withOpacity(0.5),
+            blurRadius: 10.w,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSunTimeItem(
+              colors,
+              'Sunrise',
+              panchangData!['sunrise'],
+              Icons.wb_sunny,
+              Colors.orange,
+            ),
+          ),
+          Container(width: 1.w, height: 60.w, color: colors.gray[300]),
+          Expanded(
+            child: _buildSunTimeItem(
+              colors,
+              'Sunset',
+              panchangData!['sunset'],
+              Icons.nights_stay,
+              Colors.deepPurple,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSunTimeItem(
+    appColors colors,
+    String label,
+    String time,
+    IconData icon,
+    Color iconColor,
+  ) {
+    return Column(
+      children: [
+        Icon(icon, color: iconColor, size: 32.w),
+        SizedBox(height: 8.w),
+        Text(
+          label,
+          style: TextStyle(
+            color: colors.gray[600],
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        SizedBox(height: 4.w),
+        Text(
+          time,
+          style: TextStyle(
+            color: colors.colorText[50],
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanchangCard(
+    appColors colors,
+    String title,
+    IconData icon,
+    Map<String, dynamic> data,
+    Color accentColor,
+  ) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.w),
+      decoration: BoxDecoration(
+        color: colors.white[50],
+        borderRadius: BorderRadius.circular(15.w),
+        boxShadow: [
+          BoxShadow(
+            color: colors.gray[300]!.withOpacity(0.5),
+            blurRadius: 10.w,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(15.w),
+                topRight: Radius.circular(15.w),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(10.w),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24.w),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: colors.colorText[50],
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      data['name'],
+                      style: TextStyle(
+                        color: colors.colorText[50],
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (data.containsKey('paksha'))
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 6.w,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20.w),
+                        ),
+                        child: Text(
+                          data['paksha'] + ' Paksha',
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: 12.w),
+
+                if (data.containsKey('lord'))
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 12.w),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.account_circle,
+                          color: colors.gray[600],
+                          size: 16.w,
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Lord: ${data['lord']}',
+                          style: TextStyle(
+                            color: colors.gray[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRashiCard(appColors colors) {
+    Map<String, String> rashi = panchangData!['rashi'];
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.w),
+      decoration: BoxDecoration(
+        color: colors.white[50],
+        borderRadius: BorderRadius.circular(15.w),
+        boxShadow: [
+          BoxShadow(
+            color: colors.gray[300]!.withOpacity(0.5),
+            blurRadius: 10.w,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: Colors.deepOrange.withOpacity(0.1),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(15.w),
+                topRight: Radius.circular(15.w),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange,
+                    borderRadius: BorderRadius.circular(10.w),
+                  ),
+                  child: const Icon(Icons.album, color: Colors.white, size: 24),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    'Rashi (Zodiac Signs)',
+                    style: TextStyle(
+                      color: colors.colorText[50],
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              children: [
+                _buildRashiItem(colors, 'Sun', rashi['sun']!, Icons.wb_sunny),
+                SizedBox(height: 12.w),
+                Divider(color: colors.gray[300]),
+                SizedBox(height: 12.w),
+                _buildRashiItem(
+                  colors,
+                  'Moon',
+                  rashi['moon']!,
+                  Icons.brightness_3,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRashiItem(
+    appColors colors,
+    String celestialBody,
+    String rashi,
+    IconData icon,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, color: colors.primaryColorApp[50], size: 28.w),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                celestialBody,
+                style: TextStyle(color: colors.gray[600], fontSize: 14),
+              ),
+              SizedBox(height: 4.w),
+              Text(
+                rashi,
+                style: TextStyle(
+                  color: colors.colorText[50],
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

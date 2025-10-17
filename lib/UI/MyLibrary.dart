@@ -41,6 +41,7 @@ import 'MusicEntryPoint.dart'; // Contains Music class
 import 'playlist_screen.dart';
 import '../videoplayer/screens/liked_videos_screen.dart';
 import '../videoplayer/screens/subscribed_channels_screen.dart';
+import 'PanchangCalendarScreen.dart';
 
 // LibraryItem class for UI items
 class LibraryItem {
@@ -109,6 +110,11 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
   // Library items data
   final List<LibraryItem> libraryItems = [
+    LibraryItem(
+      icon: Icons.calendar_today_outlined,
+      title: 'Panchang Calendar',
+      color: appColors().primaryColorApp,
+    ),
     LibraryItem(
       icon: Icons.queue_music_outlined,
       title: 'Playlist',
@@ -573,6 +579,14 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     _isNavigatingBack = true;
 
     switch (title) {
+      case 'Panchang Calendar':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PanchangCalendarScreen(),
+          ),
+        );
+        break;
       case 'Playlist':
         Navigator.push(
           context,
