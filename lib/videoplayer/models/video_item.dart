@@ -16,6 +16,7 @@ class VideoItem {
   final bool? subscribed;
   final int? like; // 0 = neutral, 1 = liked, 2 = disliked
   final int? totalViews;
+  final bool isOwn;
 
   VideoItem({
     required this.id,
@@ -32,6 +33,7 @@ class VideoItem {
     this.subscribed,
     this.like,
     this.totalViews,
+    this.isOwn = false,
   });
 
   factory VideoItem.fromJson(Map<String, dynamic> j) {
@@ -80,6 +82,15 @@ class VideoItem {
       return null;
     }
 
+    bool parseIsOwn(dynamic v) {
+      if (v == null) return false;
+      if (v is bool) return v;
+      if (v is int) return v == 1;
+      final s = v.toString().toLowerCase().trim();
+      if (s == '1' || s == 'true') return true;
+      return false;
+    }
+
     return VideoItem(
       id: parseInt(j['id']) ?? 0,
       title: extractString(j, ['title', 'name']),
@@ -90,21 +101,24 @@ class VideoItem {
         'thumbnail',
       ]),
       duration: extractString(j, ['duration']),
-      description:
-          j['description'] != null ? j['description'].toString() : null,
+      description: j['description'] != null
+          ? j['description'].toString()
+          : null,
       channelId: parseInt(j['channel_id']),
-      channelName:
-          j['channel_name'] != null ? j['channel_name'].toString() : null,
-      channelHandle:
-          j['channel_handle'] != null ? j['channel_handle'].toString() : null,
-      channelImageUrl:
-          j['channel_image_url'] != null
-              ? j['channel_image_url'].toString()
-              : null,
+      channelName: j['channel_name'] != null
+          ? j['channel_name'].toString()
+          : null,
+      channelHandle: j['channel_handle'] != null
+          ? j['channel_handle'].toString()
+          : null,
+      channelImageUrl: j['channel_image_url'] != null
+          ? j['channel_image_url'].toString()
+          : null,
       createdAt: parseDate(j['created_at']),
       subscribed: parseSubscribed(j['subscribed']),
       like: parseLike(j['like']),
       totalViews: parseInt(j['total_views']),
+      isOwn: parseIsOwn(j['is_own']),
     );
   }
 
@@ -124,6 +138,7 @@ class VideoItem {
     bool? subscribed,
     int? like,
     int? totalViews,
+    bool? isOwn,
   }) {
     return VideoItem(
       id: id ?? this.id,
@@ -140,6 +155,7 @@ class VideoItem {
       subscribed: subscribed ?? this.subscribed,
       like: like ?? this.like,
       totalViews: totalViews ?? this.totalViews,
+      isOwn: isOwn ?? this.isOwn,
     );
   }
 }

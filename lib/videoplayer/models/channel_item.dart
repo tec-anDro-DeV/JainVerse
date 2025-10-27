@@ -10,6 +10,7 @@ class ChannelItem {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool? subscribed;
+  final bool isOwn;
 
   ChannelItem({
     required this.id,
@@ -22,6 +23,7 @@ class ChannelItem {
     this.createdAt,
     this.updatedAt,
     this.subscribed,
+    this.isOwn = false,
   });
 
   factory ChannelItem.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,15 @@ class ChannelItem {
       return null;
     }
 
+    bool parseIsOwn(dynamic v) {
+      if (v == null) return false;
+      if (v is bool) return v;
+      if (v is int) return v == 1;
+      final s = v.toString().toLowerCase().trim();
+      if (s == '1' || s == 'true') return true;
+      return false;
+    }
+
     return ChannelItem(
       id: json['id'] ?? 0,
       userId: json['user_id'] ?? 0,
@@ -55,6 +66,7 @@ class ChannelItem {
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
       subscribed: parseSubscribed(json['subscribed']),
+      isOwn: parseIsOwn(json['is_own']),
     );
   }
 
@@ -70,6 +82,7 @@ class ChannelItem {
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'subscribed': subscribed,
+      'is_own': isOwn,
     };
   }
 
@@ -84,6 +97,7 @@ class ChannelItem {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? subscribed,
+    bool? isOwn,
   }) {
     return ChannelItem(
       id: id ?? this.id,
@@ -96,6 +110,7 @@ class ChannelItem {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       subscribed: subscribed ?? this.subscribed,
+      isOwn: isOwn ?? this.isOwn,
     );
   }
 }

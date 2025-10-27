@@ -528,7 +528,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                         ),
                       SizedBox(width: 8.w),
                       // Subscribe button on the right
-                      if (widget.videoItem?.channelId != null)
+                      if (widget.videoItem?.channelId != null &&
+                          (widget.videoItem?.isOwn ?? false) == false)
                         AnimatedSubscribeButton(
                           isSubscribed: _isSubscribed,
                           onPressed: _toggleSubscription,

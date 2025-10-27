@@ -13,6 +13,7 @@ import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/main.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 class ChannelVideosScreen extends StatefulWidget {
   final int channelId;
@@ -36,6 +37,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   // Channel info from API response
   Map<String, dynamic>? _channelData;
   bool? _isSubscribed;
+  int? _currentUserId;
 
   @override
   void initState() {
@@ -51,7 +53,41 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
     SubscriptionStateManager().addListener(_onSubscriptionChanged);
     LikeDislikeStateManager().addListener(_onLikeDislikeChanged);
 
+    _loadCurrentUserId();
     _vm.refresh(channelId: widget.channelId);
+  }
+
+  /// Load the current logged-in user's ID
+  Future<void> _loadCurrentUserId() async {
+    try {
+      final sharedPref = SharedPref();
+      final userData = await sharedPref.getUserData();
+      if (mounted && userData != null) {
+        setState(() {
+          _currentUserId = userData.id;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading current user ID: $e');
+    }
+  }
+
+  /// Check if the channel belongs to the current user
+  bool _isOwnChannel() {
+    // Primary check: compare user IDs from channel data
+    if (_currentUserId != null && _channelData != null) {
+      final channelUserId = _channelData!['user_id'];
+      if (_currentUserId == channelUserId) {
+        return true;
+      }
+    }
+
+    // Secondary check: if any video item has is_own flag, it's the user's channel
+    if (_vm.items.isNotEmpty) {
+      return _vm.items.any((video) => video.isOwn);
+    }
+
+    return false;
   }
 
   @override
@@ -76,14 +112,27 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
       _isSubscribed = _vm.channelInfo?['subscribed'] == 1;
     }
 
+    // Also check if any video items have is_own flag set to determine channel ownership
+    if (_vm.items.isNotEmpty && _currentUserId == null) {
+      final firstVideo = _vm.items.first;
+      if (firstVideo.isOwn) {
+        // If any video is marked as own, this is the user's channel
+        // No need to check user ID further
+      }
+    }
+
     setState(() {});
   }
 
   // Handle subscription toggle with optimistic updates
   Future<void> _toggleSubscription() async {
-    final previousState = _isSubscribed;
+    // Don't allow subscription toggle if this is user's own channel
+    if (_isOwnChannel()) {
+      return;
+    }
 
-    // Optimistic update - change UI immediately
+    final previousState =
+        _isSubscribed; // Optimistic update - change UI immediately
     setState(() {
       _isSubscribed = !(_isSubscribed ?? false);
     });
@@ -305,6 +354,9 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
     final String description = _channelData!['description'] ?? '';
     final String createdAt = _channelData!['created_at'] ?? '';
 
+    // Check if this is the user's own channel by comparing user IDs
+    final bool isOwn = _isOwnChannel();
+
     return Column(
       children: [
         // Banner Section with Avatar Overlay
@@ -413,11 +465,12 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
                     ),
                   ),
                   SizedBox(width: 12.w),
-                  // Subscribe Button
-                  AnimatedSubscribeButton(
-                    isSubscribed: _isSubscribed ?? false,
-                    onPressed: _toggleSubscription,
-                  ),
+                  // Subscribe Button - only show if not own channel
+                  if (!isOwn)
+                    AnimatedSubscribeButton(
+                      isSubscribed: _isSubscribed ?? false,
+                      onPressed: _toggleSubscription,
+                    ),
                 ],
               ),
 
