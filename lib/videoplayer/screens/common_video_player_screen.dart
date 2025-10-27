@@ -24,6 +24,7 @@ import 'package:jainverse/videoplayer/widgets/animated_like_dislike_buttons.dart
 import 'package:jainverse/videoplayer/services/like_dislike_service.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/services/watch_history_service.dart';
+import 'package:jainverse/videoplayer/widgets/video_report_modal.dart';
 
 class CommonVideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -181,14 +182,9 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     setState(() => _isSubscribed = !_isSubscribed);
 
     try {
-      final success =
-          previousState
-              ? await _subscriptionService.unsubscribeChannel(
-                channelId: channelId,
-              )
-              : await _subscriptionService.subscribeChannel(
-                channelId: channelId,
-              );
+      final success = previousState
+          ? await _subscriptionService.unsubscribeChannel(channelId: channelId)
+          : await _subscriptionService.subscribeChannel(channelId: channelId);
 
       // If failed, revert the UI
       if (!success && mounted) {
@@ -276,6 +272,41 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     }
   }
 
+  /// Show the report modal for reporting the video
+  void _showReportModal() {
+    final videoId = widget.videoItem?.id;
+    if (videoId == null) return;
+
+    // Show modal bottom sheet with an initial height of 80% of the screen.
+    // Use isScrollControlled so the sheet can occupy more vertical space.
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final media = MediaQuery.of(context);
+        final height = media.size.height * 0.8; // 80% initial height
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+          child: SizedBox(
+            height: height,
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20.w)),
+              child: Material(
+                color: Colors.white,
+                child: VideoReportModal(
+                  videoId: videoId,
+                  videoTitle: widget.videoTitle,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Mark the video as watched in watch history
   /// This is called when video starts playing (not for autoplay)
   Future<void> _markVideoAsWatched() async {
@@ -309,11 +340,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     if (channelId == null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => ChannelVideosScreen(
-              channelId: channelId,
-              channelName: widget.videoItem?.channelName,
-            ),
+        builder: (_) => ChannelVideosScreen(
+          channelId: channelId,
+          channelName: widget.videoItem?.channelName,
+        ),
       ),
     );
   }
@@ -444,8 +474,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                         _videoPlayerController != null &&
                                 _videoPlayerController!.value.isInitialized
                             ? _formatDuration(
-                              _videoPlayerController!.value.duration,
-                            )
+                                _videoPlayerController!.value.duration,
+                              )
                             : '--:--',
                         style: TextStyle(
                           color: Colors.grey.shade600,
@@ -514,6 +544,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                         likeState: _likeState,
                         onLike: _toggleLike,
                         onDislike: _toggleDislike,
+                        onReport: _showReportModal,
                       ),
                     ],
                   ),
@@ -565,10 +596,9 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                                   Text(
                                     desc,
                                     maxLines: _descExpanded ? null : 3,
-                                    overflow:
-                                        _descExpanded
-                                            ? TextOverflow.visible
-                                            : TextOverflow.ellipsis,
+                                    overflow: _descExpanded
+                                        ? TextOverflow.visible
+                                        : TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Colors.grey.shade700,
                                       fontSize: 14.sp,
@@ -649,17 +679,12 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                                       // navigate to full channel page
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder:
-                                              (_) => ChannelVideosScreen(
-                                                channelId:
-                                                    widget
-                                                        .videoItem!
-                                                        .channelId!,
-                                                channelName:
-                                                    widget
-                                                        .videoItem!
-                                                        .channelName,
-                                              ),
+                                          builder: (_) => ChannelVideosScreen(
+                                            channelId:
+                                                widget.videoItem!.channelId!,
+                                            channelName:
+                                                widget.videoItem!.channelName,
+                                          ),
                                         ),
                                       );
                                     },
@@ -844,26 +869,24 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
               (v) => Padding(
                 padding: EdgeInsets.only(bottom: 16.h),
                 child: VideoCard(
-                  item:
-                      v
-                          .syncWithGlobalState()
-                          .syncLikeWithGlobalState(), // Sync with global subscription and like state
+                  item: v
+                      .syncWithGlobalState()
+                      .syncLikeWithGlobalState(), // Sync with global subscription and like state
                   showPopupMenu: true, // Show popup menu in vertical layout
                   onTap: () {
                     final nav = Navigator.of(context);
                     // Sync video item with latest global state before navigation
-                    final syncedItem =
-                        v.syncWithGlobalState().syncLikeWithGlobalState();
+                    final syncedItem = v
+                        .syncWithGlobalState()
+                        .syncLikeWithGlobalState();
                     final route = MaterialPageRoute(
-                      builder:
-                          (_) => CommonVideoPlayerScreen(
-                            videoUrl:
-                                syncedItem.videoUrl.isNotEmpty
-                                    ? syncedItem.videoUrl
-                                    : widget.videoUrl,
-                            videoTitle: syncedItem.title,
-                            videoItem: syncedItem,
-                          ),
+                      builder: (_) => CommonVideoPlayerScreen(
+                        videoUrl: syncedItem.videoUrl.isNotEmpty
+                            ? syncedItem.videoUrl
+                            : widget.videoUrl,
+                        videoTitle: syncedItem.title,
+                        videoItem: syncedItem,
+                      ),
                     );
                     if (nav.canPop()) {
                       nav.pushReplacement(route);
@@ -884,11 +907,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder:
-                        (_) => ChannelVideosScreen(
-                          channelId: widget.videoItem!.channelId!,
-                          channelName: widget.videoItem!.channelName,
-                        ),
+                    builder: (_) => ChannelVideosScreen(
+                      channelId: widget.videoItem!.channelId!,
+                      channelName: widget.videoItem!.channelName,
+                    ),
                   ),
                 );
               },
@@ -910,8 +932,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     // Show loading, error or vertical list
     if (_loadingVideoList && _videoListViewModel.items.isEmpty) {
       // Show 4-8 compact skeleton cards (compute once per loading session)
-      final skeletonCount =
-          _recommendedSkeletonCount ??= (Random().nextInt(5) + 4);
+      final skeletonCount = _recommendedSkeletonCount ??=
+          (Random().nextInt(5) + 4);
       return Column(
         children: List.generate(
           skeletonCount,
@@ -979,26 +1001,24 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
           return Column(
             children: [
               CompactVideoCard(
-                item:
-                    item
-                        .syncWithGlobalState()
-                        .syncLikeWithGlobalState(), // Sync with global subscription and like state
+                item: item
+                    .syncWithGlobalState()
+                    .syncLikeWithGlobalState(), // Sync with global subscription and like state
                 showPopupMenu: true,
                 onTap: () {
                   final nav = Navigator.of(context);
                   // Sync video item with latest global state before navigation
-                  final syncedItem =
-                      item.syncWithGlobalState().syncLikeWithGlobalState();
+                  final syncedItem = item
+                      .syncWithGlobalState()
+                      .syncLikeWithGlobalState();
                   final route = MaterialPageRoute(
-                    builder:
-                        (_) => CommonVideoPlayerScreen(
-                          videoUrl:
-                              syncedItem.videoUrl.isNotEmpty
-                                  ? syncedItem.videoUrl
-                                  : widget.videoUrl,
-                          videoTitle: syncedItem.title,
-                          videoItem: syncedItem,
-                        ),
+                    builder: (_) => CommonVideoPlayerScreen(
+                      videoUrl: syncedItem.videoUrl.isNotEmpty
+                          ? syncedItem.videoUrl
+                          : widget.videoUrl,
+                      videoTitle: syncedItem.title,
+                      videoItem: syncedItem,
+                    ),
                   );
                   if (nav.canPop()) {
                     nav.pushReplacement(route);

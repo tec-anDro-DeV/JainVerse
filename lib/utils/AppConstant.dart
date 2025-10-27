@@ -58,6 +58,8 @@ class AppConstant {
   static const String API_GET_SUBSCRIBED_CHANNELS = "get_subscribed_channels";
   static const String API_SUBSCRIBE_CHANNEL = "subscribe_channel";
   static const String API_UNSUBSCRIBE_CHANNEL = "unsubscribe_channel";
+  static const String API_VIDEO_REPORT_OPTIONS = "video_report_options";
+  static const String API_REPORT_VIDEO = "report_video";
 
   static const String API_CREATE_STATION = "station";
   static const String API_GET_COUNTRY = "get_country";

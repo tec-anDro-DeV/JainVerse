@@ -7,18 +7,22 @@ class AnimatedLikeDislikeButtons extends StatefulWidget {
   final int likeState; // 0=neutral, 1=liked, 2=disliked
   final VoidCallback onLike;
   final VoidCallback onDislike;
+  final VoidCallback? onReport;
   final double? iconSize;
   final Color? activeColor;
   final Color? inactiveColor;
+  final bool showReportButton;
 
   const AnimatedLikeDislikeButtons({
     super.key,
     required this.likeState,
     required this.onLike,
     required this.onDislike,
+    this.onReport,
     this.iconSize,
     this.activeColor,
     this.inactiveColor,
+    this.showReportButton = true,
   });
 
   @override
@@ -90,18 +94,59 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
           iconSize: iconSize,
           onPressed: widget.onDislike,
         ),
+        // Report button (icon + text)
+        if (widget.showReportButton && widget.onReport != null) ...[
+          SizedBox(width: 8.w),
+          _buildButton(
+            icon: Icons.flag_outlined,
+            label: 'Report',
+            isActive: false,
+            activeColor: Colors.orange.shade600,
+            inactiveColor: inactiveColor,
+            iconSize: iconSize,
+            onPressed: widget.onReport!,
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildButton({
     required IconData icon,
+    String? label,
     required bool isActive,
     required Color activeColor,
     required Color inactiveColor,
     required double iconSize,
     required VoidCallback onPressed,
   }) {
+    final content = label == null
+        ? Icon(
+            icon,
+            size: iconSize,
+            color: isActive ? activeColor : inactiveColor,
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: iconSize,
+                color: isActive ? activeColor : inactiveColor,
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: TextStyle(
+                  // Smaller label to keep the button compact
+                  fontSize: 14.sp,
+                  color: isActive ? activeColor : inactiveColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          );
+
     return ScaleTransition(
       scale: isActive ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
       child: Material(
@@ -110,12 +155,11 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
           onTap: onPressed,
           borderRadius: BorderRadius.circular(20.w),
           child: Padding(
-            padding: EdgeInsets.all(8.w),
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: isActive ? activeColor : inactiveColor,
+            padding: EdgeInsets.symmetric(
+              horizontal: label == null ? 8.w : 12.w,
+              vertical: 8.w,
             ),
+            child: content,
           ),
         ),
       ),
