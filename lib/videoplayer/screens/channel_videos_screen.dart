@@ -33,10 +33,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   final ScrollController _scrollController = ScrollController();
   final SubscriptionService _subscriptionService = SubscriptionService();
 
-  // Channel info from first video (all videos have same channel info)
-  String? _channelName;
-  String? _channelHandle;
-  String? _channelImageUrl;
+  // Channel info from API response
+  Map<String, dynamic>? _channelData;
   bool? _isSubscribed;
 
   @override
@@ -72,13 +70,10 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   void _onVm() {
     if (!mounted) return;
 
-    // Extract channel info from first video if available
-    if (_vm.items.isNotEmpty && _channelName == null) {
-      final firstVideo = _vm.items.first;
-      _channelName = firstVideo.channelName ?? widget.channelName;
-      _channelHandle = firstVideo.channelHandle;
-      _channelImageUrl = firstVideo.channelImageUrl;
-      _isSubscribed = firstVideo.subscribed;
+    // Extract channel info from ViewModel if available
+    if (_vm.channelInfo != null && _channelData == null) {
+      _channelData = _vm.channelInfo;
+      _isSubscribed = _vm.channelInfo?['subscribed'] == 1;
     }
 
     setState(() {});
@@ -168,7 +163,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          _channelName ?? widget.channelName ?? 'Channel Videos',
+          _channelData?['name'] ?? widget.channelName ?? 'Channel Videos',
           style: TextStyle(
             color: Colors.black87,
             fontSize: 18.sp,
@@ -200,16 +195,15 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
 
         // Calculate bottom padding based on mini player and nav bar
         // Assuming navigation bar is always present, adjust if needed
-        final bottomPadding =
-            hasMiniPlayer
-                ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
-                : AppSizes.basePadding + 25.w;
+        final bottomPadding = hasMiniPlayer
+            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
+            : AppSizes.basePadding + 25.w;
 
         return CustomScrollView(
           controller: _scrollController,
           slivers: [
             // Channel header section
-            if (_channelName != null || _channelImageUrl != null)
+            if (_channelData != null)
               SliverToBoxAdapter(child: _buildChannelHeader()),
 
             // Video list with bottom padding for mini player
@@ -237,15 +231,15 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
                       onTap: () {
                         final nav = Navigator.of(context);
                         // Sync video item with latest global state before navigation
-                        final syncedItem =
-                            v.syncWithGlobalState().syncLikeWithGlobalState();
+                        final syncedItem = v
+                            .syncWithGlobalState()
+                            .syncLikeWithGlobalState();
                         final route = MaterialPageRoute(
-                          builder:
-                              (_) => CommonVideoPlayerScreen(
-                                videoUrl: syncedItem.videoUrl,
-                                videoTitle: syncedItem.title,
-                                videoItem: syncedItem,
-                              ),
+                          builder: (_) => CommonVideoPlayerScreen(
+                            videoUrl: syncedItem.videoUrl,
+                            videoTitle: syncedItem.title,
+                            videoItem: syncedItem,
+                          ),
                         );
                         if (nav.canPop()) {
                           nav.pushReplacement(route);
@@ -302,77 +296,217 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   }
 
   Widget _buildChannelHeader() {
-    return Container(
-      margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.w),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8.w,
-            offset: Offset(0, 2.h),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Channel avatar
-          if (_channelImageUrl != null)
-            CircleAvatar(
-              radius: 36.w,
-              backgroundImage: CachedNetworkImageProvider(_channelImageUrl!),
-              backgroundColor: Colors.grey.shade200,
-            )
-          else
-            CircleAvatar(
-              radius: 36.w,
-              backgroundColor: Colors.grey.shade300,
-              child: Icon(Icons.person, size: 36.w, color: Colors.white),
-            ),
-          SizedBox(width: 16.w),
+    if (_channelData == null) return const SizedBox.shrink();
 
-          // Channel info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _channelName ?? 'Channel',
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (_channelHandle != null) ...[
-                  SizedBox(height: 4.h),
-                  Text(
-                    '@$_channelHandle',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: Colors.grey.shade600,
+    final String? bannerUrl = _channelData!['banner_url'];
+    final String? imageUrl = _channelData!['image_url'];
+    final String name = _channelData!['name'] ?? 'Channel';
+    final String handle = _channelData!['handle'] ?? '';
+    final String description = _channelData!['description'] ?? '';
+    final String createdAt = _channelData!['created_at'] ?? '';
+
+    return Column(
+      children: [
+        // Banner Section with Avatar Overlay
+        SizedBox(
+          height: 180.w + 60.w, // Banner height + half avatar overlap
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Banner Image
+              Container(
+                height: 180.w,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8.w,
+                      offset: Offset(0, 2.h),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  ],
+                ),
+                child: bannerUrl != null && bannerUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: bannerUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey.shade200,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2.w),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            _buildPlaceholderBanner(),
+                      )
+                    : _buildPlaceholderBanner(),
+              ),
+
+              // Avatar overlapping the banner
+              Positioned(
+                bottom: 0,
+                left: 16.w,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4.w),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 12.w,
+                        offset: Offset(0, 4.h),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 50.w,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: imageUrl != null && imageUrl.isNotEmpty
+                        ? CachedNetworkImageProvider(imageUrl)
+                        : null,
+                    child: imageUrl == null || imageUrl.isEmpty
+                        ? Icon(Icons.person, size: 50.w, color: Colors.white)
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Channel Info Section
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 8.w, 16.w, 16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Channel Name and Handle
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (handle.isNotEmpty) ...[
+                          SizedBox(height: 4.h),
+                          Text(
+                            '@$handle',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  // Subscribe Button
+                  AnimatedSubscribeButton(
+                    isSubscribed: _isSubscribed ?? false,
+                    onPressed: _toggleSubscription,
                   ),
                 ],
-                SizedBox(height: 12.h),
+              ),
 
-                // Subscribe button
-                AnimatedSubscribeButton(
-                  isSubscribed: _isSubscribed ?? false,
-                  onPressed: _toggleSubscription,
+              // Description
+              if (description.isNotEmpty) ...[
+                SizedBox(height: 16.h),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
+
+              // Created Date
+              if (createdAt.isNotEmpty) ...[
+                SizedBox(height: 12.h),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14.w,
+                      color: Colors.grey.shade500,
+                    ),
+                    SizedBox(width: 6.w),
+                    Text(
+                      'Joined ${_formatDate(createdAt)}',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
+
+        // Divider
+        Divider(height: 1.h, thickness: 1.w, color: Colors.grey.shade200),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholderBanner() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade300, Colors.purple.shade300],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.image,
+          size: 48.w,
+          color: Colors.white.withOpacity(0.7),
+        ),
       ),
     );
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    } catch (e) {
+      return dateString;
+    }
   }
 
   Widget _buildRetry() {

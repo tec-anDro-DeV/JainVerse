@@ -15,6 +15,9 @@ class ChannelVideoListViewModel extends ChangeNotifier {
   bool hasError = false;
   String errorMessage = '';
 
+  // Channel information from API
+  Map<String, dynamic>? channelInfo;
+
   int page = 1;
   final int perPage;
   int totalPages = 1;
@@ -56,6 +59,11 @@ class ChannelVideoListViewModel extends ChangeNotifier {
       final List<VideoItem> fetched = List<VideoItem>.from(resp['data'] ?? []);
       page = resp['currentPage'] is int ? resp['currentPage'] : p;
       totalPages = resp['totalPages'] is int ? resp['totalPages'] : totalPages;
+
+      // Store channel info from first page
+      if (p == 1 && resp['channel'] != null) {
+        channelInfo = resp['channel'];
+      }
 
       if (p == 1 || replace) {
         items = fetched;

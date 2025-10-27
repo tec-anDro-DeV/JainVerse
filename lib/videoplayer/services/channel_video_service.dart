@@ -22,7 +22,7 @@ class ChannelVideoService {
 
   /// Fetch channel videos.
   /// Returns a Map with keys: data(List<VideoItem>), currentPage, perPage,
-  /// totalPages, total
+  /// totalPages, total, channel(Map with channel info)
   Future<Map<String, dynamic>> fetchChannelVideos({
     required int channelId,
     int page = 1,
@@ -53,11 +53,10 @@ class ChannelVideoService {
         final data = resp.data;
         if (data is Map<String, dynamic>) {
           final raw = data['data'] as List<dynamic>? ?? [];
-          final items =
-              raw.map((e) {
-                if (e is Map<String, dynamic>) return VideoItem.fromJson(e);
-                return VideoItem.fromJson(Map<String, dynamic>.from(e));
-              }).toList();
+          final items = raw.map((e) {
+            if (e is Map<String, dynamic>) return VideoItem.fromJson(e);
+            return VideoItem.fromJson(Map<String, dynamic>.from(e));
+          }).toList();
 
           return {
             'data': items,
@@ -65,6 +64,7 @@ class ChannelVideoService {
             'perPage': data['perPage'] ?? perPage,
             'totalPages': data['totalPages'] ?? 1,
             'total': data['total'] ?? items.length,
+            'channel': data['channel'], // Include channel info
           };
         }
         throw Exception('Unexpected response format');
