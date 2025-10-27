@@ -214,23 +214,22 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
           // Weekday headers
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children:
-                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                    .map(
-                      (day) => Expanded(
-                        child: Center(
-                          child: Text(
-                            day,
-                            style: TextStyle(
-                              color: colors.gray[600],
-                              fontSize: 12.w,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+            children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                .map(
+                  (day) => Expanded(
+                    child: Center(
+                      child: Text(
+                        day,
+                        style: TextStyle(
+                          color: colors.gray[600],
+                          fontSize: 12.w,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                    .toList(),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 8),
 
@@ -260,12 +259,11 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
                   padding: EdgeInsets.zero,
                   margin: EdgeInsets.zero,
                   decoration: BoxDecoration(
-                    color:
-                        isSelected
-                            ? colors.primaryColorApp[50]
-                            : isToday
-                            ? colors.primaryColorApp[50]!.withOpacity(0.2)
-                            : Colors.transparent,
+                    color: isSelected
+                        ? colors.primaryColorApp[50]
+                        : isToday
+                        ? colors.primaryColorApp[50]!.withOpacity(0.2)
+                        : Colors.transparent,
                     // Remove rounded corners so borders meet cleanly
                     borderRadius: BorderRadius.zero,
                     // Add thin internal border for contiguous grid look
@@ -278,77 +276,53 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Small Gregorian date on top
                         Text(
                           '${date.day}',
                           style: TextStyle(
-                            color:
-                                isSelected
-                                    ? colors.white[50]
-                                    : isCurrentMonth
-                                    ? colors.colorText[50]
-                                    : colors.gray[400],
-                            fontSize: 14.w,
-                            fontWeight:
-                                isSelected || isToday
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                            color: isSelected
+                                ? colors.white[50]
+                                : isCurrentMonth
+                                ? colors.colorText[50]
+                                : colors.gray[400],
+                            fontSize: 12.w,
+                            fontWeight: isSelected || isToday
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
+
+                        // Only show tithi number (big) when available and in current month.
                         if (tithi != null &&
-                            tithi['name'] != null &&
-                            tithi['name'].toString().isNotEmpty &&
+                            tithi['number'] != null &&
                             isCurrentMonth)
                           Padding(
-                            padding: EdgeInsets.only(top: 2.w),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  tithi['name'].toString(),
+                            padding: EdgeInsets.only(top: 4.w),
+                            child: Builder(
+                              builder: (context) {
+                                // Show tithi number within the paksha (1..15)
+                                final numVal = tithi['number'] is int
+                                    ? tithi['number'] as int
+                                    : int.tryParse(
+                                            tithi['number'].toString(),
+                                          ) ??
+                                          0;
+                                final displayNumber = (numVal > 15)
+                                    ? (numVal - 15)
+                                    : numVal;
+                                return Text(
+                                  displayNumber > 0
+                                      ? displayNumber.toString()
+                                      : '',
                                   style: TextStyle(
-                                    color:
-                                        isSelected
-                                            ? colors.white[50]!.withOpacity(0.8)
-                                            : colors.primaryColorApp[50],
-                                    fontSize: 10.w,
-                                    fontWeight: FontWeight.w500,
+                                    color: isSelected
+                                        ? colors.white[50]
+                                        : colors.primaryColorApp[50],
+                                    fontSize: 18.w,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                ),
-                                if (tithi['number'] != null)
-                                  Padding(
-                                    padding: EdgeInsets.only(top: 1.w),
-                                    child: Builder(
-                                      builder: (context) {
-                                        // Show tithi number within the paksha (1..15)
-                                        final numVal =
-                                            tithi['number'] is int
-                                                ? tithi['number'] as int
-                                                : int.tryParse(
-                                                      tithi['number']
-                                                          .toString(),
-                                                    ) ??
-                                                    0;
-                                        final displayNumber =
-                                            (numVal > 15)
-                                                ? (numVal - 15)
-                                                : numVal;
-                                        return Text(
-                                          displayNumber > 0
-                                              ? displayNumber.toString()
-                                              : '',
-                                          style: TextStyle(
-                                            color: Colors.red,
-                                            fontSize: 9.w,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                              ],
+                                );
+                              },
                             ),
                           ),
                       ],

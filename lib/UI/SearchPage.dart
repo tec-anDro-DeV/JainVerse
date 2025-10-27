@@ -18,16 +18,21 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AdHelper.dart';
+import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:session_storage/session_storage.dart';
+import 'package:dio/dio.dart';
 
 import '../main.dart';
 import '../widgets/common/app_header.dart';
 import '../widgets/common/search_bar.dart';
 import '../widgets/music/recent_search_card.dart';
 import '../widgets/music/search_music_card.dart';
+import '../videoplayer/models/video_item.dart';
+import '../videoplayer/widgets/video_card.dart';
+import '../videoplayer/screens/common_video_player_screen.dart';
 import 'AccountPage.dart';
 
 AudioPlayerHandler? _audioHandler;
@@ -70,6 +75,13 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> recentSearches = [];
   bool _showingRecentSearches = true; // Start with recent searches
 
+  // Tab management for Music/Video/All
+  String _selectedTab = 'All'; // 'All', 'Music', 'Video'
+  List<VideoItem> videoList = [];
+  final Dio _dio = Dio();
+  final PagingController<int, VideoItem> _videoPagingController =
+      PagingController(firstPageKey: 1);
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +92,11 @@ class _SearchPageState extends State<SearchPage> {
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
+
+    // TODO: Implement video pagination
+    // _videoPagingController.addPageRequestListener((pageKey) {
+    //   _fetchVideoPage(pageKey);
+    // });
 
     session['page'] = "2";
     _audioHandler = const MyApp().called();
@@ -107,8 +124,10 @@ class _SearchPageState extends State<SearchPage> {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _pagingController.dispose();
+    _videoPagingController.dispose();
     txtSearch.dispose();
     _bannerAd?.dispose();
+    _dio.close();
     super.dispose();
   }
 
@@ -347,10 +366,9 @@ class _SearchPageState extends State<SearchPage> {
           );
           if (itemIndex != -1) {
             // Update the favorite status
-            itemList[itemIndex].favourite =
-                tag == "add"
-                    ? (itemList[itemIndex].favourite == "1" ? "0" : "1")
-                    : tag;
+            itemList[itemIndex].favourite = tag == "add"
+                ? (itemList[itemIndex].favourite == "1" ? "0" : "1")
+                : tag;
             // Trigger rebuild to reflect changes
             setState(() {});
           }
@@ -397,81 +415,76 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Widget _buildAnimatedHeader() {
-    return AnimatedSlide(
-      offset: _isHeaderVisible ? Offset.zero : const Offset(0, -1),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      child: Container(
-        color: Colors.transparent,
-        child: SafeArea(
-          bottom: false,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppHeader(
+                title: "Search",
+                showProfileIcon: true,
+                onProfileTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountPage(),
+                    ),
+                  );
+                },
+                backgroundColor: Colors.transparent,
+                scrollController: _scrollController,
+                scrollAware: false,
+              ),
+              // Add horizontal padding only to the search bar for visual consistency
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSizes.paddingXS + 2.w,
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppHeader(
-                  title: "Search",
-                  showProfileIcon: true,
-                  onProfileTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AccountPage(),
-                      ),
-                    );
-                  },
-                  backgroundColor: Colors.transparent,
-                  scrollController: _scrollController,
-                  scrollAware: false,
-                ),
-                // Add horizontal padding only to the search bar for visual consistency
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppSizes.paddingXS + 2.w,
-                  ),
-                  child: AnimatedSearchBar(
-                    controller: txtSearch,
-                    hintText: "Search for music...",
-                    onChanged: (value) {
-                      print('[DEBUG] Search changed: "$value"');
-                      if (value.isEmpty) {
-                        setState(() {
-                          list.clear();
-                          _pagingController.refresh();
-                          _showingRecentSearches = true;
-                        });
-                        _loadRecentSearches();
-                      } else if (value.length >= 2) {
-                        // Reduce threshold to 2
-                        searchAPI();
-                      }
-                    },
-                    onClear: () {
-                      print('[DEBUG] Search cleared');
-                      txtSearch.clear();
+                child: AnimatedSearchBar(
+                  controller: txtSearch,
+                  hintText: "Search for music...",
+                  onChanged: (value) {
+                    print('[DEBUG] Search changed: "$value"');
+                    if (value.isEmpty) {
                       setState(() {
                         list.clear();
                         _pagingController.refresh();
                         _showingRecentSearches = true;
                       });
                       _loadRecentSearches();
-                    },
-                    focusedBorderColor: appColors().primaryColorApp,
-                  ),
+                    } else if (value.length >= 2) {
+                      // Reduce threshold to 2
+                      searchAPI();
+                    }
+                  },
+                  onClear: () {
+                    print('[DEBUG] Search cleared');
+                    txtSearch.clear();
+                    setState(() {
+                      list.clear();
+                      _pagingController.refresh();
+                      _showingRecentSearches = true;
+                    });
+                    _loadRecentSearches();
+                  },
+                  focusedBorderColor: appColors().primaryColorApp,
                 ),
-                SizedBox(height: AppSizes.paddingS),
-              ],
-            ),
+              ),
+              SizedBox(height: AppSizes.paddingS),
+            ],
           ),
         ),
       ),
@@ -599,18 +612,17 @@ class _SearchPageState extends State<SearchPage> {
           builderDelegate: PagedChildBuilderDelegate<DataMusic>(
             firstPageErrorIndicatorBuilder: (context) => _buildErrorWidget(),
             noItemsFoundIndicatorBuilder: (context) => _buildNoResultsWidget(),
-            firstPageProgressIndicatorBuilder:
-                (context) => _buildLoadingWidget(),
-            newPageProgressIndicatorBuilder:
-                (context) => Container(
-                  padding: EdgeInsets.all(4.w),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: appColors().primaryColorApp,
-                      strokeWidth: 1.5.w,
-                    ),
-                  ),
+            firstPageProgressIndicatorBuilder: (context) =>
+                _buildLoadingWidget(),
+            newPageProgressIndicatorBuilder: (context) => Container(
+              padding: EdgeInsets.all(4.w),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: appColors().primaryColorApp,
+                  strokeWidth: 1.5.w,
                 ),
+              ),
+            ),
             itemBuilder: (context, item, index) {
               return _buildMusicItem(item, index);
             },

@@ -51,6 +51,7 @@ class AppConstant {
   static const String API_USER_PURCHASE_HISTORY = "user_purchase_history";
   // Video API endpoints
   static const String API_ALL_VIDEOS = "all_videos";
+  static const String API_SEARCH_VIDEOS = "search_channel_video";
   static const String API_GET_CHANNEL_VIDEOS = "get_channel_videos";
   static const String API_LIKE_DISLIKE_VIDEO = "like_dislike_video";
   static const String API_GET_LIKED_VIDEOS = "get_liked_videos";

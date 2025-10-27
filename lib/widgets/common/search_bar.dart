@@ -65,6 +65,9 @@ class CommonSearchBar extends StatelessWidget {
               controller: controller,
               enabled: enabled,
               onChanged: onChanged,
+              // Prevent the scroll-to-field behaviour which can jump the
+              // surrounding CustomScrollView when the keyboard appears.
+              scrollPadding: EdgeInsets.zero,
               decoration: InputDecoration(
                 hintText: hintText,
                 hintStyle: TextStyle(
@@ -190,16 +193,15 @@ class _AnimatedSearchBarState extends State<AnimatedSearchBar> {
       decoration: BoxDecoration(
         color: widget.backgroundColor ?? appColors().gray[100],
         borderRadius: BorderRadius.circular(AppSizes.borderRadius + 10.w),
-        boxShadow:
-            _isFocused
-                ? [
-                  BoxShadow(
-                    color: appColors().black.withOpacity(0.1),
-                    // blurRadius: AppSizes.paddingS,
-                    // spreadRadius: 2.w,
-                  ),
-                ]
-                : null,
+        boxShadow: _isFocused
+            ? [
+                BoxShadow(
+                  color: appColors().black.withOpacity(0.1),
+                  // blurRadius: AppSizes.paddingS,
+                  // spreadRadius: 2.w,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
@@ -210,10 +212,9 @@ class _AnimatedSearchBarState extends State<AnimatedSearchBar> {
                 widget.prefixIcon ??
                 Icon(
                   Icons.search,
-                  color:
-                      _isFocused
-                          ? appColors().primaryColorApp
-                          : appColors().gray[500],
+                  color: _isFocused
+                      ? appColors().primaryColorApp
+                      : appColors().gray[500],
                   size: AppSizes.iconSize + 4.w,
                 ),
           ),
@@ -226,6 +227,9 @@ class _AnimatedSearchBarState extends State<AnimatedSearchBar> {
               focusNode: _focusNode,
               enabled: widget.enabled,
               onChanged: widget.onChanged,
+              // Avoid automatic scrolling of the parent scroll view when
+              // the field gains focus.
+              scrollPadding: EdgeInsets.zero,
               decoration: InputDecoration(
                 hintText: widget.hintText,
                 hintStyle: TextStyle(

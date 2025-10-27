@@ -25,12 +25,16 @@ import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:session_storage/session_storage.dart';
 import 'package:we_slide/we_slide.dart';
+import 'package:dio/dio.dart';
 
 import '../main.dart';
 import '../widgets/common/app_header.dart';
 import '../widgets/common/loader.dart';
 import '../widgets/common/search_bar.dart';
 import '../widgets/music/recent_search_card.dart';
+import '../videoplayer/models/video_item.dart';
+import '../videoplayer/widgets/video_card.dart';
+import '../videoplayer/screens/common_video_player_screen.dart';
 import 'AccountPage.dart';
 import 'CreatePlaylist.dart';
 
@@ -97,6 +101,14 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> recentSearches = [];
   bool _showingRecentSearches = false;
 
+  // Tab management for Music/Video/All
+  String _selectedTab = 'All'; // 'All', 'Music', 'Video'
+  List<VideoItem> videoList = [];
+  bool _isSearchingVideos = false;
+  bool _hasVideoError = false;
+  String _videoErrorMessage = '';
+  final Dio _dio = Dio();
+
   // Add debounced search function
   void _onSearchChanged(String value) {
     // Cancel previous timer
@@ -135,34 +147,60 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     if (txtSearch.text.trim().isEmpty) {
       setState(() {
         list = [];
+        videoList = [];
         _hasSearched = false;
         _isSearching = false;
+        _isSearchingVideos = false;
         _hasError = false;
+        _hasVideoError = false;
         _showingRecentSearches = true;
       });
       return;
     }
 
     setState(() {
-      _isSearching = true;
+      _isSearching = _selectedTab == 'All' || _selectedTab == 'Music';
+      _isSearchingVideos = _selectedTab == 'All' || _selectedTab == 'Video';
       _hasError = false;
+      _hasVideoError = false;
       _errorMessage = '';
+      _videoErrorMessage = '';
     });
 
-    try {
-      searchTag = txtSearch.text.trim();
-      print('[DEBUG] Searching for: $searchTag');
+    searchTag = txtSearch.text.trim();
+    print('[DEBUG] Searching for: $searchTag (Tab: $_selectedTab)');
 
+    // Search music if needed
+    if (_selectedTab == 'All' || _selectedTab == 'Music') {
+      _searchMusic();
+    } else {
+      setState(() {
+        list = [];
+      });
+    }
+
+    // Search videos if needed
+    if (_selectedTab == 'All' || _selectedTab == 'Video') {
+      _searchVideos();
+    } else {
+      setState(() {
+        videoList = [];
+      });
+    }
+  }
+
+  Future<void> _searchMusic() async {
+    try {
       ModelMusicList mList = await CatSubcatMusicPresenter()
           .getMusicListBySearchName(searchTag, token, context);
 
-      if (!mounted) return; // Check again after async operation
+      if (!mounted) return;
 
       pathImage = mList.imagePath;
       audioPath = mList.audioPath;
       list = mList.data;
 
-      print('[DEBUG] Search results: ${list.length} items found');
+      print('[DEBUG] Music search results: ${list.length} items found');
 
       setState(() {
         _isSearching = false;
@@ -171,15 +209,71 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         _showingRecentSearches = false;
       });
     } catch (e) {
-      print('[ERROR] Search failed: $e');
+      print('[ERROR] Music search failed: $e');
       if (!mounted) return;
 
       setState(() {
         _isSearching = false;
         _hasSearched = true;
         _hasError = true;
-        _errorMessage = 'Search failed. Please try again.';
-        list = []; // Clear list on error
+        _errorMessage = 'Music search failed. Please try again.';
+        list = [];
+      });
+    }
+  }
+
+  Future<void> _searchVideos() async {
+    try {
+      final params = {'query': searchTag, 'page': 1, 'per_page': 20};
+
+      final response = await _dio.request(
+        AppConstant.BaseUrl + AppConstant.API_SEARCH_VIDEOS,
+        data: params,
+        options: Options(
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          final dataObj = data['data'];
+          if (dataObj is Map<String, dynamic>) {
+            final List<dynamic> raw = dataObj['videos'] ?? [];
+            videoList = raw.map((e) {
+              if (e is Map<String, dynamic>) return VideoItem.fromJson(e);
+              return VideoItem.fromJson(Map<String, dynamic>.from(e));
+            }).toList();
+
+            print(
+              '[DEBUG] Video search results: ${videoList.length} items found',
+            );
+
+            setState(() {
+              _isSearchingVideos = false;
+              _hasSearched = true;
+              _hasVideoError = false;
+              _showingRecentSearches = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('[ERROR] Video search failed: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _isSearchingVideos = false;
+        _hasSearched = true;
+        _hasVideoError = true;
+        _videoErrorMessage = 'Video search failed. Please try again.';
+        videoList = [];
       });
     }
   }
@@ -331,6 +425,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     txtSearch.dispose(); // Add this to prevent memory leaks
+    _dio.close(); // Close Dio instance
     if (_isBannerAdReady) {
       _bannerAd.dispose();
     }
@@ -410,13 +505,12 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                             padding: const EdgeInsets.all(14),
                             alignment: Alignment.centerLeft,
                             width: 68,
-                            child:
-                                favTag.contains("1")
-                                    ? Image.asset(
-                                      'assets/icons/favfill.png',
-                                      color: appColors().colorText,
-                                    )
-                                    : Image.asset('assets/icons/fav2.png'),
+                            child: favTag.contains("1")
+                                ? Image.asset(
+                                    'assets/icons/favfill.png',
+                                    color: appColors().colorText,
+                                  )
+                                : Image.asset('assets/icons/fav2.png'),
                           ),
                           Container(
                             width: 145,
@@ -506,73 +600,82 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
   Widget _buildContent() {
     return Column(
       children: [
-        // Header with search bar - fixed at top
+        // Header with search bar - fixed at top (no animation)
         Container(
           color: Colors.white,
           child: SafeArea(
             bottom: false,
-            child: AnimatedSlide(
-              offset: _isHeaderVisible ? Offset.zero : const Offset(0, -1),
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              child: Container(
-                // Removed horizontal padding here
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  AppHeader(
+                    title: "Search",
+                    showProfileIcon: true,
+                    onProfileTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AccountPage(),
+                        ),
+                      );
+                    },
+                    backgroundColor: Colors.transparent,
+                    scrollController: _scrollController,
+                    scrollAware: false,
+                  ),
+                  SizedBox(height: 4.w),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSizes.paddingXS + 2.w,
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Removed Padding around AppHeader
-                    AppHeader(
-                      title: "Search",
-                      showProfileIcon: true,
-                      onProfileTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AccountPage(),
-                          ),
-                        );
+                    child: AnimatedSearchBar(
+                      controller: txtSearch,
+                      hintText: Resources.of(context).strings.searchHint,
+                      onChanged: _onSearchChanged,
+                      onClear: () {
+                        txtSearch.clear();
+                        _searchTimer?.cancel();
+                        setState(() {
+                          list = [];
+                          videoList = [];
+                          _hasSearched = false;
+                          _isSearching = false;
+                          _isSearchingVideos = false;
+                          _hasError = false;
+                          _hasVideoError = false;
+                          _showingRecentSearches = true;
+                        });
+                        _loadRecentSearches();
                       },
-                      backgroundColor: Colors.transparent,
-                      scrollController: _scrollController,
-                      scrollAware: false,
+                      focusedBorderColor: appColors().primaryColorApp,
                     ),
-                    // Add spacing below AppHeader to visually separate from search bar
-                    SizedBox(height: 4.w),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppSizes.paddingXS + 2.w,
-                      ),
-                      child: AnimatedSearchBar(
-                        controller: txtSearch,
-                        hintText: Resources.of(context).strings.searchHint,
-                        onChanged: _onSearchChanged,
-                        onClear: () {
-                          txtSearch.clear();
-                          _searchTimer?.cancel();
-                          setState(() {
-                            list = [];
-                            _hasSearched = false;
-                            _isSearching = false;
-                            _hasError = false;
-                            _showingRecentSearches = true;
-                          });
-                          _loadRecentSearches();
-                        },
-                        focusedBorderColor: appColors().primaryColorApp,
-                      ),
+                  ),
+                  SizedBox(height: AppSizes.paddingS),
+                  // Tab selector for Music/Video/All
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: AppSizes.paddingM),
+                    child: Row(
+                      children: [
+                        _buildTabButton('All'),
+                        SizedBox(width: AppSizes.paddingXS),
+                        _buildTabButton('Music'),
+                        SizedBox(width: AppSizes.paddingXS),
+                        _buildTabButton('Video'),
+                      ],
                     ),
-                    SizedBox(height: AppSizes.paddingS),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: AppSizes.paddingS),
+                ],
               ),
             ),
           ),
@@ -581,6 +684,44 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         // Scrollable content area
         Expanded(child: _buildMainScrollableContent()),
       ],
+    );
+  }
+
+  Widget _buildTabButton(String tab) {
+    final isSelected = _selectedTab == tab;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedTab = tab;
+          });
+          // Re-search with new tab filter if we have a query
+          if (txtSearch.text.trim().isNotEmpty) {
+            searchAPI();
+          }
+        },
+        borderRadius: BorderRadius.circular(AppSizes.paddingL),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.w),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? appColors().primaryColorApp
+                : appColors().gray[100],
+            borderRadius: BorderRadius.circular(AppSizes.paddingL),
+          ),
+          child: Center(
+            child: Text(
+              tab,
+              style: TextStyle(
+                fontSize: AppSizes.fontNormal,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? Colors.white : appColors().gray[600],
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -632,7 +773,8 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       return _buildRecentSearchesSliver();
     }
 
-    if (_isSearching) {
+    // Show loading state
+    if (_isSearching || _isSearchingVideos) {
       return SliverToBoxAdapter(child: _buildLoadingWidget());
     }
 
@@ -640,6 +782,18 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       return SliverToBoxAdapter(child: _buildInitialStateWidget());
     }
 
+    // Show results based on selected tab
+    if (_selectedTab == 'Music') {
+      return _buildMusicResultsSliver();
+    } else if (_selectedTab == 'Video') {
+      return _buildVideoResultsSliver();
+    } else {
+      // 'All' tab - show both music and videos
+      return _buildCombinedResultsSliver();
+    }
+  }
+
+  Widget _buildMusicResultsSliver() {
     if (_hasError) {
       return SliverToBoxAdapter(child: _buildErrorWidget());
     }
@@ -652,6 +806,115 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       delegate: SliverChildBuilderDelegate(
         (context, index) => _buildMusicCard(index),
         childCount: list.length,
+      ),
+    );
+  }
+
+  Widget _buildVideoResultsSliver() {
+    if (_hasVideoError) {
+      return SliverToBoxAdapter(child: _buildErrorWidget(isVideo: true));
+    }
+
+    if (videoList.isEmpty) {
+      return SliverToBoxAdapter(child: _buildNoResultsWidget(isVideo: true));
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _buildVideoCard(index),
+        childCount: videoList.length,
+      ),
+    );
+  }
+
+  Widget _buildCombinedResultsSliver() {
+    final hasMusic = list.isNotEmpty;
+    final hasVideos = videoList.isNotEmpty;
+
+    if (!hasMusic && !hasVideos) {
+      if (_hasError || _hasVideoError) {
+        return SliverToBoxAdapter(child: _buildErrorWidget());
+      }
+      return SliverToBoxAdapter(child: _buildNoResultsWidget());
+    }
+
+    return SliverMainAxisGroup(
+      slivers: [
+        // Music section
+        if (hasMusic) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: AppSizes.paddingM,
+                bottom: AppSizes.paddingS,
+              ),
+              child: Text(
+                'Music',
+                style: TextStyle(
+                  fontSize: AppSizes.fontLarge + 2.w,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildMusicCard(index),
+              childCount: list.length,
+            ),
+          ),
+        ],
+
+        // Videos section
+        if (hasVideos) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: AppSizes.paddingL,
+                bottom: AppSizes.paddingS,
+              ),
+              child: Text(
+                'Videos',
+                style: TextStyle(
+                  fontSize: AppSizes.fontLarge + 2.w,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildVideoCard(index),
+              childCount: videoList.length,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildVideoCard(int index) {
+    final video = videoList[index];
+    return Container(
+      margin: EdgeInsets.only(bottom: AppSizes.paddingM),
+      child: VideoCard(
+        item: video,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CommonVideoPlayerScreen(
+                videoUrl: video.videoUrl,
+                videoTitle: video.title,
+                videoItem: video,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1021,7 +1284,13 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget({bool isVideo = false}) {
+    final errorMsg = isVideo
+        ? (_videoErrorMessage.isNotEmpty
+              ? _videoErrorMessage
+              : 'Video search failed')
+        : (_errorMessage.isNotEmpty ? _errorMessage : 'Search failed');
+
     return Container(
       height: 300.w,
       alignment: Alignment.center,
@@ -1035,7 +1304,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
           ),
           SizedBox(height: AppSizes.paddingM),
           Text(
-            _errorMessage.isNotEmpty ? _errorMessage : 'Search failed',
+            errorMsg,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: AppSizes.fontMedium,
@@ -1072,7 +1341,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildNoResultsWidget() {
+  Widget _buildNoResultsWidget({bool isVideo = false}) {
     return Container(
       height: 400.w,
       alignment: Alignment.center,
@@ -1089,7 +1358,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
           ),
           SizedBox(height: AppSizes.paddingL),
           Text(
-            'No Results Found',
+            isVideo ? 'No Videos Found' : 'No Results Found',
             style: TextStyle(
               fontSize: AppSizes.fontExtraLarge,
               fontWeight: FontWeight.bold,
@@ -1159,13 +1428,12 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                             padding: const EdgeInsets.all(14),
                             alignment: Alignment.centerLeft,
                             width: 68,
-                            child:
-                                favTag.contains("1")
-                                    ? Image.asset(
-                                      'assets/icons/favfill.png',
-                                      color: appColors().colorText,
-                                    )
-                                    : Image.asset('assets/icons/fav2.png'),
+                            child: favTag.contains("1")
+                                ? Image.asset(
+                                    'assets/icons/favfill.png',
+                                    color: appColors().colorText,
+                                  )
+                                : Image.asset('assets/icons/fav2.png'),
                           ),
                           Container(
                             width: 145,
@@ -1279,18 +1547,15 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildOptionItem(
-                    icon:
-                        favTag.contains("1")
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                    text:
-                        favTag.contains("1")
-                            ? 'Remove Favorite'
-                            : 'Add to Favorite',
-                    iconColor:
-                        favTag.contains("1")
-                            ? appColors().primaryColorApp
-                            : Colors.grey[600]!,
+                    icon: favTag.contains("1")
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    text: favTag.contains("1")
+                        ? 'Remove Favorite'
+                        : 'Add to Favorite',
+                    iconColor: favTag.contains("1")
+                        ? appColors().primaryColorApp
+                        : Colors.grey[600]!,
                     onTap: () {
                       addRemoveAPI(ids, tag);
                       Navigator.pop(context);

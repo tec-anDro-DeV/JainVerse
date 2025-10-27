@@ -13,6 +13,7 @@ import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
+import 'package:jainverse/widgets/common/search_bar.dart';
 
 class VideoListScreen extends StatelessWidget {
   const VideoListScreen({Key? key}) : super(key: key);
@@ -43,6 +44,10 @@ class _VideoListBodyState extends State<VideoListBody>
   late final VideoListViewModel _viewModel;
   int? _skeletonCount;
 
+  // Search state
+  late TextEditingController _searchController;
+  Timer? _debounceTimer;
+
   // Autoplay state
   VideoPlayerController? _sharedController;
   int? _currentlyPlayingIndex;
@@ -61,6 +66,7 @@ class _VideoListBodyState extends State<VideoListBody>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    _searchController = TextEditingController();
     _viewModel = VideoListViewModel(perPage: 10);
     // scroll controller will be assigned in didChangeDependencies so we
     // don't add the listener here. This ensures NestedScrollView can
@@ -100,6 +106,8 @@ class _VideoListBodyState extends State<VideoListBody>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoplayTimer?.cancel();
+    _debounceTimer?.cancel();
+    _searchController.dispose();
     _scrollController?.removeListener(_onScroll);
     _viewModel.removeListener(_onViewModel);
 
@@ -185,6 +193,21 @@ class _VideoListBodyState extends State<VideoListBody>
     _pauseCurrentVideo();
     _currentlyPlayingIndex = null;
     await _viewModel.refresh();
+  }
+
+  // Handle search with debounce
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (query.isEmpty) {
+        _viewModel.clearSearch();
+      } else {
+        _viewModel.search(query);
+      }
+      // Reset autoplay when search results change
+      _pauseCurrentVideo();
+      _currentlyPlayingIndex = null;
+    });
   }
 
   void _pauseCurrentVideo() {
@@ -326,12 +349,11 @@ class _VideoListBodyState extends State<VideoListBody>
     // Sync video item with latest global state before navigation
     final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
     final route = MaterialPageRoute(
-      builder:
-          (_) => CommonVideoPlayerScreen(
-            videoUrl: syncedItem.videoUrl,
-            videoTitle: syncedItem.title,
-            videoItem: syncedItem,
-          ),
+      builder: (_) => CommonVideoPlayerScreen(
+        videoUrl: syncedItem.videoUrl,
+        videoTitle: syncedItem.title,
+        videoItem: syncedItem,
+      ),
     );
     if (nav.canPop()) {
       nav.pushReplacement(route);
@@ -355,101 +377,113 @@ class _VideoListBodyState extends State<VideoListBody>
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // Search bar as a sliver header
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 8.h),
+              child: AnimatedSearchBar(
+                controller: _searchController,
+                hintText: 'Search videos...',
+                onChanged: _onSearchChanged,
+                showClearButton: true,
+                height: 45.h,
+                margin: EdgeInsets.zero,
+              ),
+            ),
+          ),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
               12.w,
-              20.h,
+              8.h,
               12.w,
               (AppSizes.basePadding + AppSizes.miniPlayerPadding + 8.w),
             ),
-            sliver:
-                _viewModel.hasError && _viewModel.items.isEmpty
-                    ? SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(height: 60.h),
-                          Center(
-                            child: Text('Error: ${_viewModel.errorMessage}'),
+            sliver: _viewModel.hasError && _viewModel.items.isEmpty
+                ? SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(height: 60.h),
+                        Center(
+                          child: Text('Error: ${_viewModel.errorMessage}'),
+                        ),
+                        SizedBox(height: 8.h),
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: _refresh,
+                            child: const Text('Retry'),
                           ),
-                          SizedBox(height: 8.h),
-                          Center(
-                            child: ElevatedButton(
-                              onPressed: _refresh,
-                              child: const Text('Retry'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    : (_viewModel.isLoading && _viewModel.items.isEmpty)
-                    // Initial loading: show skeleton placeholders (4-8 random)
-                    ? Builder(
-                      builder: (context) {
-                        // compute skeleton count once per loading session
-                        final randCount =
-                            _skeletonCount ??= (Random().nextInt(5) + 4);
-                        return SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => Container(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 6.h,
-                                horizontal: 8.w,
-                              ),
-                              child: VideoCardSkeleton(),
-                            ),
-                            childCount: randCount,
-                          ),
-                        );
-                      },
-                    )
-                    : SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        if (index >= _viewModel.items.length) {
-                          // footer slot: show loader while loading, otherwise
-                          // provide some spacing so content isn't flush to bottom.
-                          if (_viewModel.isLoading) {
-                            // show a single skeleton card as a footer placeholder
-                            return Container(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 6.h,
-                                horizontal: 8.w,
-                              ),
-                              child: VideoCardSkeleton(),
-                            );
-                          }
-                          return SizedBox(height: 40.h);
-                        }
-
-                        final item = _viewModel.items[index];
-                        return Container(
-                          padding: EdgeInsets.only(bottom: 16.h),
-                          child: VisibilityDetector(
-                            key: Key('video_visibility_${item.id}'),
-                            onVisibilityChanged: (info) {
-                              _onItemVisibilityChanged(
-                                index,
-                                info.visibleFraction,
-                              );
-                              // Trigger autoplay check when visibility changes
-                              if (!_isScrolling) {
-                                _checkAndPlayMostVisibleVideo();
-                              }
-                            },
-                            child: AutoplayVideoCard(
-                              item:
-                                  item
-                                      .syncWithGlobalState()
-                                      .syncLikeWithGlobalState(), // Sync with global subscription and like state
-                              shouldPlay: _currentlyPlayingIndex == index,
-                              sharedController: _sharedController,
-                              onTap: () => _openPlayer(item),
-                            ),
-                          ),
-                        );
-                      }, childCount: _viewModel.items.length + 1),
+                        ),
+                      ],
                     ),
+                  )
+                : (_viewModel.isLoading && _viewModel.items.isEmpty)
+                // Initial loading: show skeleton placeholders (4-8 random)
+                ? Builder(
+                    builder: (context) {
+                      // compute skeleton count once per loading session
+                      final randCount = _skeletonCount ??=
+                          (Random().nextInt(5) + 4);
+                      return SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical: 6.h,
+                              horizontal: 8.w,
+                            ),
+                            child: VideoCardSkeleton(),
+                          ),
+                          childCount: randCount,
+                        ),
+                      );
+                    },
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      if (index >= _viewModel.items.length) {
+                        // footer slot: show loader while loading, otherwise
+                        // provide some spacing so content isn't flush to bottom.
+                        if (_viewModel.isLoading) {
+                          // show a single skeleton card as a footer placeholder
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical: 6.h,
+                              horizontal: 8.w,
+                            ),
+                            child: VideoCardSkeleton(),
+                          );
+                        }
+                        return SizedBox(height: 40.h);
+                      }
+
+                      final item = _viewModel.items[index];
+                      return Container(
+                        padding: EdgeInsets.only(bottom: 16.h),
+                        child: VisibilityDetector(
+                          key: Key('video_visibility_${item.id}'),
+                          onVisibilityChanged: (info) {
+                            _onItemVisibilityChanged(
+                              index,
+                              info.visibleFraction,
+                            );
+                            // Trigger autoplay check when visibility changes
+                            if (!_isScrolling) {
+                              _checkAndPlayMostVisibleVideo();
+                            }
+                          },
+                          child: AutoplayVideoCard(
+                            item: item
+                                .syncWithGlobalState()
+                                .syncLikeWithGlobalState(), // Sync with global subscription and like state
+                            shouldPlay: _currentlyPlayingIndex == index,
+                            sharedController: _sharedController,
+                            onTap: () => _openPlayer(item),
+                          ),
+                        ),
+                      );
+                    }, childCount: _viewModel.items.length + 1),
+                  ),
           ),
         ],
       ),
