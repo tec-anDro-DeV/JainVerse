@@ -49,6 +49,7 @@ class AppConstant {
   static const String API_Blog = "get_blogs";
   static const String API_YT_PLAYLISTS = "yt_pLaylists";
   static const String API_USER_PURCHASE_HISTORY = "user_purchase_history";
+
   // Video API endpoints
   static const String API_ALL_VIDEOS = "all_videos";
   static const String API_SEARCH_VIDEOS = "search_channel_video";
@@ -60,15 +61,20 @@ class AppConstant {
   static const String API_UNSUBSCRIBE_CHANNEL = "unsubscribe_channel";
   static const String API_VIDEO_REPORT_OPTIONS = "video_report_options";
   static const String API_REPORT_VIDEO = "report_video";
+  static const String API_WATCH_HISTORY = "watch_history";
 
   static const String API_CREATE_STATION = "station";
   static const String API_GET_COUNTRY = "get_country";
+
+  //user-channel api
   static const String API_CREATE_CHANNEL = "create_channel";
   static const String API_GET_CHANNEL = "get_channel";
   static const String API_UPDATE_CHANNEL = "update_channel";
   static const String API_DELETE_CHANNEL = "delete_channel";
   static const String API_MY_VIDEOS = "my_videos";
-  static const String API_WATCH_HISTORY = "watch_history";
+  static const String API_CHECK_HANDLE_AVAILABLE = "check_handle_available";
+  static const String API_GENERATE_CHANNEL_NAME = "generate_channel_name";
+
   //strings or paramenter name below
   static const String currency = "\$";
   static const String currencyCode = "USD";

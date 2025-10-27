@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,6 +26,10 @@ class _CreateChannelState extends State<CreateChannel>
   File? _selectedImage;
   bool _nameValid = true;
   bool _handleValid = true;
+  Timer? _handleDebounce;
+  bool _isCheckingHandle = false;
+  bool? _isHandleAvailable;
+  String _handleStatusMsg = '';
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -38,13 +43,52 @@ class _CreateChannelState extends State<CreateChannel>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
     _slideController.forward();
+    // Attempt to auto-generate a suggested channel name & handle for the user.
+    _populateGenerated();
+    // react to programmatic changes to handle (populate) to trigger availability check
+    _handleController.addListener(() {
+      // If the handle is populated programmatically we still want to check it once.
+      // Use a small delay to avoid double-calls on init.
+      if (_handleController.text.trim().isNotEmpty) {
+        _handleDebounce?.cancel();
+        _handleDebounce = Timer(const Duration(milliseconds: 600), () {
+          final v = _handleController.text.trim();
+          final regex = RegExp(r'^[a-zA-Z0-9_-]+$');
+          if (v.isNotEmpty && regex.hasMatch(v)) _checkHandleAvailability(v);
+        });
+      }
+    });
+  }
+
+  /// Calls the presenter to get a generated channel name and handle and
+  /// populates the text fields so the user can edit or accept them.
+  Future<void> _populateGenerated() async {
+    try {
+      final presenter = ChannelPresenter();
+      final result = await presenter.generateChannelName();
+      final int statusCode = result['statusCode'] as int? ?? 0;
+      final bool status = result['status'] == true;
+      final dynamic data = result['data'];
+
+      if (statusCode == 200 && status && data != null) {
+        final String name = data['name']?.toString() ?? '';
+        final String handle = data['handle']?.toString() ?? '';
+        if (name.isNotEmpty) _nameController.text = name;
+        if (handle.isNotEmpty) _handleController.text = handle;
+        // Update validation state
+        setState(() {
+          _nameValid = _nameController.text.trim().isNotEmpty;
+          _handleValid = _handleController.text.trim().isNotEmpty;
+        });
+      }
+    } catch (_) {
+      // ignore errors silently - user can type manually
+    }
   }
 
   @override
@@ -54,6 +98,7 @@ class _CreateChannelState extends State<CreateChannel>
     _slideController.dispose();
     _nameFocus.dispose();
     _handleFocus.dispose();
+    _handleDebounce?.cancel();
     super.dispose();
   }
 
@@ -242,6 +287,50 @@ class _CreateChannelState extends State<CreateChannel>
     }
   }
 
+  /// Calls presenter to check handle availability and updates local state.
+  Future<void> _checkHandleAvailability(String handle) async {
+    if (handle.trim().isEmpty) return;
+    setState(() {
+      _isCheckingHandle = true;
+      _isHandleAvailable = null;
+      _handleStatusMsg = 'Checking...';
+      _handleValid = false;
+    });
+
+    try {
+      final presenter = ChannelPresenter();
+      final result = await presenter.checkHandleAvailable(handle);
+      final int statusCode = result['statusCode'] as int? ?? 0;
+      final bool status = result['status'] == true;
+      final String msg = result['msg']?.toString() ?? '';
+
+      if (statusCode == 200) {
+        setState(() {
+          _isHandleAvailable = status;
+          _isCheckingHandle = false;
+          _handleStatusMsg = msg.isNotEmpty
+              ? msg
+              : (status ? 'Handle is available' : 'Username is not available');
+          _handleValid = status;
+        });
+      } else {
+        setState(() {
+          _isHandleAvailable = null;
+          _isCheckingHandle = false;
+          _handleStatusMsg = 'Unable to verify handle';
+          _handleValid = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isHandleAvailable = null;
+        _isCheckingHandle = false;
+        _handleStatusMsg = 'Error checking handle';
+        _handleValid = false;
+      });
+    }
+  }
+
   static Future<List<int>> _flipImageBytes(Uint8List bytes) async {
     final img_pkg.Image? decoded = img_pkg.decodeImage(bytes);
     if (decoded == null) return bytes;
@@ -275,12 +364,11 @@ class _CreateChannelState extends State<CreateChannel>
         return;
       }
 
-      final display =
-          msg.isNotEmpty
-              ? msg
-              : (statusCode == 0
-                  ? 'Network or parsing error'
-                  : 'Failed to create channel: $statusCode');
+      final display = msg.isNotEmpty
+          ? msg
+          : (statusCode == 0
+                ? 'Network or parsing error'
+                : 'Failed to create channel: $statusCode');
       _showErrorSnackbar(display);
     } catch (e) {
       _showErrorSnackbar('Error: $e');
@@ -551,18 +639,17 @@ class _CreateChannelState extends State<CreateChannel>
                               ],
                             ),
                             child: ClipOval(
-                              child:
-                                  _selectedImage != null
-                                      ? Image.file(
-                                        _selectedImage!,
-                                        fit: BoxFit.cover,
-                                      )
-                                      : Icon(
-                                        Icons.image_rounded,
-                                        size: 50.w,
-                                        color: appColors().primaryColorApp
-                                            .withOpacity(0.6),
-                                      ),
+                              child: _selectedImage != null
+                                  ? Image.file(
+                                      _selectedImage!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Icon(
+                                      Icons.image_rounded,
+                                      size: 50.w,
+                                      color: appColors().primaryColorApp
+                                          .withOpacity(0.6),
+                                    ),
                             ),
                           ),
                         ),
@@ -652,17 +739,55 @@ class _CreateChannelState extends State<CreateChannel>
                           hint: 'unique_handle',
                           icon: Icons.alternate_email_rounded,
                           maxLength: 30,
-                          helperText: 'Use letters, numbers or underscore',
+                          helperText:
+                              'Use letters, numbers, underscore or dash',
+                          isChecking: _isCheckingHandle,
+                          statusText: _handleStatusMsg,
+                          statusColor: _isHandleAvailable == true
+                              ? Colors.green[700]
+                              : (_isHandleAvailable == false
+                                    ? Colors.red[700]
+                                    : Colors.grey[600]),
+                          onChanged: (v) {
+                            // debounce
+                            _handleDebounce?.cancel();
+                            setState(() {
+                              _isCheckingHandle = true;
+                              _isHandleAvailable = null;
+                              _handleStatusMsg = 'Checking...';
+                              _handleValid = false;
+                            });
+                            _handleDebounce = Timer(
+                              const Duration(milliseconds: 600),
+                              () {
+                                final value = v.trim();
+                                final regex = RegExp(r'^[a-zA-Z0-9_-]+$');
+                                if (value.isEmpty || !regex.hasMatch(value)) {
+                                  setState(() {
+                                    _isCheckingHandle = false;
+                                    _isHandleAvailable = null;
+                                    _handleStatusMsg = '';
+                                  });
+                                  return;
+                                }
+                                _checkHandleAvailability(value);
+                              },
+                            );
+                          },
                           validator: (v) {
                             final value = v ?? '';
                             if (value.trim().isEmpty) {
                               setState(() => _handleValid = false);
                               return 'Please enter a handle';
                             }
-                            final regex = RegExp(r'^[a-zA-Z0-9_]+$');
+                            final regex = RegExp(r'^[a-zA-Z0-9_-]+$');
                             if (!regex.hasMatch(value.trim())) {
                               setState(() => _handleValid = false);
-                              return 'Only letters, numbers and underscore';
+                              return 'Only letters, numbers, underscore or dash (-)';
+                            }
+                            if (_isHandleAvailable == false) {
+                              setState(() => _handleValid = false);
+                              return 'Username is not available';
                             }
                             setState(() => _handleValid = true);
                             return null;
@@ -680,73 +805,70 @@ class _CreateChannelState extends State<CreateChannel>
                     height: 58.w,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20.w),
-                      gradient:
-                          (_isCreating || !_nameValid || !_handleValid)
-                              ? LinearGradient(
-                                colors: [Colors.grey[300]!, Colors.grey[400]!],
-                              )
-                              : LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  appColors().primaryColorApp,
-                                  appColors().primaryColorApp.withOpacity(0.8),
-                                ],
-                              ),
-                      boxShadow:
-                          (_isCreating || !_nameValid || !_handleValid)
-                              ? []
-                              : [
-                                BoxShadow(
-                                  color: appColors().primaryColorApp
-                                      .withOpacity(0.4),
-                                  blurRadius: 20,
-                                  spreadRadius: 0,
-                                  offset: const Offset(0, 10),
-                                ),
+                      gradient: (_isCreating || !_nameValid || !_handleValid)
+                          ? LinearGradient(
+                              colors: [Colors.grey[300]!, Colors.grey[400]!],
+                            )
+                          : LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                appColors().primaryColorApp,
+                                appColors().primaryColorApp.withOpacity(0.8),
                               ],
+                            ),
+                      boxShadow: (_isCreating || !_nameValid || !_handleValid)
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: appColors().primaryColorApp.withOpacity(
+                                  0.4,
+                                ),
+                                blurRadius: 20,
+                                spreadRadius: 0,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                     ),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap:
-                            (_isCreating || !_nameValid || !_handleValid)
-                                ? null
-                                : _createChannel,
+                        onTap: (_isCreating || !_nameValid || !_handleValid)
+                            ? null
+                            : _createChannel,
                         borderRadius: BorderRadius.circular(20.w),
                         child: Center(
-                          child:
-                              _isCreating
-                                  ? SizedBox(
-                                    height: 26.w,
-                                    width: 26.w,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation(
-                                        Colors.white,
+                          child: _isCreating
+                              ? SizedBox(
+                                  height: 26.w,
+                                  width: 26.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.rocket_launch_rounded,
+                                      color: Colors.white,
+                                      size: 22.w,
+                                    ),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      'Create Channel',
+                                      style: TextStyle(
+                                        fontSize: 17.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: 0.5,
                                       ),
                                     ),
-                                  )
-                                  : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.rocket_launch_rounded,
-                                        color: Colors.white,
-                                        size: 22.w,
-                                      ),
-                                      SizedBox(width: 10.w),
-                                      Text(
-                                        'Create Channel',
-                                        style: TextStyle(
-                                          fontSize: 17.sp,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  ],
+                                ),
                         ),
                       ),
                     ),
@@ -771,6 +893,10 @@ class _CreateChannelState extends State<CreateChannel>
     String? Function(String?)? validator,
     int? maxLength,
     String? helperText,
+    void Function(String)? onChanged,
+    bool isChecking = false,
+    String? statusText,
+    Color? statusColor,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,6 +947,7 @@ class _CreateChannelState extends State<CreateChannel>
             controller: controller,
             focusNode: focusNode,
             maxLength: maxLength,
+            onChanged: onChanged,
             validator: validator,
             onFieldSubmitted: (_) {
               if (nextFocus != null) {
@@ -874,6 +1001,46 @@ class _CreateChannelState extends State<CreateChannel>
             ),
           ),
         ),
+        if ((isChecking) || (statusText != null && statusText.isNotEmpty)) ...[
+          SizedBox(height: 8.w),
+          Padding(
+            padding: EdgeInsets.only(left: 6.w),
+            child: Row(
+              children: [
+                if (isChecking)
+                  SizedBox(
+                    height: 14.w,
+                    width: 14.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.0,
+                      valueColor: AlwaysStoppedAnimation(
+                        statusColor ?? Colors.grey,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    height: 12.w,
+                    width: 12.w,
+                    decoration: BoxDecoration(
+                      color: statusColor ?? Colors.grey[400],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    statusText ?? '',
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      color: statusColor ?? Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

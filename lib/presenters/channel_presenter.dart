@@ -17,7 +17,9 @@ class ChannelPresenter {
   }) async {
     try {
       final token = await _sharedPref.getToken();
-      final uri = Uri.parse('${AppConstant.BaseUrl}create_channel');
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_CREATE_CHANNEL}',
+      );
 
       final request = http.MultipartRequest('POST', uri);
       if (token != null && token.toString().isNotEmpty) {
@@ -42,10 +44,9 @@ class ChannelPresenter {
       final streamed = await request.send();
       final resp = await http.Response.fromStream(streamed);
 
-      final Map<String, dynamic> decoded =
-          resp.body.isNotEmpty
-              ? jsonDecode(resp.body) as Map<String, dynamic>
-              : {};
+      final Map<String, dynamic> decoded = resp.body.isNotEmpty
+          ? jsonDecode(resp.body) as Map<String, dynamic>
+          : {};
 
       return {
         'statusCode': resp.statusCode,
@@ -69,7 +70,9 @@ class ChannelPresenter {
   Future<Map<String, dynamic>> getChannel() async {
     try {
       final token = await _sharedPref.getToken();
-      final uri = Uri.parse('${AppConstant.BaseUrl}get_channel');
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_GET_CHANNEL}',
+      );
 
       final response = await http.get(
         uri,
@@ -79,10 +82,9 @@ class ChannelPresenter {
         },
       );
 
-      final Map<String, dynamic> decoded =
-          response.body.isNotEmpty
-              ? jsonDecode(response.body) as Map<String, dynamic>
-              : {};
+      final Map<String, dynamic> decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : {};
 
       return {
         'statusCode': response.statusCode,
@@ -106,7 +108,9 @@ class ChannelPresenter {
   Future<Map<String, dynamic>> deleteChannel(int channelId) async {
     try {
       final token = await _sharedPref.getToken();
-      final uri = Uri.parse('${AppConstant.BaseUrl}delete_channel');
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_DELETE_CHANNEL}',
+      );
 
       final response = await http.post(
         uri,
@@ -117,10 +121,9 @@ class ChannelPresenter {
         body: jsonEncode({'id': channelId}),
       );
 
-      final Map<String, dynamic> decoded =
-          response.body.isNotEmpty
-              ? jsonDecode(response.body) as Map<String, dynamic>
-              : {};
+      final Map<String, dynamic> decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : {};
 
       return {
         'statusCode': response.statusCode,
@@ -150,7 +153,9 @@ class ChannelPresenter {
   }) async {
     try {
       final token = await _sharedPref.getToken();
-      final uri = Uri.parse('${AppConstant.BaseUrl}update_channel');
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_UPDATE_CHANNEL}',
+      );
 
       final request = http.MultipartRequest('POST', uri);
       if (token != null && token.toString().isNotEmpty) {
@@ -191,13 +196,94 @@ class ChannelPresenter {
       final streamed = await request.send();
       final resp = await http.Response.fromStream(streamed);
 
-      final Map<String, dynamic> decoded =
-          resp.body.isNotEmpty
-              ? jsonDecode(resp.body) as Map<String, dynamic>
-              : {};
+      final Map<String, dynamic> decoded = resp.body.isNotEmpty
+          ? jsonDecode(resp.body) as Map<String, dynamic>
+          : {};
 
       return {
         'statusCode': resp.statusCode,
+        'status': decoded['status'] == true,
+        'msg': decoded['msg']?.toString() ?? '',
+        'data': decoded['data'],
+        'raw': decoded,
+      };
+    } catch (e) {
+      return {
+        'statusCode': 0,
+        'status': false,
+        'msg': e.toString(),
+        'data': null,
+      };
+    }
+  }
+
+  /// Requests the server to generate a suggested channel name/handle for the user.
+  /// Endpoint: `${AppConstant.BaseUrl}generate_channel_name`
+  /// Returns a map with keys: `statusCode`, `status`, `msg`, `data`, `raw`.
+  Future<Map<String, dynamic>> generateChannelName() async {
+    try {
+      final token = await _sharedPref.getToken();
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_GENERATE_CHANNEL_NAME}',
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          if (token != null && token.toString().isNotEmpty)
+            'Authorization': 'Bearer ${token.toString()}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final Map<String, dynamic> decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : {};
+
+      return {
+        'statusCode': response.statusCode,
+        'status': decoded['status'] == true,
+        'msg': decoded['msg']?.toString() ?? '',
+        'data': decoded['data'],
+        'raw': decoded,
+      };
+    } catch (e) {
+      return {
+        'statusCode': 0,
+        'status': false,
+        'msg': e.toString(),
+        'data': null,
+      };
+    }
+  }
+
+  /// Checks whether a handle is available.
+  /// Calls the `${AppConstant.BaseUrl}${AppConstant.API_CHECK_HANDLE_AVAILABLE}` endpoint.
+  /// Expects body: { "handle": "value" }
+  /// Returns a map with keys: `statusCode`, `status`, `msg`, `data`, `raw`.
+  Future<Map<String, dynamic>> checkHandleAvailable(String handle) async {
+    try {
+      final token = await _sharedPref.getToken();
+      final uri = Uri.parse(
+        '${AppConstant.BaseUrl}${AppConstant.API_CHECK_HANDLE_AVAILABLE}',
+      );
+
+      final response = await http.post(
+        uri,
+        headers: {
+          if (token != null && token.toString().isNotEmpty)
+            'Authorization': 'Bearer ${token.toString()}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'handle': handle}),
+      );
+
+      final Map<String, dynamic> decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : {};
+
+      return {
+        'statusCode': response.statusCode,
         'status': decoded['status'] == true,
         'msg': decoded['msg']?.toString() ?? '',
         'data': decoded['data'],
