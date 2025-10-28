@@ -37,12 +37,32 @@ class PanchangService {
         b -
         1524.5;
 
-    // For sunrise/sunset calculations, use noon UTC (12:00)
-    // This gives us the middle of the day for accurate calculations
-    return jd;
+    // Add time of day component for accurate Tithi calculation
+    // Convert local time to UTC, then to fraction of day
+    double hour = date.hour.toDouble();
+    double minute = date.minute.toDouble();
+    double second = date.second.toDouble();
+
+    // Convert to UTC by subtracting timezone offset
+    double utcHour = hour - timezone;
+
+    // Convert time to fraction of day (0.0 to 1.0)
+    double dayFraction = (utcHour + minute / 60.0 + second / 3600.0) / 24.0;
+
+    return jd + dayFraction;
   }
 
-  /// Calculate Sun's longitude (tropical position)
+  /// Calculate Ayanamsa (precession correction) using Lahiri method
+  double getAyanamsa() {
+    double jd = getJulianDay();
+
+    // Lahiri Ayanamsa formula
+    double ayanamsa = 23.85 + 0.013888889 * (jd - 2451545.0) / 365.25;
+
+    return ayanamsa;
+  }
+
+  /// Calculate Sun's longitude (sidereal position with Ayanamsa)
   double getSunLongitude() {
     double jd = getJulianDay();
     double t = (jd - 2451545.0) / 36525.0;
@@ -60,12 +80,17 @@ class PanchangService {
         (0.019993 - 0.000101 * t) * sin(2 * mRad) +
         0.000289 * sin(3 * mRad);
 
-    // True longitude
-    double sunLong = (l0 + c) % 360;
+    // True tropical longitude
+    double sunLongTropical = (l0 + c) % 360;
+
+    // Convert to sidereal by subtracting Ayanamsa
+    double ayanamsa = getAyanamsa();
+    double sunLong = (sunLongTropical - ayanamsa + 360) % 360;
+
     return sunLong;
   }
 
-  /// Calculate Moon's longitude with corrections
+  /// Calculate Moon's longitude with corrections (sidereal)
   double getMoonLongitude() {
     double jd = getJulianDay();
     double t = (jd - 2451545.0) / 36525.0;
@@ -100,18 +125,70 @@ class PanchangService {
         0.213618 * sin(2 * mPrimeRad) -
         0.185116 * sin(mRad);
 
-    double moonLong = (l + correction) % 360;
+    // Tropical longitude
+    double moonLongTropical = (l + correction) % 360;
+
+    // Convert to sidereal by subtracting Ayanamsa
+    double ayanamsa = getAyanamsa();
+    double moonLong = (moonLongTropical - ayanamsa + 360) % 360;
+
     return moonLong;
   }
 
   /// Calculate Tithi (Lunar day) with Shukla/Krishna Paksha
-  Map<String, dynamic> getTithi() {
-    double sunLong = getSunLongitude();
-    double moonLong = getMoonLongitude();
+  /// Note: In traditional Panchang, Tithi at sunrise determines the Tithi for the day
+  Map<String, dynamic> getTithi({bool atSunrise = false}) {
+    DateTime calculationDate = date;
+
+    if (atSunrise) {
+      // Calculate Tithi at sunrise time
+      String sunriseStr = getSunrise();
+      if (sunriseStr != "N/A") {
+        // Parse sunrise time (format: "HH:MM AM/PM")
+        List<String> parts = sunriseStr.split(' ');
+        List<String> timeParts = parts[0].split(':');
+        int hour = int.parse(timeParts[0]);
+        int minute = int.parse(timeParts[1]);
+
+        // Convert to 24-hour format
+        if (parts[1] == 'PM' && hour != 12) {
+          hour += 12;
+        } else if (parts[1] == 'AM' && hour == 12) {
+          hour = 0;
+        }
+
+        calculationDate = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          hour,
+          minute,
+        );
+      }
+    }
+
+    // Create a temporary service with sunrise time if needed
+    final service = atSunrise
+        ? PanchangService(
+            date: calculationDate,
+            latitude: latitude,
+            longitude: longitude,
+            timezone: timezone,
+          )
+        : this;
+
+    double sunLong = service.getSunLongitude();
+    double moonLong = service.getMoonLongitude();
 
     double diff = (moonLong - sunLong + 360) % 360;
     int tithiNum = (diff / 12).floor();
     double tithiProgress = (diff % 12) / 12;
+
+    // Traditional Panchang: Use the Tithi that is active at sunrise,
+    // regardless of when it will transition. The Tithi at sunrise
+    // determines the Tithi for the entire day.
+    // Note: We removed the 99% threshold rule as it was causing incorrect
+    // displays when Tithi transitions shortly after sunrise.
 
     List<String> tithiNames = [
       'Pratipada',
@@ -128,15 +205,24 @@ class PanchangService {
       'Dwadashi',
       'Trayodashi',
       'Chaturdashi',
-      'Purnima/Amavasya',
+      'Purnima', // 15th of Shukla Paksha
     ];
 
     String paksha = tithiNum < 15 ? 'Shukla' : 'Krishna';
     int tithiIndex = tithiNum % 15;
 
+    // Special handling for the 15th tithi
+    String tithiName;
+    if (tithiIndex == 14) {
+      // 15th tithi - distinguish between Purnima and Amavasya
+      tithiName = paksha == 'Shukla' ? 'Purnima' : 'Amavasya';
+    } else {
+      tithiName = tithiNames[tithiIndex];
+    }
+
     return {
       'number': tithiNum + 1,
-      'name': tithiNames[tithiIndex],
+      'name': tithiName,
       'paksha': paksha,
       'progress': tithiProgress,
     };
@@ -334,9 +420,9 @@ class PanchangService {
     // For India-specific calculation
     bool isIndianRegion =
         (latitude >= 8.0 &&
-            latitude <= 37.0 &&
-            longitude >= 68.0 &&
-            longitude <= 98.0);
+        latitude <= 37.0 &&
+        longitude >= 68.0 &&
+        longitude <= 98.0);
 
     if (isIndianRegion) {
       return _getIndianSunriseTime();
@@ -392,9 +478,9 @@ class PanchangService {
     // For India-specific calculation
     bool isIndianRegion =
         (latitude >= 8.0 &&
-            latitude <= 37.0 &&
-            longitude >= 68.0 &&
-            longitude <= 98.0);
+        latitude <= 37.0 &&
+        longitude >= 68.0 &&
+        longitude <= 98.0);
 
     if (isIndianRegion) {
       return _getIndianSunsetTime();
@@ -447,79 +533,223 @@ class PanchangService {
 
   /// More accurate sunrise calculation for Indian region
   String _getIndianSunriseTime() {
-    // Get day of year
-    int dayOfYear = date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+    // Calculate Julian Day at midnight (not using time component from date)
+    int year = date.year;
+    int month = date.month;
+    int day = date.day;
 
-    // Calculate sunrise time - algorithm specific for Indian latitudes
-    double B = 2 * pi * (dayOfYear - 81) / 365;
+    if (month <= 2) {
+      year -= 1;
+      month += 12;
+    }
 
-    // Equation of time (in minutes)
-    double eqTime = 9.87 * sin(2 * B) - 7.53 * cos(B) - 1.5 * sin(B);
+    int a = (year / 100).floor();
+    int b = 2 - a + (a / 4).floor();
 
-    // Solar declination angle
-    double decl = 23.45 * sin(B);
+    double jd =
+        (365.25 * (year + 4716)).floor() +
+        (30.6001 * (month + 1)).floor() +
+        day +
+        b -
+        1524.5;
 
+    // Julian century
+    double T = (jd - 2451545.0) / 36525.0;
+
+    // Geometric Mean Longitude of Sun (degrees)
+    double L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360;
+
+    // Geometric Mean Anomaly of Sun (degrees)
+    double M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360;
+    double MRad = M * pi / 180;
+
+    // Eccentricity of Earth's orbit
+    double e = 0.016708634 - 0.000042037 * T - 0.0000001267 * T * T;
+
+    // Sun's Equation of Center
+    double C =
+        (1.914602 - 0.004817 * T - 0.000014 * T * T) * sin(MRad) +
+        (0.019993 - 0.000101 * T) * sin(2 * MRad) +
+        0.000289 * sin(3 * MRad);
+
+    // Sun's True Longitude
+    double sunTrueLong = L0 + C;
+
+    // Sun's Apparent Longitude
+    double omega = 125.04 - 1934.136 * T;
+    double lambda = sunTrueLong - 0.00569 - 0.00478 * sin(omega * pi / 180);
+    double lambdaRad = lambda * pi / 180;
+
+    // Obliquity of the Ecliptic
+    double epsilon0 =
+        23.0 +
+        26.0 / 60 +
+        21.448 / 3600 -
+        (46.8150 * T + 0.00059 * T * T - 0.001813 * T * T * T) / 3600;
+    double epsilonRad = epsilon0 * pi / 180;
+
+    // Sun's Declination
+    double declination = asin(sin(epsilonRad) * sin(lambdaRad));
+
+    // Equation of Time (in minutes)
+    double y = tan(epsilonRad / 2) * tan(epsilonRad / 2);
+    double L0Rad = L0 * pi / 180;
+    double eqTime =
+        4 *
+        (y * sin(2 * L0Rad) -
+            2 * e * sin(MRad) +
+            4 * e * y * sin(MRad) * cos(2 * L0Rad) -
+            0.5 * y * y * sin(4 * L0Rad) -
+            1.25 * e * e * sin(2 * MRad)) *
+        180 /
+        pi;
+
+    // Hour Angle for sunrise (accounting for atmospheric refraction)
     double latRad = latitude * pi / 180;
-    double declRad = decl * pi / 180;
+    double cosHA =
+        (sin(-0.833 * pi / 180) - sin(latRad) * sin(declination)) /
+        (cos(latRad) * cos(declination));
 
-    // Calculate sunrise hour angle
-    double ha =
-        acos(sin(-0.83 * pi / 180) - sin(latRad) * sin(declRad)) /
-        (cos(latRad) * cos(declRad));
-    ha = ha * 180 / pi; // Convert to degrees
+    if (cosHA.abs() > 1) {
+      return "N/A"; // Sun never rises or sets
+    }
 
-    // Calculate sunrise time (in decimal hours)
-    double sunriseTime =
-        12.0 - ha / 15.0 - eqTime / 60.0 - longitude / 15.0 + timezone;
+    double HA = acos(cosHA) * 180 / pi;
 
-    // Handle day crossover
-    while (sunriseTime < 0) sunriseTime += 24;
-    while (sunriseTime >= 24) sunriseTime -= 24;
+    // Solar Noon (in minutes from midnight UTC)
+    double solarNoonUTC = 720 - 4 * longitude - eqTime;
 
-    // Convert to hours and minutes
-    int hours = sunriseTime.floor();
-    int minutes = ((sunriseTime - hours) * 60).round();
+    // Sunrise time (in minutes from midnight UTC)
+    double sunriseUTC = solarNoonUTC - 4 * HA;
 
-    // Format with AM indicator (sunrise is always AM in India)
+    // Convert to local time
+    double sunriseLocal = sunriseUTC + timezone * 60;
+
+    // Normalize to 0-1440 minutes
+    while (sunriseLocal < 0) sunriseLocal += 1440;
+    while (sunriseLocal >= 1440) sunriseLocal -= 1440;
+
+    int hours = (sunriseLocal / 60).floor();
+    int minutes = (sunriseLocal % 60).round();
+
+    // Handle minute overflow
+    if (minutes >= 60) {
+      hours += 1;
+      minutes -= 60;
+    }
+
+    // Format with AM indicator
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')} AM';
   }
 
   /// More accurate sunset calculation for Indian region
   String _getIndianSunsetTime() {
-    // Get day of year
-    int dayOfYear = date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+    // Calculate Julian Day at midnight (not using time component from date)
+    int year = date.year;
+    int month = date.month;
+    int day = date.day;
 
-    // Calculate sunset time - algorithm specific for Indian latitudes
-    double B = 2 * pi * (dayOfYear - 81) / 365;
+    if (month <= 2) {
+      year -= 1;
+      month += 12;
+    }
 
-    // Equation of time (in minutes)
-    double eqTime = 9.87 * sin(2 * B) - 7.53 * cos(B) - 1.5 * sin(B);
+    int a = (year / 100).floor();
+    int b = 2 - a + (a / 4).floor();
 
-    // Solar declination angle
-    double decl = 23.45 * sin(B);
+    double jd =
+        (365.25 * (year + 4716)).floor() +
+        (30.6001 * (month + 1)).floor() +
+        day +
+        b -
+        1524.5;
 
+    // Julian century
+    double T = (jd - 2451545.0) / 36525.0;
+
+    // Geometric Mean Longitude of Sun (degrees)
+    double L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360;
+
+    // Geometric Mean Anomaly of Sun (degrees)
+    double M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360;
+    double MRad = M * pi / 180;
+
+    // Eccentricity of Earth's orbit
+    double e = 0.016708634 - 0.000042037 * T - 0.0000001267 * T * T;
+
+    // Sun's Equation of Center
+    double C =
+        (1.914602 - 0.004817 * T - 0.000014 * T * T) * sin(MRad) +
+        (0.019993 - 0.000101 * T) * sin(2 * MRad) +
+        0.000289 * sin(3 * MRad);
+
+    // Sun's True Longitude
+    double sunTrueLong = L0 + C;
+
+    // Sun's Apparent Longitude
+    double omega = 125.04 - 1934.136 * T;
+    double lambda = sunTrueLong - 0.00569 - 0.00478 * sin(omega * pi / 180);
+    double lambdaRad = lambda * pi / 180;
+
+    // Obliquity of the Ecliptic
+    double epsilon0 =
+        23.0 +
+        26.0 / 60 +
+        21.448 / 3600 -
+        (46.8150 * T + 0.00059 * T * T - 0.001813 * T * T * T) / 3600;
+    double epsilonRad = epsilon0 * pi / 180;
+
+    // Sun's Declination
+    double declination = asin(sin(epsilonRad) * sin(lambdaRad));
+
+    // Equation of Time (in minutes)
+    double y = tan(epsilonRad / 2) * tan(epsilonRad / 2);
+    double L0Rad = L0 * pi / 180;
+    double eqTime =
+        4 *
+        (y * sin(2 * L0Rad) -
+            2 * e * sin(MRad) +
+            4 * e * y * sin(MRad) * cos(2 * L0Rad) -
+            0.5 * y * y * sin(4 * L0Rad) -
+            1.25 * e * e * sin(2 * MRad)) *
+        180 /
+        pi;
+
+    // Hour Angle for sunset (accounting for atmospheric refraction)
     double latRad = latitude * pi / 180;
-    double declRad = decl * pi / 180;
+    double cosHA =
+        (sin(-0.833 * pi / 180) - sin(latRad) * sin(declination)) /
+        (cos(latRad) * cos(declination));
 
-    // Calculate sunset hour angle
-    double ha =
-        acos(sin(-0.83 * pi / 180) - sin(latRad) * sin(declRad)) /
-        (cos(latRad) * cos(declRad));
-    ha = ha * 180 / pi; // Convert to degrees
+    if (cosHA.abs() > 1) {
+      return "N/A"; // Sun never rises or sets
+    }
 
-    // Calculate sunset time (in decimal hours)
-    double sunsetTime =
-        12.0 + ha / 15.0 - eqTime / 60.0 - longitude / 15.0 + timezone;
+    double HA = acos(cosHA) * 180 / pi;
 
-    // Handle day crossover
-    while (sunsetTime < 0) sunsetTime += 24;
-    while (sunsetTime >= 24) sunsetTime -= 24;
+    // Solar Noon (in minutes from midnight UTC)
+    double solarNoonUTC = 720 - 4 * longitude - eqTime;
 
-    // Convert to hours and minutes
-    int hours = sunsetTime.floor();
-    int minutes = ((sunsetTime - hours) * 60).round();
+    // Sunset time (in minutes from midnight UTC)
+    double sunsetUTC = solarNoonUTC + 4 * HA;
 
-    // Format with PM indicator (sunset is always PM in India)
+    // Convert to local time
+    double sunsetLocal = sunsetUTC + timezone * 60;
+
+    // Normalize to 0-1440 minutes
+    while (sunsetLocal < 0) sunsetLocal += 1440;
+    while (sunsetLocal >= 1440) sunsetLocal -= 1440;
+
+    int hours = (sunsetLocal / 60).floor();
+    int minutes = (sunsetLocal % 60).round();
+
+    // Handle minute overflow
+    if (minutes >= 60) {
+      hours += 1;
+      minutes -= 60;
+    }
+
+    // Format with PM indicator
     String period = hours >= 12 ? 'PM' : 'AM';
     int displayHour = hours % 12;
     if (displayHour == 0) displayHour = 12;
@@ -527,17 +757,190 @@ class PanchangService {
     return '${displayHour.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')} $period';
   }
 
+  /// Parse time string in format "HH:MM AM/PM" to DateTime
+  DateTime _parseTimeString(String timeStr) {
+    List<String> parts = timeStr.split(' ');
+    List<String> timeParts = parts[0].split(':');
+    int hour = int.parse(timeParts[0]);
+    int minute = int.parse(timeParts[1]);
+
+    // Convert to 24-hour format
+    if (parts[1] == 'PM' && hour != 12) {
+      hour += 12;
+    } else if (parts[1] == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  /// Format DateTime to "HH:MM AM/PM" string
+  String _formatTimeString(DateTime time) {
+    int hour = time.hour;
+    int minute = time.minute;
+
+    String period = hour >= 12 ? 'PM' : 'AM';
+    int displayHour = hour % 12;
+    if (displayHour == 0) displayHour = 12;
+
+    return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Calculate Navkarsi start time (Sunrise + 48 minutes)
+  String getNavkarsiStartTime() {
+    String sunriseStr = getSunrise();
+    if (sunriseStr == "N/A") return "N/A";
+
+    DateTime sunrise = _parseTimeString(sunriseStr);
+    DateTime navkarsiStart = sunrise.add(const Duration(minutes: 48));
+
+    return _formatTimeString(navkarsiStart);
+  }
+
+  /// Calculate Chauvihar end time (Sunset)
+  String getChauviharEndTime() {
+    return getSunset();
+  }
+
+  /// Calculate Choghadiya (8 auspicious/inauspicious time periods in day and night)
+  Map<String, dynamic> getChoghadiya() {
+    // Planet sequence
+    final planets = [
+      'Sun',
+      'Venus',
+      'Mercury',
+      'Moon',
+      'Saturn',
+      'Jupiter',
+      'Mars',
+    ];
+
+    // Planet to Choghadiya mapping
+    final planetToChog = {
+      'Sun': 'Udveg',
+      'Venus': 'Chal',
+      'Mercury': 'Labh',
+      'Moon': 'Amrit',
+      'Saturn': 'Kaal',
+      'Jupiter': 'Shubh',
+      'Mars': 'Rog',
+    };
+
+    // Weekday to first planet mapping
+    final weekdayFirstPlanet = {
+      7: 'Sun', // Sunday
+      1: 'Moon', // Monday
+      2: 'Mars', // Tuesday
+      3: 'Mercury', // Wednesday
+      4: 'Jupiter', // Thursday
+      5: 'Venus', // Friday
+      6: 'Saturn', // Saturday
+    };
+
+    // Get sunrise, sunset times for current day and next sunrise
+    DateTime sunrise = _parseTimeString(getSunrise());
+    DateTime sunset = _parseTimeString(getSunset());
+
+    // Get next day's sunrise
+    DateTime nextDay = date.add(const Duration(days: 1));
+    PanchangService nextDayService = PanchangService(
+      date: nextDay,
+      latitude: latitude,
+      longitude: longitude,
+      timezone: timezone,
+    );
+    DateTime nextSunrise = _parseTimeString(nextDayService.getSunrise());
+    // Adjust next sunrise to be on the next day
+    nextSunrise = DateTime(
+      nextDay.year,
+      nextDay.month,
+      nextDay.day,
+      nextSunrise.hour,
+      nextSunrise.minute,
+    );
+
+    // Calculate durations in minutes
+    int dayDuration = sunset.difference(sunrise).inMinutes;
+    double daySlotMinutes = dayDuration / 8;
+
+    int nightDuration = nextSunrise.difference(sunset).inMinutes;
+    double nightSlotMinutes = nightDuration / 8;
+
+    // Get weekday (1 = Monday, 7 = Sunday)
+    int weekday = date.weekday;
+
+    // Get first planet for the day
+    String firstDayPlanet = weekdayFirstPlanet[weekday]!;
+    int startIdx = planets.indexOf(firstDayPlanet);
+
+    // Calculate day slots
+    List<Map<String, dynamic>> daySlots = [];
+    DateTime currentTime = sunrise;
+
+    for (int i = 0; i < 8; i++) {
+      int planetIdx = (startIdx + i) % 7;
+      String planet = planets[planetIdx];
+      String chog = planetToChog[planet]!;
+
+      DateTime endTime = sunrise.add(
+        Duration(minutes: ((i + 1) * daySlotMinutes).round()),
+      );
+
+      daySlots.add({
+        'start': _formatTimeString(currentTime),
+        'end': _formatTimeString(endTime),
+        'planet': planet,
+        'choghadiya': chog,
+      });
+
+      currentTime = endTime;
+    }
+
+    // Calculate night slots
+    // Night starts with the 5th planet from the day's starting planet
+    // and increments by 5 positions (not 1) in the planet sequence
+    int nightStartIdx =
+        (startIdx + 5) %
+        7; // +5 to get to the correct starting planet for night
+    List<Map<String, dynamic>> nightSlots = [];
+    currentTime = sunset;
+
+    for (int i = 0; i < 8; i++) {
+      int planetIdx = (nightStartIdx + (i * 5)) % 7; // Increment by 5 for night
+      String planet = planets[planetIdx];
+      String chog = planetToChog[planet]!;
+
+      DateTime endTime = sunset.add(
+        Duration(minutes: ((i + 1) * nightSlotMinutes).round()),
+      );
+
+      nightSlots.add({
+        'start': _formatTimeString(currentTime),
+        'end': _formatTimeString(endTime),
+        'planet': planet,
+        'choghadiya': chog,
+      });
+
+      currentTime = endTime;
+    }
+
+    return {'day': daySlots, 'night': nightSlots};
+  }
+
   /// Get complete Panchang data
   Map<String, dynamic> getPanchang() {
     return {
       'date': date.toString().split(' ')[0],
-      'tithi': getTithi(),
+      'tithi': getTithi(atSunrise: true), // Use sunrise-based Tithi
       'nakshatra': getNakshatra(),
       'yoga': getYoga(),
       'karana': getKarana(),
       'rashi': getRashi(),
       'sunrise': getSunrise(),
       'sunset': getSunset(),
+      'navkarsi_start': getNavkarsiStartTime(),
+      'chauvihar_end': getChauviharEndTime(),
+      'choghadiya': getChoghadiya(),
     };
   }
 

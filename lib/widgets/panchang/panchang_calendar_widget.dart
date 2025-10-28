@@ -140,6 +140,7 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
 
   /// Get Tithi data for a specific date
   /// Returns a map with keys: 'name' (String) and 'number' (int)
+  /// Uses Tithi at sunrise, as per traditional Panchang calculations
   Map<String, dynamic>? _getTithiForDate(DateTime date) {
     try {
       // Normalize to midnight for consistent calculations
@@ -152,7 +153,8 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
         timezone: widget.timezone,
       );
 
-      final tithiData = panchangService.getTithi();
+      // Get Tithi at sunrise (traditional Panchang method)
+      final tithiData = panchangService.getTithi(atSunrise: true);
       return {'name': tithiData['name'] ?? '', 'number': tithiData['number']};
     } catch (e) {
       return null;
@@ -300,16 +302,29 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
                             padding: EdgeInsets.only(top: 4.w),
                             child: Builder(
                               builder: (context) {
-                                // Show tithi number within the paksha (1..15)
                                 final numVal = tithi['number'] is int
                                     ? tithi['number'] as int
                                     : int.tryParse(
                                             tithi['number'].toString(),
                                           ) ??
                                           0;
-                                final displayNumber = (numVal > 15)
-                                    ? (numVal - 15)
-                                    : numVal;
+
+                                // Display logic:
+                                // - Show 1-15 for Shukla Paksha (tithis 1-15)
+                                // - Show 1-14 for Krishna Paksha (tithis 16-29)
+                                // - Show 30 for Amavasya (tithi 30)
+                                int displayNumber;
+                                if (numVal == 30) {
+                                  // Special case: Amavasya shows as 30
+                                  displayNumber = 30;
+                                } else if (numVal > 15) {
+                                  // Krishna Paksha: show 1-14 (for tithis 16-29)
+                                  displayNumber = numVal - 15;
+                                } else {
+                                  // Shukla Paksha: show 1-15 (for tithis 1-15)
+                                  displayNumber = numVal;
+                                }
+
                                 return Text(
                                   displayNumber > 0
                                       ? displayNumber.toString()
