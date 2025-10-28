@@ -142,26 +142,24 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                         child: CachedNetworkImage(
                           imageUrl: widget.item.thumbnailUrl,
                           fit: BoxFit.cover,
-                          placeholder:
-                              (context, url) => Container(
-                                color: Colors.grey.shade900,
-                                child: Center(
-                                  child: Icon(
-                                    Icons.video_library_rounded,
-                                    size: 48.w,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey.shade900,
+                            child: Center(
+                              child: Icon(
+                                Icons.video_library_rounded,
+                                size: 48.w,
+                                color: Colors.grey.shade700,
                               ),
-                          errorWidget:
-                              (context, url, error) => Container(
-                                color: Colors.grey.shade900,
-                                child: Icon(
-                                  Icons.broken_image_rounded,
-                                  size: 48.w,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade900,
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 48.w,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ),
                       ),
 
@@ -202,25 +200,6 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                                 fontSize: 11.sp,
                                 fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ),
-                        ),
-
-                      // Muted indicator (when auto-playing)
-                      if (_isVideoVisible)
-                        Positioned(
-                          top: 8.h,
-                          right: 8.w,
-                          child: Container(
-                            padding: EdgeInsets.all(6.w),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.volume_off_rounded,
-                              color: Colors.white,
-                              size: 16.w,
                             ),
                           ),
                         ),
@@ -306,45 +285,38 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                         borderRadius: BorderRadius.circular(12.w),
                       ),
                       offset: Offset(0, 8.h),
-                      itemBuilder:
-                          (context) => [
-                            PopupMenuItem(
-                              value: 'share',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.share_rounded, size: 20.w),
-                                  SizedBox(width: 12.w),
-                                  const Text('Share'),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'save',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.bookmark_outline_rounded,
-                                    size: 20.w,
-                                  ),
-                                  SizedBox(width: 12.w),
-                                  const Text('Save to playlist'),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'not_interested',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.not_interested_rounded,
-                                    size: 20.w,
-                                  ),
-                                  SizedBox(width: 12.w),
-                                  const Text('Not interested'),
-                                ],
-                              ),
-                            ),
-                          ],
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'share',
+                          child: Row(
+                            children: [
+                              Icon(Icons.share_rounded, size: 20.w),
+                              SizedBox(width: 12.w),
+                              const Text('Share'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'save',
+                          child: Row(
+                            children: [
+                              Icon(Icons.bookmark_outline_rounded, size: 20.w),
+                              SizedBox(width: 12.w),
+                              const Text('Save to playlist'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'not_interested',
+                          child: Row(
+                            children: [
+                              Icon(Icons.not_interested_rounded, size: 20.w),
+                              SizedBox(width: 12.w),
+                              const Text('Not interested'),
+                            ],
+                          ),
+                        ),
+                      ],
                       onSelected: (value) {
                         // Handle menu actions
                       },

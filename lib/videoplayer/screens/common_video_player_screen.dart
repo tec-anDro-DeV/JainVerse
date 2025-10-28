@@ -25,6 +25,9 @@ import 'package:jainverse/videoplayer/services/like_dislike_service.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/services/watch_history_service.dart';
 import 'package:jainverse/videoplayer/widgets/video_report_modal.dart';
+import 'package:jainverse/main.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:audio_service/audio_service.dart';
 
 class CommonVideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -554,161 +557,194 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
             ),
             // Scrollable content section
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Description container
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(16.w),
-                      color: Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Description',
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16.sp,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Builder(
-                            builder: (context) {
-                              final desc = widget.videoItem?.description ?? '';
-                              final hasDesc = desc.trim().isNotEmpty;
-                              if (!hasDesc) {
-                                return Text(
-                                  'Video description will appear here. You can add detailed information about the video content.',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontSize: 14.sp,
-                                    height: 1.5,
-                                  ),
-                                );
-                              }
+              child: StreamBuilder<MediaItem?>(
+                stream: const MyApp().called().mediaItem,
+                builder: (context, snapshot) {
+                  // Check if mini player is visible (music is playing)
+                  final hasMiniPlayer = snapshot.hasData;
 
-                              // Show collapsed/expanded description with preserve newlines
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    desc,
-                                    maxLines: _descExpanded ? null : 3,
-                                    overflow: _descExpanded
-                                        ? TextOverflow.visible
-                                        : TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 14.sp,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                  SizedBox(height: 6.h),
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _descExpanded = !_descExpanded;
-                                      });
-                                    },
-                                    child: Text(
-                                      _descExpanded ? 'Show less' : 'Show more',
-                                      style: TextStyle(
-                                        color: Theme.of(context).primaryColor,
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
+                  // Calculate bottom padding based on mini player and nav bar
+                  final bottomPadding = hasMiniPlayer
+                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 20.w
+                      : AppSizes.basePadding + 20.w;
 
-                    // Recommended Videos Section
-                    Padding(
-                      padding: EdgeInsets.only(top: 12.h, left: 0, right: 0),
-                      child: Container(
-                        width: double.infinity,
-                        color: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 12.h,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Recommended videos (compact cards only)
-                            _buildRecommendedVideosList(),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // More from this channel
-                    if (widget.videoItem?.channelId != null)
-                      Padding(
-                        padding: EdgeInsets.only(top: 12.h, left: 0, right: 0),
-                        child: Container(
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: bottomPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Description container
+                        Container(
                           width: double.infinity,
+                          padding: EdgeInsets.all(16.w),
                           color: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12.w,
-                            vertical: 12.h,
-                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'More from this channel',
-                                    style: TextStyle(
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      // navigate to full channel page
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => ChannelVideosScreen(
-                                            channelId:
-                                                widget.videoItem!.channelId!,
-                                            channelName:
-                                                widget.videoItem!.channelName,
+                              Text(
+                                'Description',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16.sp,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              Builder(
+                                builder: (context) {
+                                  final desc =
+                                      widget.videoItem?.description ?? '';
+                                  final hasDesc = desc.trim().isNotEmpty;
+                                  if (!hasDesc) {
+                                    return Text(
+                                      'Video description will appear here. You can add detailed information about the video content.',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 14.sp,
+                                        height: 1.5,
+                                      ),
+                                    );
+                                  }
+
+                                  // Show collapsed/expanded description with preserve newlines
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        desc,
+                                        maxLines: _descExpanded ? null : 3,
+                                        overflow: _descExpanded
+                                            ? TextOverflow.visible
+                                            : TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 14.sp,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                      SizedBox(height: 6.h),
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _descExpanded = !_descExpanded;
+                                          });
+                                        },
+                                        child: Text(
+                                          _descExpanded
+                                              ? 'Show less'
+                                              : 'Show more',
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
+                                            fontSize: 13.sp,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                      );
-                                    },
-                                    child: Text(
-                                      'See all',
-                                      style: TextStyle(
-                                        color: Theme.of(context).primaryColor,
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ),
-                                  ),
-                                ],
+                                    ],
+                                  );
+                                },
                               ),
-                              SizedBox(height: 12.h),
-                              // Show vertical list of channel videos
-                              _buildChannelVideosList(),
                             ],
                           ),
                         ),
-                      ),
-                  ],
-                ),
+
+                        // Recommended Videos Section
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top: 12.h,
+                            left: 0,
+                            right: 0,
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            color: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 12.h,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Recommended videos (compact cards only)
+                                _buildRecommendedVideosList(),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // More from this channel
+                        if (widget.videoItem?.channelId != null)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: 12.h,
+                              left: 0,
+                              right: 0,
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              color: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 12.h,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'More from this channel',
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () {
+                                          // navigate to full channel page
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ChannelVideosScreen(
+                                                    channelId: widget
+                                                        .videoItem!
+                                                        .channelId!,
+                                                    channelName: widget
+                                                        .videoItem!
+                                                        .channelName,
+                                                  ),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'See all',
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
+                                            fontSize: 13.sp,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  // Show vertical list of channel videos
+                                  _buildChannelVideosList(),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],

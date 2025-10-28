@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/videoplayer/models/report_option.dart';
 import 'package:jainverse/videoplayer/services/video_report_service.dart';
+import 'package:jainverse/main.dart';
+import 'package:audio_service/audio_service.dart';
 
 /// Multi-step modal for reporting a video
 /// Step 1: Select report reason from radio buttons
@@ -128,66 +131,83 @@ class _VideoReportModalState extends State<VideoReportModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                if (_currentStep == 1)
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: _isSubmitting ? null : _goToPreviousStep,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                if (_currentStep == 1) SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    _currentStep == 0 ? 'Report Video' : 'Additional Comments',
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+    return StreamBuilder<MediaItem?>(
+      stream: const MyApp().called().mediaItem,
+      builder: (context, snapshot) {
+        // Check if mini player is visible (music is playing)
+        final hasMiniPlayer = snapshot.hasData;
 
-          // Content
-          Flexible(
-            child: _isLoading
-                ? _buildLoadingState()
-                : _errorMessage != null && _reportOptions.isEmpty
-                ? _buildErrorState()
-                : _currentStep == 0
-                ? _buildStepOne()
-                : _buildStepTwo(),
+        // Calculate bottom padding based on mini player and nav bar
+        final bottomPadding = hasMiniPlayer
+            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 40.w
+            : AppSizes.basePadding + 40.w;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
           ),
-        ],
-      ),
+          // Add bottom padding to account for navigation and mini player
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (_currentStep == 1)
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: _isSubmitting ? null : _goToPreviousStep,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    if (_currentStep == 1) SizedBox(width: 12.w),
+                    Expanded(
+                      child: Text(
+                        _currentStep == 0
+                            ? 'Report Video'
+                            : 'Additional Comments',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: _isLoading
+                    ? _buildLoadingState()
+                    : _errorMessage != null && _reportOptions.isEmpty
+                    ? _buildErrorState()
+                    : _currentStep == 0
+                    ? _buildStepOne()
+                    : _buildStepTwo(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

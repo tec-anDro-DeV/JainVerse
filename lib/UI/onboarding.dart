@@ -18,15 +18,11 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
-  // List<MusicNote> musicNotes = [];
   final random = Random();
-  // Timer? _timer;
-  // bool _notesStarted = false;
 
   // Image set variables - to randomize which set is shown
   late int _selectedImageSet;
   late String _backgroundImage;
-  // late String _foregroundImage;
 
   // Animation controllers - initialize with default values
   AnimationController? _logoAnimationController;
@@ -70,12 +66,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
 
     // Define animations
-    _logoOffsetAnimation = Tween<Offset>(
-      begin: const Offset(0, -2.0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _logoAnimationController!, curve: Curves.easeOut),
-    );
+    _logoOffsetAnimation =
+        Tween<Offset>(begin: const Offset(0, -1.0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _logoAnimationController!,
+            curve: Curves.easeOut,
+          ),
+        );
 
     _textOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _textAnimationController!, curve: Curves.easeIn),
@@ -87,30 +84,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         curve: Curves.easeIn,
       ),
     );
-
-    // Start animations immediately since images are already preloaded
-    // _initNotes();
     _startContentAnimations();
-
-    // Start the timer for notes animation
-    // _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-    //   if (mounted && _notesStarted) {
-    //     setState(() {
-    //       for (var note in musicNotes) {
-    //         note.move();
-    //       }
-    //     });
-    //   }
-    // });
   }
 
-  // New method to randomly select one of the five image sets
+  // New method to randomly select one of the three image sets
   void _selectRandomImageSet() {
-    _selectedImageSet = random.nextInt(5) + 1; // Random number between 1-5
+    _selectedImageSet = random.nextInt(3) + 1; // Random number between 1-3
     _backgroundImage = 'assets/images/onboard_bg_$_selectedImageSet.png';
-    // _foregroundImage = 'assets/images/onboard_$_selectedImageSet.png';
-
-    print('Selected image set $_selectedImageSet: $_backgroundImage');
   }
 
   void _startContentAnimations() {
@@ -131,32 +111,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       }
     });
   }
-
-  // void _initNotes() {
-  //   try {
-  //     musicNotes.clear();
-  //     for (int i = 0; i < 60; i++) {
-  //       musicNotes.add(
-  //         MusicNote(
-  //           x: random.nextDouble() * 400,
-  //           y: random.nextDouble() * 800,
-  //           size: (random.nextDouble() * 14 + 10) * 2, // 20 to 48
-  //           angle: random.nextDouble() * pi * 2,
-  //           speed: (random.nextDouble() * 1 + 0.5) * 3, // 1.5 to 4.5
-  //         ),
-  //       );
-  //     }
-  //     setState(() {
-  //       _notesStarted = true;
-  //     });
-  //   } catch (e) {
-  //     print("Error initializing notes: $e");
-  //     // If there's an error, still mark as started to avoid crashes
-  //     setState(() {
-  //       _notesStarted = true;
-  //     });
-  //   }
-  // }
 
   @override
   void dispose() {
@@ -188,41 +142,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
 
-          // Middle layer: Animated music notes
-          // if (_notesStarted)
-          //   ...musicNotes.map(
-          //     (note) => Positioned(
-          //       left: note.x,
-          //       top: note.y,
-          //       child: Transform.rotate(
-          //         angle: note.angle,
-          //         child: Icon(
-          //           Icons.music_note,
-          //           color: const Color.fromARGB(111, 255, 255, 255),
-          //           size: note.size,
-          //         ),
-          //       ),
-          //     ),
-          //   ),
-
-          // Top layer: onboard_X.png - Use errorBuilder to handle load failures
-          // Positioned.fill(
-          //   child: Image.asset(
-          //     _foregroundImage,
-          //     fit: BoxFit.cover,
-          //     errorBuilder: (context, error, stackTrace) {
-          //       print("Error rendering front background image: $error");
-          //       return const SizedBox.shrink();
-          //     },
-          //   ),
-          // ),
-
-          // Transparent black overlay
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withAlpha((0.3 * 255).toInt()),
-            ),
-          ),
           // Content Column with animations
           SafeArea(
             child: Padding(
@@ -230,7 +149,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: Column(
                 children: [
                   // Top Spacing
-                  SizedBox(height: screenHeight * 0.05),
+                  SizedBox(height: screenHeight * 0.45),
 
                   // Logo with slide-down animation
                   SlideTransition(
@@ -239,10 +158,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       opacity: _logoAnimationController!,
                       child: Image.asset(
                         'assets/images/logo-transparent.png',
-                        // width:
-                        //     MediaQuery.of(context).size.width *
-                        //     0.7, // Use width-based sizing
-                        // fit: BoxFit.fill,
+                        width:
+                            MediaQuery.of(context).size.width *
+                            0.4, // Use width-based sizing
+                        fit: BoxFit.fill,
                       ),
                     ),
                   ),
@@ -259,7 +178,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         Text(
                           'Welcome to',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: AppSizes.fontH1 + 10.sp,
                             fontWeight: FontWeight.w500,
                             fontFamily: 'Nunito-Regular',
@@ -271,9 +190,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         Text(
                           'JainVerse',
                           style: TextStyle(
-                            color:
-                                appColors()
-                                    .primaryColorApp, // Keeping the punchy orange
+                            color: appColors()
+                                .primaryColorApp, // Keeping the punchy orange
                             fontSize: AppSizes.fontH1 + 10.sp,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Poppins',
@@ -282,14 +200,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
 
                         // Spacing
-                        SizedBox(height: AppSizes.paddingL),
+                        SizedBox(height: AppSizes.paddingM),
 
                         // Description Text
                         Text(
                           'A divine space of stavan and bhakti, guiding your soul towards peace.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.black87,
                             fontSize: AppSizes.fontSmall + 2.sp,
                             height: 1.2,
                           ),
@@ -299,7 +217,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   ),
 
                   // Spacing
-                  SizedBox(height: screenHeight * 0.05),
+                  SizedBox(height: screenHeight * 0.02),
 
                   // Get Started Button with fade-in animation
                   FadeTransition(
@@ -361,30 +279,3 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 }
-
-// MusicNote class
-// class MusicNote {
-//   double x;
-//   double y;
-//   double size;
-//   double angle;
-//   double speed;
-
-//   MusicNote({
-//     required this.x,
-//     required this.y,
-//     required this.size,
-//     required this.angle,
-//     required this.speed,
-//   });
-
-//   void move() {
-//     x += cos(angle) * speed;
-//     y += sin(angle) * speed;
-
-//     if (x < -50) x = 450;
-//     if (x > 450) x = -50;
-//     if (y < -50) y = 850;
-//     if (y > 850) y = -50;
-//   }
-// }

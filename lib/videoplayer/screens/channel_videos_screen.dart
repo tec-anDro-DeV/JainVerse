@@ -204,23 +204,38 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          _channelData?['name'] ?? widget.channelName ?? 'Channel Videos',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w600,
+      // Removed AppBar: use a floating back button over the body instead
+      body: Stack(
+        children: [
+          // The main scrollable content with pull-to-refresh
+          RefreshIndicator(onRefresh: _onRefresh, child: _buildBody()),
+
+          // Floating back button positioned at top-left over content
+          Positioned(
+            top: 12.w,
+            left: 20.w,
+            child: SafeArea(
+              child: Material(
+                color: Colors.white.withOpacity(0.85),
+                shape: const CircleBorder(),
+                elevation: 3,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Padding(
+                    padding: EdgeInsets.all(6.w),
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Colors.black,
+                      size: 24.w,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
-      body: RefreshIndicator(onRefresh: _onRefresh, child: _buildBody()),
     );
   }
 
@@ -290,11 +305,12 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
                             videoItem: syncedItem,
                           ),
                         );
-                        if (nav.canPop()) {
-                          nav.pushReplacement(route);
-                        } else {
-                          nav.push(route);
-                        }
+                        // Always push the player onto the stack so the
+                        // user can navigate back to this channel screen
+                        // (avoid pushReplacement which removes this route
+                        // from the stack and causes skipping back two
+                        // screens when returning).
+                        nav.push(route);
                       },
                       onMenuAction: (action) {
                         final messenger = ScaffoldMessenger.of(context);

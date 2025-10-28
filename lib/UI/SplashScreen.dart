@@ -198,8 +198,6 @@ class _SplashScreenState extends State<SplashScreen>
       'assets/images/onboard_bg_1.png',
       'assets/images/onboard_bg_2.png',
       'assets/images/onboard_bg_3.png',
-      'assets/images/onboard_bg_4.png',
-      'assets/images/onboard_bg_5.png',
     ];
 
     // Initialize all images as not loaded
