@@ -7,6 +7,7 @@ class AnimatedLikeDislikeButtons extends StatefulWidget {
   final int likeState; // 0=neutral, 1=liked, 2=disliked
   final VoidCallback onLike;
   final VoidCallback onDislike;
+  final int? totalLikes;
   final VoidCallback? onReport;
   final double? iconSize;
   final Color? activeColor;
@@ -18,6 +19,7 @@ class AnimatedLikeDislikeButtons extends StatefulWidget {
     required this.likeState,
     required this.onLike,
     required this.onDislike,
+    this.totalLikes,
     this.onReport,
     this.iconSize,
     this.activeColor,
@@ -83,6 +85,16 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
           inactiveColor: inactiveColor,
           iconSize: iconSize,
           onPressed: widget.onLike,
+        ),
+        // Like count (to the right of like button)
+        SizedBox(width: 6.w),
+        Text(
+          (widget.totalLikes ?? 0).toString(),
+          style: TextStyle(
+            color: isLiked ? activeColor : inactiveColor,
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         SizedBox(width: 8.w),
         // Dislike button

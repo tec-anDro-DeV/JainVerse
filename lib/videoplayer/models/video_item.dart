@@ -16,6 +16,8 @@ class VideoItem {
   final bool? subscribed;
   final int? like; // 0 = neutral, 1 = liked, 2 = disliked
   final int? totalViews;
+  final int? totalLikes;
+  final int? report; // 1 = reported, otherwise null/0
   final bool isOwn;
 
   VideoItem({
@@ -33,6 +35,8 @@ class VideoItem {
     this.subscribed,
     this.like,
     this.totalViews,
+    this.totalLikes,
+    this.report,
     this.isOwn = false,
   });
 
@@ -117,7 +121,9 @@ class VideoItem {
       createdAt: parseDate(j['created_at']),
       subscribed: parseSubscribed(j['subscribed']),
       like: parseLike(j['like']),
+      totalLikes: parseInt(j['total_likes']),
       totalViews: parseInt(j['total_views']),
+      report: parseInt(j['report']),
       isOwn: parseIsOwn(j['is_own']),
     );
   }
@@ -138,6 +144,8 @@ class VideoItem {
     bool? subscribed,
     int? like,
     int? totalViews,
+    int? totalLikes,
+    int? report,
     bool? isOwn,
   }) {
     return VideoItem(
@@ -155,6 +163,8 @@ class VideoItem {
       subscribed: subscribed ?? this.subscribed,
       like: like ?? this.like,
       totalViews: totalViews ?? this.totalViews,
+      totalLikes: totalLikes ?? this.totalLikes,
+      report: report ?? this.report,
       isOwn: isOwn ?? this.isOwn,
     );
   }

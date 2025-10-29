@@ -51,6 +51,12 @@ class CommonVideoPlayerScreen extends StatefulWidget {
 }
 
 class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
+  // Track number of active CommonVideoPlayerScreen instances so we don't
+  // prematurely show the main navigation / mini player when navigating
+  // between two video player screens (pushReplacement, push, etc.). Only
+  // when the last instance is disposed do we restore visibility.
+  static int _activeInstances = 0;
+
   VideoPlayerController? _videoPlayerController;
   // description collapsing state removed: description now lives in the More panel
   late final ChannelVideoListViewModel _channelVideosViewModel;
@@ -72,6 +78,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   late final WatchHistoryService _watchHistoryService;
   bool _watchHistoryMarked = false; // Track if we've already marked this video
 
+  // Local copy of the video item so we can update UI immediately when
+  // the user reports the video without waiting for a full API refresh.
+  VideoItem? _localVideoItem;
+
   // The top header UI has been removed. A floating back button will be
   // drawn over the video player using a Stack. Favorite toggle remains
   // available elsewhere in the UI.
@@ -85,7 +95,15 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    MusicPlayerStateManager().setNavigationVisibility(false);
+    // Hide both main navigation and mini player for this screen.
+    // Use a static instance counter so that if we navigate from one
+    // CommonVideoPlayerScreen to another (pushReplacement/push) we don't
+    // briefly restore the mini player/navigation when the previous screen
+    // is disposed. Only hide when the first instance appears.
+    _CommonVideoPlayerScreenState._activeInstances++;
+    if (_CommonVideoPlayerScreenState._activeInstances == 1) {
+      MusicPlayerStateManager().hideMiniPlayerForPage('video_player_screen');
+    }
     // Controller will be provided by the child CommonVideoPlayer via
     // the onControllerInitialized callback.
     _channelVideosViewModel = ChannelVideoListViewModel(
@@ -96,6 +114,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     _subscriptionService = SubscriptionService();
     _likeDislikeService = LikeDislikeService();
     _watchHistoryService = WatchHistoryService();
+
+    // Keep a local reference so we can optimistically update fields like
+    // `report` immediately after user actions (reporting) and re-render.
+    _localVideoItem = widget.videoItem;
 
     // Initialize subscription status from video item or global state
     final channelId = widget.videoItem?.channelId;
@@ -128,6 +150,8 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     });
   }
 
+  VideoItem? get _effectiveVideoItem => _localVideoItem ?? widget.videoItem;
+
   // Controls the inline "more" panel visibility
   bool _isMorePanelOpen = false;
   // Optional runtime override for the panel top while dragging
@@ -139,7 +163,15 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
-    MusicPlayerStateManager().setNavigationVisibility(true);
+    // Decrement active instance count and only restore mini player/navigation
+    // when the last CommonVideoPlayerScreen has been disposed.
+    _CommonVideoPlayerScreenState._activeInstances = max(
+      0,
+      _CommonVideoPlayerScreenState._activeInstances - 1,
+    );
+    if (_CommonVideoPlayerScreenState._activeInstances == 0) {
+      MusicPlayerStateManager().showMiniPlayerForPage('video_player_screen');
+    }
 
     // Remove global state listeners
     SubscriptionStateManager().removeListener(_onGlobalSubscriptionChanged);
@@ -227,10 +259,27 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     final videoId = widget.videoItem?.id;
     if (videoId == null) return;
 
-    // Optimistically update UI immediately
+    // Optimistically update UI immediately (including like count)
     final previousState = _likeState;
     final newState = _likeState == 1 ? 0 : 1;
-    setState(() => _likeState = newState);
+
+    final base = _localVideoItem ?? widget.videoItem;
+    final currentLikes = base?.totalLikes ?? 0;
+    int updatedLikes = currentLikes;
+
+    // If we are removing a like, decrement. If adding a like, increment.
+    if (previousState == 1 && newState != 1) {
+      updatedLikes = max(0, currentLikes - 1);
+    } else if (previousState != 1 && newState == 1) {
+      updatedLikes = currentLikes + 1;
+    }
+
+    setState(() {
+      _likeState = newState;
+      if (base != null) {
+        _localVideoItem = base.copyWith(totalLikes: updatedLikes);
+      }
+    });
 
     try {
       final success = await _likeDislikeService.likeVideo(
@@ -238,14 +287,24 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
         currentState: previousState,
       );
 
-      // If failed, revert the UI
+      // If failed, revert the UI (state and count)
       if (!success && mounted) {
-        setState(() => _likeState = previousState);
+        setState(() {
+          _likeState = previousState;
+          if (base != null) {
+            _localVideoItem = base.copyWith(totalLikes: currentLikes);
+          }
+        });
       }
     } catch (e) {
       // Revert on error
       if (mounted) {
-        setState(() => _likeState = previousState);
+        setState(() {
+          _likeState = previousState;
+          if (base != null) {
+            _localVideoItem = base.copyWith(totalLikes: currentLikes);
+          }
+        });
       }
     }
   }
@@ -254,10 +313,25 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
     final videoId = widget.videoItem?.id;
     if (videoId == null) return;
 
-    // Optimistically update UI immediately
+    // Optimistically update UI immediately (including like count if needed)
     final previousState = _likeState;
     final newState = _likeState == 2 ? 0 : 2;
-    setState(() => _likeState = newState);
+
+    final base = _localVideoItem ?? widget.videoItem;
+    final currentLikes = base?.totalLikes ?? 0;
+    int updatedLikes = currentLikes;
+
+    // If we are moving away from a liked state, decrement like count
+    if (previousState == 1 && newState != 1) {
+      updatedLikes = max(0, currentLikes - 1);
+    }
+
+    setState(() {
+      _likeState = newState;
+      if (base != null) {
+        _localVideoItem = base.copyWith(totalLikes: updatedLikes);
+      }
+    });
 
     try {
       final success = await _likeDislikeService.dislikeVideo(
@@ -265,14 +339,22 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
         currentState: previousState,
       );
 
-      // If failed, revert the UI
       if (!success && mounted) {
-        setState(() => _likeState = previousState);
+        setState(() {
+          _likeState = previousState;
+          if (base != null) {
+            _localVideoItem = base.copyWith(totalLikes: currentLikes);
+          }
+        });
       }
     } catch (e) {
-      // Revert on error
       if (mounted) {
-        setState(() => _likeState = previousState);
+        setState(() {
+          _likeState = previousState;
+          if (base != null) {
+            _localVideoItem = base.copyWith(totalLikes: currentLikes);
+          }
+        });
       }
     }
   }
@@ -303,6 +385,16 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                 child: VideoReportModal(
                   videoId: videoId,
                   videoTitle: widget.videoTitle,
+                  onReported: () {
+                    // Update local copy so UI reflects reported state immediately
+                    if (!mounted) return;
+                    setState(() {
+                      final base = _localVideoItem ?? widget.videoItem;
+                      if (base != null) {
+                        _localVideoItem = base.copyWith(report: 1);
+                      }
+                    });
+                  },
                 ),
               ),
             ),
@@ -438,7 +530,10 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                     stream: const MyApp().called().mediaItem,
                     builder: (context, snapshot) {
                       // Check if mini player is visible (music is playing)
-                      final hasMiniPlayer = snapshot.hasData;
+                      // and also ensure page-specific hiding is respected.
+                      final hasMiniPlayer =
+                          snapshot.hasData &&
+                          !MusicPlayerStateManager().shouldHideMiniPlayer;
 
                       // Calculate bottom padding based on mini player and nav bar
                       final bottomPadding = hasMiniPlayer
@@ -617,11 +712,42 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                                   // Like/Dislike buttons row
                                   Row(
                                     children: [
-                                      AnimatedLikeDislikeButtons(
-                                        likeState: _likeState,
-                                        onLike: _toggleLike,
-                                        onDislike: _toggleDislike,
-                                        onReport: _showReportModal,
+                                      // If the API adds a `report` column with value 1 when
+                                      // already reported, hide/disable the report action.
+                                      // Show a 'Reported' label instead.
+                                      Builder(
+                                        builder: (context) {
+                                          final isReported =
+                                              _effectiveVideoItem?.report == 1;
+
+                                          return Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              AnimatedLikeDislikeButtons(
+                                                likeState: _likeState,
+                                                onLike: _toggleLike,
+                                                onDislike: _toggleDislike,
+                                                totalLikes: _effectiveVideoItem
+                                                    ?.totalLikes,
+                                                onReport: isReported
+                                                    ? null
+                                                    : _showReportModal,
+                                                showReportButton: !isReported,
+                                              ),
+                                              if (isReported) ...[
+                                                SizedBox(width: 8.w),
+                                                Text(
+                                                  'Reported',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontSize: 14.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
@@ -1084,7 +1210,11 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       );
     }
 
-    final items = _channelVideosViewModel.items;
+    // Exclude the currently playing video from the displayed channel videos
+    final currentVideoId = widget.videoItem?.id;
+    final items = _channelVideosViewModel.items
+        .where((v) => v.id != currentVideoId)
+        .toList();
 
     if (items.isEmpty) {
       return Center(
@@ -1218,7 +1348,11 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       );
     }
 
-    final items = _videoListViewModel.items;
+    // Exclude the currently playing video from recommended videos list
+    final currentVideoId = widget.videoItem?.id;
+    final items = _videoListViewModel.items
+        .where((v) => v.id != currentVideoId)
+        .toList();
 
     if (items.isEmpty) {
       return Center(

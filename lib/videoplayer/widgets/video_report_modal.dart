@@ -13,11 +13,13 @@ import 'package:audio_service/audio_service.dart';
 class VideoReportModal extends StatefulWidget {
   final int videoId;
   final String videoTitle;
+  final VoidCallback? onReported;
 
   const VideoReportModal({
     super.key,
     required this.videoId,
     required this.videoTitle,
+    this.onReported,
   });
 
   @override
@@ -89,7 +91,13 @@ class _VideoReportModalState extends State<VideoReportModal> {
 
       if (mounted) {
         if (success) {
+          // Notify parent that reporting was successful so UI can update
+          try {
+            widget.onReported?.call();
+          } catch (_) {}
+
           Navigator.of(context).pop();
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Video reported successfully'),
