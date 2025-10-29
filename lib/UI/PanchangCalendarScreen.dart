@@ -1,5 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+// removed unused dart:math import; rotation uses RotationTransition instead
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
@@ -15,26 +16,83 @@ class PanchangCalendarScreen extends StatefulWidget {
   State<PanchangCalendarScreen> createState() => _PanchangCalendarScreenState();
 }
 
-class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
+class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
+    with SingleTickerProviderStateMixin {
   late DateTime selectedDate;
   late PanchangService panchangService;
   Map<String, dynamic>? panchangData;
   bool isLoading = true;
   AudioHandler? _audioHandler;
 
+  // Scroll detection
+  late ScrollController _scrollController;
+  bool _isCompact = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+  // track drag distance (vertical) for intentional expand gesture
+  double _verticalDragDistance = 0.0;
+
   // Default location - India (can be made customizable)
-  double latitude = 23.0225; // India center
+  double latitude = 23.0225;
   double longitude = 72.5714;
-  double timezone = 5.5; // IST
+  double timezone = 5.5;
 
   @override
   void initState() {
     super.initState();
-    // Normalize to midnight to ensure consistent calculations
     final now = DateTime.now();
     selectedDate = DateTime(now.year, now.month, now.day);
     _audioHandler = const MyApp().called();
+
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _animation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+
     _loadPanchangData();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final offset = _scrollController.offset;
+      // Only auto-collapse into compact mode when user scrolls down far enough.
+      // Do NOT auto-expand when user scrolls up slightly — expansion should
+      // be explicit (tap) or a deliberate upward drag. This avoids the
+      // annoying behavior where trying to scroll content back up immediately
+      // re-opens the full calendar.
+      const collapseThreshold = 120.0;
+      if (offset > collapseThreshold && !_isCompact) {
+        setState(() {
+          _isCompact = true;
+          _animationController.forward();
+        });
+      }
+    }
+  }
+
+  void _toggleCalendarView() {
+    setState(() {
+      _isCompact = !_isCompact;
+      if (_isCompact) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+        // Scroll to top when expanding
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _loadPanchangData() {
@@ -42,7 +100,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       isLoading = true;
     });
 
-    // Create Panchang service with selected date
     panchangService = PanchangService(
       date: selectedDate,
       latitude: latitude,
@@ -50,7 +107,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       timezone: timezone,
     );
 
-    // Get Panchang data
     panchangData = panchangService.getPanchang();
 
     setState(() {
@@ -63,6 +119,18 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       selectedDate = date;
       _loadPanchangData();
     });
+  }
+
+  void _changeDay(int days) {
+    final newDate = selectedDate.add(Duration(days: days));
+    _selectDate(newDate);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -90,7 +158,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
           IconButton(
             icon: Icon(Icons.today, color: colors.primaryColorApp[50]),
             onPressed: () {
-              // Normalize to midnight to ensure consistent calculations
               final now = DateTime.now();
               _selectDate(DateTime(now.year, now.month, now.day));
             },
@@ -107,131 +174,198 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
           : StreamBuilder<MediaItem?>(
               stream: _audioHandler?.mediaItem,
               builder: (context, snapshot) {
-                // Calculate proper bottom padding accounting for mini player and navigation
                 final hasMiniPlayer = snapshot.hasData;
                 final bottomPadding = hasMiniPlayer
                     ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
                     : AppSizes.basePadding + AppSizes.miniPlayerPadding + 20.w;
 
-                return SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: bottomPadding),
-                  child: Column(
-                    children: [
-                      // Calendar Widget
-                      PanchangCalendarWidget(
-                        selectedDate: selectedDate,
-                        onDateSelected: _selectDate,
-                        latitude: latitude,
-                        longitude: longitude,
-                        timezone: timezone,
-                      ),
+                return Column(
+                  children: [
+                    // Animated Calendar Header
+                    AnimatedBuilder(
+                      animation: _animation,
+                      builder: (context, child) {
+                        return _isCompact
+                            ? _buildCompactDateSelector(colors)
+                            : _buildFullCalendar();
+                      },
+                    ),
 
-                      SizedBox(height: 8.w),
-
-                      // Date Header (simple)
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 22.w,
-                          vertical: 8.w,
-                        ),
-                        // Place weekday and full date on the same row, left-aligned
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                    // Scrollable Content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        padding: EdgeInsets.only(bottom: bottomPadding),
+                        child: Column(
                           children: [
-                            // Date first
-                            Text(
-                              DateFormat('dd MMMM yyyy').format(selectedDate),
-                              style: TextStyle(
-                                color: colors.colorText[50],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            SizedBox(height: 8.w),
+
+                            // Panchang Elements
+                            _buildPanchangCard(
+                              colors,
+                              'Tithi (Lunar Day)',
+                              Icons.brightness_3,
+                              Map<String, dynamic>.from(panchangData!['tithi'])
+                                ..remove('paksha'),
+                              Colors.indigo,
                             ),
-                            // Separator (comma) between date and day
-                            Text(
-                              ', ',
-                              style: TextStyle(
-                                color: colors.colorText[50],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            // Day after, same style as date
-                            Text(
-                              DateFormat('EEEE').format(selectedDate),
-                              style: TextStyle(
-                                color: colors.colorText[50],
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+
+                            const SizedBox(height: 16),
+                            _buildSunTimesCard(colors),
+
+                            const SizedBox(height: 16),
+                            _buildNavkarsiChauviharCard(colors),
+
+                            const SizedBox(height: 16),
+                            _buildChoghadiyaCard(colors),
+
+                            const SizedBox(height: 16),
                           ],
                         ),
                       ),
-
-                      SizedBox(height: 2.w),
-
-                      // Panchang Elements
-                      // Pass a copy of the tithi data with 'paksha' removed so
-                      // the Paksha badge does not render for the Tithi card.
-                      _buildPanchangCard(
-                        colors,
-                        'Tithi (Lunar Day)',
-                        Icons.brightness_3,
-                        Map<String, dynamic>.from(panchangData!['tithi'])
-                          ..remove('paksha'),
-                        Colors.indigo,
-                      ),
-
-                      const SizedBox(height: 16),
-                      _buildSunTimesCard(colors),
-
-                      const SizedBox(height: 16),
-                      // Navkarsi & Chauvihar Timing
-                      _buildNavkarsiChauviharCard(colors),
-                      const SizedBox(height: 16),
-
-                      // Choghadiya Table
-                      _buildChoghadiyaCard(colors),
-
-                      const SizedBox(height: 16),
-
-                      // _buildPanchangCard(
-                      //   colors,
-                      //   'Nakshatra (Lunar Mansion)',
-                      //   Icons.star,
-                      //   panchangData!['nakshatra'],
-                      //   Colors.purple,
-                      // ),
-
-                      /*
-                      // Yoga card removed per request
-                      _buildPanchangCard(
-                        colors,
-                        'Yoga',
-                        Icons.self_improvement,
-                        panchangData!['yoga'],
-                        Colors.teal,
-                      ),
-
-                      // Karana card removed per request
-                      _buildPanchangCard(
-                        colors,
-                        'Karana',
-                        Icons.timelapse,
-                        panchangData!['karana'],
-                        Colors.orange,
-                      ),
-
-                      // Rashi card removed per request
-                      _buildRashiCard(colors),
-                      */
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildFullCalendar() {
+    return PanchangCalendarWidget(
+      selectedDate: selectedDate,
+      onDateSelected: _selectDate,
+      latitude: latitude,
+      longitude: longitude,
+      timezone: timezone,
+    );
+  }
+
+  Widget _buildCompactDateSelector(appColors colors) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.w),
+      decoration: BoxDecoration(
+        color: colors.white[50],
+        border: Border.all(color: colors.primaryColorApp),
+        borderRadius: BorderRadius.circular(12.w),
+        boxShadow: [
+          BoxShadow(
+            color: colors.gray[300]!.withOpacity(0.5),
+            blurRadius: 10.w,
+            offset: Offset(0.w, 3.w),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Previous Day Button
+          // Previous day (larger hit target)
+          IconButton(
+            icon: Icon(
+              Icons.chevron_left,
+              color: colors.primaryColorApp[50],
+              size: 28.w,
+            ),
+            onPressed: () => _changeDay(-1),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: 40.w, minHeight: 40.w),
+          ),
+
+          // Date Display
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleCalendarView,
+              onVerticalDragUpdate: (details) {
+                // accumulate upward drag distance; require a deliberate drag
+                // (approx 40 logical pixels) to expand the calendar.
+                if (details.delta.dy < 0) {
+                  _verticalDragDistance += -details.delta.dy;
+                  if (_verticalDragDistance > 40 && _isCompact) {
+                    setState(() {
+                      _isCompact = false; // expand
+                      _animationController.reverse();
+                      _scrollController.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    });
+                    _verticalDragDistance = 0;
+                  }
+                }
+              },
+              onVerticalDragEnd: (details) {
+                _verticalDragDistance = 0;
+              },
+              child: Column(
+                children: [
+                  Text(
+                    DateFormat('EEEE').format(selectedDate),
+                    style: TextStyle(
+                      color: colors.gray[600],
+                      fontSize: 12.w,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 4.w),
+                  Text(
+                    DateFormat('dd MMM yyyy').format(selectedDate),
+                    style: TextStyle(
+                      color: colors.colorText[50],
+                      fontSize: 18.w,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4.w),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 12.w,
+                        color: colors.primaryColorApp[50],
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        'View Full Calendar',
+                        style: TextStyle(
+                          color: colors.primaryColorApp[50],
+                          fontSize: 12.w,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      RotationTransition(
+                        turns: Tween(begin: 0.0, end: -0.5).animate(_animation),
+                        child: Icon(
+                          Icons.expand_more,
+                          size: 16.w,
+                          color: colors.primaryColorApp[50],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Next day (larger hit target)
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: colors.primaryColorApp[50],
+              size: 28.w,
+            ),
+            onPressed: () => _changeDay(1),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: 40.w, minHeight: 40.w),
+          ),
+        ],
+      ),
     );
   }
 
@@ -267,7 +401,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               colors,
               'Sunset',
               panchangData!['sunset'],
-              Icons.wb_twighlight,
+              Icons.wb_twilight,
               Colors.deepPurple,
             ),
           ),
@@ -292,7 +426,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: EdgeInsets.all(14.w),
             decoration: BoxDecoration(
@@ -330,14 +463,11 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               ],
             ),
           ),
-
-          // Content
           Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Navkarsi Start Time
                 _buildNavkarsiTimeItem(
                   colors,
                   'Navkarsi',
@@ -348,8 +478,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                 SizedBox(height: 16.w),
                 Divider(color: colors.gray[300]),
                 SizedBox(height: 16.w),
-
-                // Chauvihar End Time
                 _buildNavkarsiTimeItem(
                   colors,
                   'Chauvihar',
@@ -357,7 +485,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                   Icons.schedule,
                   Colors.blue,
                 ),
-
                 SizedBox(height: 12.w),
               ],
             ),
@@ -467,7 +594,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
@@ -501,8 +627,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               ],
             ),
           ),
-
-          // Content
           Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
@@ -541,7 +665,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                   ],
                 ),
                 SizedBox(height: 2.w),
-
                 if (data.containsKey('lord'))
                   Padding(
                     padding: EdgeInsets.only(bottom: 12.w),
@@ -580,7 +703,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       choghadiya['night'],
     );
 
-    // Define color mapping for each Choghadiya type
     final chogColors = {
       'Amrit': Colors.green,
       'Shubh': Colors.green,
@@ -606,7 +728,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       ),
       child: Column(
         children: [
-          // Header
           Container(
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
@@ -640,14 +761,11 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               ],
             ),
           ),
-
-          // Content
           Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Day Section
                 Text(
                   'Day (Sunrise to Sunset)',
                   style: TextStyle(
@@ -658,12 +776,9 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                 ),
                 SizedBox(height: 12.w),
                 _buildChoghadiyaTable(colors, daySlots, chogColors),
-
                 SizedBox(height: 20.w),
                 Divider(color: colors.gray[300], thickness: 2),
                 SizedBox(height: 20.w),
-
-                // Night Section
                 Text(
                   'Night (Sunset to Sunrise)',
                   style: TextStyle(
@@ -688,18 +803,13 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
     Map<String, Color> chogColors,
   ) {
     return Table(
-      columnWidths: const {
-        // Give more space to time column (index 1) and keep choghadiya narrower.
-        0: FlexColumnWidth(2.5), // Choghadiya (smaller)
-        1: FlexColumnWidth(4), // Time (wider)
-      },
+      columnWidths: const {0: FlexColumnWidth(2.5), 1: FlexColumnWidth(4)},
       border: TableBorder.all(
         color: colors.gray[300]!,
         width: 1.w,
         borderRadius: BorderRadius.circular(8.w),
       ),
       children: [
-        // Header row: Choghadiya first, Time next (no Planet column)
         TableRow(
           decoration: BoxDecoration(color: colors.gray[100]),
           children: [
@@ -707,7 +817,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
             _buildTableHeaderCell(colors, 'Time'),
           ],
         ),
-        // Data rows
         ...slots.map((slot) {
           String chogName = slot['choghadiya'];
           Color chogColor = chogColors[chogName] ?? colors.gray[500]!;
@@ -762,120 +871,4 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
       ),
     );
   }
-
-  /*
-  // Rashi card removed per request. Function kept commented for reference.
-  Widget _buildRashiCard(appColors colors) {
-    Map<String, String> rashi = panchangData!['rashi'];
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.w),
-      decoration: BoxDecoration(
-        color: colors.white[50],
-        borderRadius: BorderRadius.circular(15.w),
-        boxShadow: [
-          BoxShadow(
-            color: colors.gray[300]!.withOpacity(0.5),
-            blurRadius: 10.w,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.all(16.w),
-            decoration: BoxDecoration(
-              color: Colors.deepOrange.withOpacity(0.1),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(15.w),
-                topRight: Radius.circular(15.w),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(10.w),
-                  decoration: BoxDecoration(
-                    color: Colors.deepOrange,
-                    borderRadius: BorderRadius.circular(10.w),
-                  ),
-                  child: const Icon(Icons.album, color: Colors.white, size: 24),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    'Rashi (Zodiac Signs)',
-                    style: TextStyle(
-                      color: colors.colorText[50],
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(
-              children: [
-                _buildRashiItem(colors, 'Sun', rashi['sun']!, Icons.wb_sunny),
-                SizedBox(height: 12.w),
-                Divider(color: colors.gray[300]),
-                SizedBox(height: 12.w),
-                _buildRashiItem(
-                  colors,
-                  'Moon',
-                  rashi['moon']!,
-                  Icons.brightness_3,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  */
-
-  /*
-  // Rashi item helper commented out per request
-  Widget _buildRashiItem(
-    appColors colors,
-    String celestialBody,
-    String rashi,
-    IconData icon,
-  ) {
-    return Row(
-      children: [
-        Icon(icon, color: colors.primaryColorApp[50], size: 28.w),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                celestialBody,
-                style: TextStyle(color: colors.gray[600], fontSize: 14),
-              ),
-              SizedBox(height: 4.w),
-              Text(
-                rashi,
-                style: TextStyle(
-                  color: colors.colorText[50],
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  */
 }
