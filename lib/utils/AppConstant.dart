@@ -74,7 +74,9 @@ class AppConstant {
   static const String API_MY_VIDEOS = "my_videos";
   static const String API_CHECK_HANDLE_AVAILABLE = "check_handle_available";
   static const String API_GENERATE_CHANNEL_NAME = "generate_channel_name";
-
+  static const String API_ARTIST_VERIFY_REQUEST = "artist/verify-request";
+  static const String API_ARTIST_VERIFY_STATUS = "artist/verify-status";
+  static const String API_BUCKET_UPLOAD_URL = "bucket_upload_url";
   //strings or paramenter name below
   static const String currency = "\$";
   static const String currencyCode = "USD";

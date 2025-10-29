@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-// appColors import removed — header moved as floating button over video.
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:video_player/video_player.dart';
 import 'package:jainverse/videoplayer/widgets/video_player_widget.dart';
@@ -12,11 +11,9 @@ import 'package:jainverse/videoplayer/models/channel_video_list_view_model.dart'
 import 'package:jainverse/videoplayer/services/channel_video_service.dart';
 import 'package:jainverse/videoplayer/screens/channel_videos_screen.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
-import 'package:jainverse/videoplayer/widgets/compact_video_card.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
 import 'package:jainverse/videoplayer/screens/video_list_screen.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
-import 'package:jainverse/videoplayer/widgets/compact_video_card_skeleton.dart';
 import 'package:jainverse/videoplayer/widgets/animated_subscribe_button.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
@@ -648,7 +645,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Recommended videos (compact cards only)
+                                    // Recommended videos ( cards only)
                                     _buildRecommendedVideosList(),
                                   ],
                                 ),
@@ -1183,7 +1180,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   Widget _buildRecommendedVideosList() {
     // Show loading, error or vertical list
     if (_loadingVideoList && _videoListViewModel.items.isEmpty) {
-      // Show 4-8 compact skeleton cards (compute once per loading session)
+      // Show 4-8  skeleton cards (compute once per loading session)
       final skeletonCount = _recommendedSkeletonCount ??=
           (Random().nextInt(5) + 4);
       return Column(
@@ -1191,7 +1188,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
           skeletonCount,
           (index) => Column(
             children: [
-              CompactVideoCardSkeleton(),
+              VideoCardSkeleton(),
               if (index < skeletonCount - 1)
                 Divider(height: 1.h, color: Colors.grey.shade200),
             ],
@@ -1244,7 +1241,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       );
     }
 
-    // Non-scrolling column: render a limited number of CompactVideoCard
+    // Non-scrolling column: render a limited number of VideoCard
     final displayCount = items.length > 6 ? 6 : items.length;
     return Column(
       children: [
@@ -1252,7 +1249,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
           final item = items[index];
           return Column(
             children: [
-              CompactVideoCard(
+              VideoCard(
                 item: item
                     .syncWithGlobalState()
                     .syncLikeWithGlobalState(), // Sync with global subscription and like state

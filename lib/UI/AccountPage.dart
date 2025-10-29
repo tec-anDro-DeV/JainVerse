@@ -11,6 +11,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
+import 'package:jainverse/Presenter/ArtistVerificationPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -32,7 +33,7 @@ import 'FavoriteGenres.dart';
 import 'Login.dart';
 import 'ProfileEdit.dart';
 import 'contact_us.dart';
-import 'ArtistSignUp.dart';
+import 'VerifyArtistScreen.dart';
 import 'CreateChannel.dart';
 import 'UserChannel.dart';
 
@@ -289,8 +290,14 @@ class MyState extends State<AccountPage>
     await loadd();
     await checkConn();
     await getSettings();
-    await checkUserChannel();
+    // Load user and token first
     await value();
+
+    // Fetch latest artist verification status from server
+    await _fetchArtistVerifyStatus();
+
+    // Check user channel (keeps UI accurate regardless of verification)
+    await checkUserChannel();
   }
 
   // A single future used by the UI to wait for initial load
@@ -473,8 +480,8 @@ class MyState extends State<AccountPage>
 
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
-                                builder:
-                                    (BuildContext context) => const Login(),
+                                builder: (BuildContext context) =>
+                                    const Login(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -539,6 +546,35 @@ class MyState extends State<AccountPage>
         );
       },
     );
+  }
+
+  /// Fetch artist verification status from backend and update local state.
+  /// Uses the existing Presenter which normalizes the status.
+  Future<void> _fetchArtistVerifyStatus() async {
+    try {
+      if (token.isEmpty) {
+        token = await sharePrefs.getToken();
+      }
+
+      final resp = await ArtistVerificationPresenter().getVerificationStatus(
+        context,
+        token,
+      );
+
+      if (resp.data != null) {
+        // The model provides a compatibility getter `verifyStatus` which
+        // returns legacy values (A, P, R, N). Use that so existing code
+        // that expects 'A' / 'P' continues to work.
+        artistStatus = resp.data!.verifyStatus;
+      } else {
+        // If no data, treat as not requested
+        artistStatus = 'N';
+      }
+    } catch (e) {
+      // Keep previous status on error; optionally log later
+    }
+
+    if (mounted) setState(() {});
   }
 
   @override
@@ -616,10 +652,9 @@ class MyState extends State<AccountPage>
       builder: (context, snapshot) {
         // Calculate proper bottom padding accounting for mini player and navigation
         final hasMiniPlayer = snapshot.hasData;
-        final bottomPadding =
-            hasMiniPlayer
-                ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-                : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+        final bottomPadding = hasMiniPlayer
+            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
+            : AppSizes.basePadding + AppSizes.miniPlayerPadding;
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -785,22 +820,20 @@ class MyState extends State<AccountPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: appColors().primaryColorApp.withOpacity(0.3),
-                  image:
-                      imagePresent.isNotEmpty
-                          ? DecorationImage(
-                            image: NetworkImage(imagePresent),
-                            fit: BoxFit.cover,
-                          )
-                          : null,
-                ),
-                child:
-                    imagePresent.isEmpty
-                        ? Icon(
-                          Icons.person,
-                          size: 40.w,
-                          color: appColors().primaryColorApp,
+                  image: imagePresent.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(imagePresent),
+                          fit: BoxFit.cover,
                         )
-                        : null,
+                      : null,
+                ),
+                child: imagePresent.isEmpty
+                    ? Icon(
+                        Icons.person,
+                        size: 40.w,
+                        color: appColors().primaryColorApp,
+                      )
+                    : null,
               ),
 
               SizedBox(width: 16.w),
@@ -888,7 +921,10 @@ class MyState extends State<AccountPage>
 
   Widget _buildMenuItemsSection() {
     final menuItems = [
-      if (model.data.artist_verify_status != 'A')
+      // Show "Request as Artist" when the user is not approved.
+      // artistStatus uses legacy values from the verification API:
+      // 'A' = approved/verified, 'P' = pending, 'R' = rejected, 'N' = not requested.
+      if (artistStatus != 'A')
         ModernMenuItem(
           icon: Icons.library_music_outlined,
           title: 'Request as Artist',
@@ -897,7 +933,7 @@ class MyState extends State<AccountPage>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const ArtistSignUp(),
+                builder: (context) => const VerifyArtistScreen(),
                 settings: const RouteSettings(
                   name: '/AccountPage/RequestArtist',
                 ),
@@ -935,17 +971,68 @@ class MyState extends State<AccountPage>
       //     );
       //   },
       // ),
-      // New Create Channel menu item
+      // Show the Create Channel / Your Channel option always in the menu.
+      // If the user is not an approved artist, tapping it will prompt them
+      // to request artist verification first.
       ModernMenuItem(
-        icon:
-            hasChannel
-                ? Icons.video_library_outlined
-                : Icons.video_call_outlined,
-        title: hasChannel ? 'Your Channel' : 'Create Channel',
+        icon: hasChannel
+            ? Icons.video_library_outlined
+            : Icons.video_call_outlined,
+        // If user is not verified, always show 'Create Channel' as the title
+        // to prompt the verification flow when tapped. If verified, show
+        // 'Your Channel' when they already have one.
+        title: artistStatus != 'A'
+            ? 'Create Channel'
+            : (hasChannel ? 'Your Channel' : 'Create Channel'),
         iconColor: appColors().primaryColorApp,
         onTap: () async {
+          // If not approved, show a dialog prompting to request artist verification
+          if (artistStatus != 'A') {
+            showDialog<void>(
+              context: context,
+              barrierDismissible: true,
+              builder: (BuildContext dialogContext) {
+                return AlertDialog(
+                  title: const Text('Artist Verification Required'),
+                  content: const Text(
+                    'You need to request artist verification before creating a channel. Would you like to request now?',
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                      },
+                    ),
+                    TextButton(
+                      child: const Text('Request Now'),
+                      onPressed: () async {
+                        Navigator.of(dialogContext).pop();
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const VerifyArtistScreen(),
+                            settings: const RouteSettings(
+                              name: '/AccountPage/RequestArtist',
+                            ),
+                          ),
+                        );
+
+                        // After returning from the verification screen, refresh status and UI
+                        await _fetchArtistVerifyStatus();
+                        await checkUserChannel();
+                      },
+                    ),
+                  ],
+                );
+              },
+            );
+
+            return;
+          }
+
+          // If approved, proceed with existing channel flow
           if (hasChannel && channelData != null) {
-            // Navigate to user channel screen
             final channel = ChannelModel.fromJson(channelData!);
             final result = await Navigator.push(
               context,
@@ -954,20 +1041,16 @@ class MyState extends State<AccountPage>
                 settings: const RouteSettings(name: '/AccountPage/UserChannel'),
               ),
             );
-            // Refresh channel data after returning
             if (result != null) {
-              // If result is a ChannelModel, update local data
               if (result is ChannelModel) {
                 setState(() {
                   channelData = result.toJson();
                 });
               } else if (result == true) {
-                // Channel was deleted
                 await checkUserChannel();
               }
             }
           } else {
-            // Navigate to create channel screen
             final result = await Navigator.push(
               context,
               MaterialPageRoute(
@@ -977,7 +1060,6 @@ class MyState extends State<AccountPage>
                 ),
               ),
             );
-            // If channel was created, refresh the data
             if (result != null) {
               await checkUserChannel();
             }
@@ -1089,25 +1171,24 @@ class MyState extends State<AccountPage>
         border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
       ),
       child: Column(
-        children:
-            menuItems.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isLast = index == menuItems.length - 1;
+        children: menuItems.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final isLast = index == menuItems.length - 1;
 
-              return Column(
-                children: [
-                  _buildModernMenuItem(item),
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Colors.grey.withOpacity(0.1),
-                      indent: 60.w,
-                    ),
-                ],
-              );
-            }).toList(),
+          return Column(
+            children: [
+              _buildModernMenuItem(item),
+              if (!isLast)
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.grey.withOpacity(0.1),
+                  indent: 60.w,
+                ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -1280,8 +1361,8 @@ class MyState extends State<AccountPage>
 
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
-                                builder:
-                                    (BuildContext context) => const Login(),
+                                builder: (BuildContext context) =>
+                                    const Login(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -1446,8 +1527,8 @@ class MyState extends State<AccountPage>
                               await CacheManager.clearAllCacheIncludingImages();
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
-                                  builder:
-                                      (BuildContext context) => const Login(),
+                                  builder: (BuildContext context) =>
+                                      const Login(),
                                 ),
                                 (Route<dynamic> route) => false,
                               );

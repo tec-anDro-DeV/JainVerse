@@ -60,6 +60,7 @@ dependencies:
   package_info_plus: ^8.3.0
   url_launcher: ^6.3.1
   flutter_local_notifications: ^19.3.0
+  file_picker: ^10.3.3
 
   # Content Display
   flutter_widget_from_html: ^0.15.3
