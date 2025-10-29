@@ -294,7 +294,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
         children: [
           // Header
           Container(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(14.w),
             decoration: BoxDecoration(
               color: Colors.amber.withOpacity(0.1),
               borderRadius: BorderRadius.only(
@@ -322,8 +322,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                     'Navkarsi & Chauvihar',
                     style: TextStyle(
                       color: colors.colorText[50],
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 18.w,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -392,18 +392,18 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: colors.gray[600],
-                  fontSize: 14,
+                  color: colors.gray[800],
+                  fontSize: 13.w,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 4.w),
+              SizedBox(height: 2.w),
               Text(
                 time,
                 style: TextStyle(
                   color: colors.colorText[50],
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 17.w,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -485,7 +485,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                     color: accentColor,
                     borderRadius: BorderRadius.circular(10.w),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 24.w),
+                  child: Icon(icon, color: Colors.white, size: 20.w),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
@@ -493,8 +493,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                     title,
                     style: TextStyle(
                       color: colors.colorText[50],
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 16.w,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -515,7 +515,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                       data['name'],
                       style: TextStyle(
                         color: colors.colorText[50],
-                        fontSize: 22.w,
+                        fontSize: 18.w,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -632,8 +632,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
                     'Choghadiya (Auspicious Times)',
                     style: TextStyle(
                       color: colors.colorText[50],
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 17.w,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -690,7 +690,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
     return Table(
       columnWidths: const {
         // Give more space to time column (index 1) and keep choghadiya narrower.
-        0: FlexColumnWidth(2), // Choghadiya (smaller)
+        0: FlexColumnWidth(2.5), // Choghadiya (smaller)
         1: FlexColumnWidth(4), // Time (wider)
       },
       border: TableBorder.all(
@@ -722,7 +722,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
               ),
             ],
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -735,8 +735,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen> {
         textAlign: TextAlign.center,
         style: TextStyle(
           color: colors.colorText[50],
-          fontSize: 16.w,
-          fontWeight: FontWeight.w600,
+          fontSize: 14.w,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

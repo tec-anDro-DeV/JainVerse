@@ -147,8 +147,12 @@ class _VideoReportModalState extends State<VideoReportModal> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
           ),
-          // Add bottom padding to account for navigation and mini player
-          padding: EdgeInsets.only(bottom: bottomPadding),
+          // Add bottom padding to account for navigation, mini player and keyboard
+          // MediaQuery.viewInsets.bottom ensures the content (submit button)
+          // is pushed above the on-screen keyboard and remains tappable.
+          padding: EdgeInsets.only(
+            bottom: bottomPadding + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

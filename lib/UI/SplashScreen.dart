@@ -360,17 +360,15 @@ class _SplashScreenState extends State<SplashScreen>
       // Fallback to onboarding if anything fails
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder:
-              (BuildContext context) => OnboardingScreen(
-                onGetStarted: () {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder:
-                          (BuildContext context) => const login_page.Login(),
-                    ),
-                  );
-                },
-              ),
+          builder: (BuildContext context) => OnboardingScreen(
+            onGetStarted: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (BuildContext context) => const login_page.Login(),
+                ),
+              );
+            },
+          ),
         ),
       );
     }

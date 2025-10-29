@@ -89,12 +89,10 @@ class _UserChannelState extends State<UserChannel>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
     _slideController.forward();
 
     // Load my videos
@@ -568,34 +566,32 @@ class _UserChannelState extends State<UserChannel>
           showBackButton: true,
           showProfileIcon: false,
           onBackPressed: () => Navigator.of(context).pop(),
-          trailingWidget:
-              !_isEditMode
-                  ? IconButton(
-                    icon: Icon(
-                      Icons.settings,
-                      size: 22.w,
-                      color: appColors().colorTextHead,
-                    ),
-                    onPressed: () async {
-                      // Open dedicated ChannelSettings screen and handle result
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ChannelSettings(
-                                channelId: _currentChannel.id,
-                                channelName: _currentChannel.name,
-                              ),
+          trailingWidget: !_isEditMode
+              ? IconButton(
+                  icon: Icon(
+                    Icons.settings,
+                    size: 22.w,
+                    color: appColors().colorTextHead,
+                  ),
+                  onPressed: () async {
+                    // Open dedicated ChannelSettings screen and handle result
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChannelSettings(
+                          channelId: _currentChannel.id,
+                          channelName: _currentChannel.name,
                         ),
-                      );
+                      ),
+                    );
 
-                      // If settings returned true (deleted), propagate to previous route
-                      if (result == true && mounted) {
-                        Navigator.of(context).pop(true);
-                      }
-                    },
-                  )
-                  : null,
+                    // If settings returned true (deleted), propagate to previous route
+                    if (result == true && mounted) {
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                )
+              : null,
           elevation: 0,
           titleStyle: TextStyle(
             fontSize: 18.sp,
@@ -609,10 +605,9 @@ class _UserChannelState extends State<UserChannel>
         builder: (context, snapshot) {
           // Calculate proper bottom padding accounting for mini player and navigation
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+          final bottomPadding = hasMiniPlayer
+              ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
+              : AppSizes.basePadding + AppSizes.miniPlayerPadding;
 
           return SlideTransition(
             position: _slideAnimation,
@@ -683,15 +678,14 @@ class _UserChannelState extends State<UserChannel>
             width: double.infinity,
             height: 200.w,
             decoration: BoxDecoration(color: Colors.grey[200]),
-            child:
-                _selectedBannerImage != null
-                    ? Image.file(
-                      _selectedBannerImage!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                    )
-                    : (_currentChannel.bannerImageUrl.isNotEmpty
-                        ? Image.network(
+            child: _selectedBannerImage != null
+                ? Image.file(
+                    _selectedBannerImage!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  )
+                : (_currentChannel.bannerImageUrl.isNotEmpty
+                      ? Image.network(
                           _currentChannel.bannerImageUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
@@ -699,7 +693,7 @@ class _UserChannelState extends State<UserChannel>
                             return _buildPlaceholderBanner();
                           },
                         )
-                        : _buildPlaceholderBanner()),
+                      : _buildPlaceholderBanner()),
           ),
 
           // Edit banner button overlay (top-right in edit mode)
@@ -790,13 +784,12 @@ class _UserChannelState extends State<UserChannel>
       children: [
         // Main Avatar Container - tappable in edit mode
         GestureDetector(
-          onTap:
-              _isEditMode
-                  ? () {
-                    print('Avatar tapped!'); // Debug
-                    _pickImage();
-                  }
-                  : null,
+          onTap: _isEditMode
+              ? () {
+                  print('Avatar tapped!'); // Debug
+                  _pickImage();
+                }
+              : null,
           child: Container(
             width: 140.w,
             height: 140.w,
@@ -820,18 +813,17 @@ class _UserChannelState extends State<UserChannel>
                   border: Border.all(color: Colors.white, width: 3),
                 ),
                 child: ClipOval(
-                  child:
-                      _selectedImage != null
-                          ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                          : (_currentChannel.imageUrl.isNotEmpty
-                              ? Image.network(
+                  child: _selectedImage != null
+                      ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                      : (_currentChannel.imageUrl.isNotEmpty
+                            ? Image.network(
                                 _currentChannel.imageUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return _buildPlaceholderAvatar();
                                 },
                               )
-                              : _buildPlaceholderAvatar()),
+                            : _buildPlaceholderAvatar()),
                 ),
               ),
             ),
@@ -895,10 +887,9 @@ class _UserChannelState extends State<UserChannel>
           _buildInfoListTile(
             icon: Icons.description_outlined,
             label: 'Description',
-            value:
-                _currentChannel.description.isNotEmpty
-                    ? _currentChannel.description
-                    : 'No description yet',
+            value: _currentChannel.description.isNotEmpty
+                ? _currentChannel.description
+                : 'No description yet',
             isPlaceholder: _currentChannel.description.isEmpty,
           ),
           Divider(height: 1, thickness: 1, color: Colors.grey[200]),
@@ -968,10 +959,9 @@ class _UserChannelState extends State<UserChannel>
                   value,
                   style: TextStyle(
                     fontSize: 15.sp,
-                    color:
-                        isPlaceholder
-                            ? Colors.grey[500]
-                            : appColors().colorTextHead,
+                    color: isPlaceholder
+                        ? Colors.grey[500]
+                        : appColors().colorTextHead,
                   ),
                 ),
               ],
@@ -1068,26 +1058,23 @@ class _UserChannelState extends State<UserChannel>
                 elevation: 2,
               ),
               onPressed: _isUpdating ? null : _updateChannel,
-              child:
-                  _isUpdating
-                      ? SizedBox(
-                        height: 20.w,
-                        width: 20.w,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                      : Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
+              child: _isUpdating
+                  ? SizedBox(
+                      height: 20.w,
+                      width: 20.w,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
+                    )
+                  : Text(
+                      'Save Changes',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ),
           SizedBox(height: 12.w),
@@ -1429,12 +1416,17 @@ class _UserChannelState extends State<UserChannel>
 
   Widget _buildEmptyState() {
     return Container(
+      // Use the available horizontal space so the empty state appears centered
+      width: double.infinity,
       padding: EdgeInsets.all(32.w),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12.w),
       ),
+      alignment: Alignment.center,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             Icons.video_library_outlined,
@@ -1444,6 +1436,7 @@ class _UserChannelState extends State<UserChannel>
           SizedBox(height: 16.w),
           Text(
             'No videos yet',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
@@ -1453,8 +1446,8 @@ class _UserChannelState extends State<UserChannel>
           SizedBox(height: 8.w),
           Text(
             'Upload your first video to get started',
-            style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
             textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -1463,18 +1456,17 @@ class _UserChannelState extends State<UserChannel>
 
   Widget _buildVideosList() {
     return Column(
-      children:
-          _myVideos.map((video) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: 16.w),
-              child: VideoCard(
-                item: video,
-                onTap: () => _openVideoPlayer(video),
-                showPopupMenu: true,
-                onMenuAction: (action) => _handleVideoAction(action, video),
-              ),
-            );
-          }).toList(),
+      children: _myVideos.map((video) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.w),
+          child: VideoCard(
+            item: video,
+            onTap: () => _openVideoPlayer(video),
+            showPopupMenu: true,
+            onMenuAction: (action) => _handleVideoAction(action, video),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1482,12 +1474,11 @@ class _UserChannelState extends State<UserChannel>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => CommonVideoPlayerScreen(
-              videoUrl: video.videoUrl,
-              videoTitle: video.title,
-              videoItem: video,
-            ),
+        builder: (context) => CommonVideoPlayerScreen(
+          videoUrl: video.videoUrl,
+          videoTitle: video.title,
+          videoItem: video,
+        ),
       ),
     );
   }

@@ -51,6 +51,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   static const int _maxRetryAttempts = 3;
   int _currentRetryAttempt = 0;
 
+  // Decoder error tracking
+  bool _hasDecoderError = false;
+  DateTime? _lastDecoderErrorTime;
+  bool _recoveryInProgress = false; // Prevents duplicate recovery attempts
+
   // Double-tap skip state
   bool _showSkipOverlay = false;
   bool _skipForward = true;
@@ -156,6 +161,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 error.contains('codec') ||
                 error.contains('unsupported');
 
+            // Detect MediaCodec/Decoder initialization errors (CRITICAL on emulator)
+            final isDecoderError =
+                error.contains('Decoder init failed') ||
+                error.contains('MediaCodecVideoRenderer') ||
+                error.contains('DecoderInitializationException') ||
+                error.contains('NO_MEMORY') ||
+                (error.contains('MediaCodec') && error.contains('CORRUPTED'));
+
             if (isAudioError) {
               // Non-critical: mark audio as disabled but continue playback
               if (!_audioDisabled) {
@@ -165,6 +178,40 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 }
               }
               // Don't set _playbackError - allow video to continue
+            } else if (isDecoderError) {
+              // CRITICAL: Decoder failure - requires full controller reset
+              // Only schedule recovery if not already in progress
+              if (!_recoveryInProgress) {
+                _hasDecoderError = true;
+                _lastDecoderErrorTime = DateTime.now();
+                _recoveryInProgress = true; // Mark recovery as started
+
+                if (kDebugMode) {
+                  debugPrint('[VideoPlayer] DECODER ERROR detected: $error');
+                  debugPrint(
+                    '[VideoPlayer] Will attempt full controller reset...',
+                  );
+                }
+                if (!_playbackError) {
+                  setState(() {
+                    _playbackError = true;
+                    _errorMessage =
+                        'Video decoder error. Attempting recovery...';
+                  });
+                }
+                // Schedule immediate cleanup and retry with fresh controller
+                Future.delayed(Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    _retryAfterDecoderError(url);
+                  }
+                });
+              } else {
+                if (kDebugMode) {
+                  debugPrint(
+                    '[VideoPlayer] Recovery already in progress, skipping duplicate',
+                  );
+                }
+              }
             } else if (isNetworkError || isFormatError) {
               // Critical: these prevent video playback
               if (kDebugMode) {
@@ -173,10 +220,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               if (!_playbackError) {
                 setState(() {
                   _playbackError = true;
-                  _errorMessage =
-                      isNetworkError
-                          ? 'Network error. Please check your connection.'
-                          : 'Video format not supported.';
+                  _errorMessage = isNetworkError
+                      ? 'Network error. Please check your connection.'
+                      : 'Video format not supported.';
                 });
               }
             }
@@ -324,7 +370,52 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         debugPrint('[VideoPlayer] Critical error: $e');
       }
 
-      // Determine error message
+      // Check if this is a decoder error specifically
+      final errorString = e.toString();
+      final isDecoderError =
+          errorString.contains('Decoder init failed') ||
+          errorString.contains('MediaCodecVideoRenderer') ||
+          errorString.contains('DecoderInitializationException') ||
+          errorString.contains('NO_MEMORY') ||
+          errorString.contains('CORRUPTED');
+
+      if (isDecoderError) {
+        // Mark decoder error and attempt special recovery
+        // Only schedule if not already in progress
+        if (!_recoveryInProgress) {
+          _hasDecoderError = true;
+          _lastDecoderErrorTime = DateTime.now();
+          _recoveryInProgress = true; // Mark recovery as started
+
+          if (kDebugMode) {
+            debugPrint(
+              '[VideoPlayer] Decoder error detected in initialization',
+            );
+          }
+
+          setState(() {
+            _playbackError = true;
+            _errorMessage =
+                'Decoder initialization failed. Attempting recovery...';
+          });
+
+          // Attempt decoder-specific recovery after a delay
+          Future.delayed(Duration(milliseconds: 800), () {
+            if (mounted) {
+              _retryAfterDecoderError(url);
+            }
+          });
+        } else {
+          if (kDebugMode) {
+            debugPrint(
+              '[VideoPlayer] Recovery already scheduled, skipping duplicate from catch block',
+            );
+          }
+        }
+        return;
+      }
+
+      // Determine error message for other error types
       String errorMsg = 'Unable to play video';
       if (e.toString().contains('AudioTrack') ||
           e.toString().contains('AudioSink') ||
@@ -439,6 +530,200 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     _usingCachedFile = false;
     await _prepareControllerWithCache(widget.videoUrl);
+  }
+
+  /// Special recovery method for decoder errors that leave MediaCodec in corrupted state
+  /// This performs a more aggressive cleanup than normal retry
+  Future<void> _retryAfterDecoderError(String url) async {
+    if (kDebugMode) {
+      debugPrint('[VideoPlayer] Starting decoder error recovery...');
+    }
+
+    // Prevent rapid retry loops - ensure at least 500ms since last error
+    if (_lastDecoderErrorTime != null) {
+      final timeSinceLastError = DateTime.now().difference(
+        _lastDecoderErrorTime!,
+      );
+      if (timeSinceLastError.inMilliseconds < 500) {
+        if (kDebugMode) {
+          debugPrint(
+            '[VideoPlayer] Ignoring rapid retry request (${timeSinceLastError.inMilliseconds}ms since last error)',
+          );
+        }
+        return;
+      }
+    }
+
+    // Retry limit check
+    if (_currentRetryAttempt >= _maxRetryAttempts) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Max retry attempts reached. Giving up.');
+      }
+      setState(() {
+        _playbackError = true;
+        _errorMessage =
+            'Unable to initialize video decoder after multiple attempts. '
+            'This may be an emulator limitation. Try on a physical device.';
+        _recoveryInProgress = false; // Reset flag
+      });
+      return;
+    }
+
+    _currentRetryAttempt++;
+
+    if (kDebugMode) {
+      debugPrint(
+        '[VideoPlayer] Decoder recovery attempt $_currentRetryAttempt/$_maxRetryAttempts',
+      );
+    }
+
+    try {
+      // Step 1: Aggressively dispose everything
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Disposing Chewie controller...');
+      }
+      _chewieController?.dispose();
+      _chewieController = null;
+
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Removing video listener...');
+      }
+      if (_videoListener != null) {
+        _videoPlayerController.removeListener(_videoListener!);
+        _videoListener = null;
+      }
+
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Disposing video controller...');
+      }
+      await _videoPlayerController.dispose();
+
+      // Step 2: Clear potentially corrupted cache for this URL
+      if (kDebugMode) {
+        debugPrint(
+          '[VideoPlayer] Clearing cache for potentially corrupted file...',
+        );
+      }
+      await _videoCacheService.removeCachedFile(url);
+
+      // Step 3: Wait longer to allow system to fully release resources
+      // MediaCodec on emulator needs more time to clean up
+      await Future.delayed(Duration(milliseconds: 1500));
+
+      // Step 4: Reset state
+      setState(() {
+        _playbackError = false;
+        _errorMessage = '';
+        _hasDecoderError = false;
+        _audioDisabled = false;
+        _usingCachedFile = false;
+      });
+
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] State reset. Reinitializing...');
+      }
+
+      // Step 5: Try with network URL first (cached file might be corrupted)
+      // Force network to avoid potentially corrupted cache
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: {'Accept': '*/*', 'Connection': 'keep-alive'},
+      );
+
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Using network URL for recovery');
+      }
+
+      // Add listener
+      _videoListener = () {
+        if (mounted) {
+          // Use same error detection logic but track decoder errors specially
+          if (_videoPlayerController.value.hasError) {
+            final error = _videoPlayerController.value.errorDescription ?? '';
+
+            final isDecoderError =
+                error.contains('Decoder init failed') ||
+                error.contains('MediaCodecVideoRenderer') ||
+                error.contains('DecoderInitializationException') ||
+                error.contains('NO_MEMORY') ||
+                (error.contains('MediaCodec') && error.contains('CORRUPTED'));
+
+            if (isDecoderError && !_hasDecoderError) {
+              // Prevent infinite retry loop
+              _hasDecoderError = true;
+              _lastDecoderErrorTime = DateTime.now();
+              if (kDebugMode) {
+                debugPrint('[VideoPlayer] Decoder error persists: $error');
+              }
+              // Don't schedule another retry here - let the outer retry logic handle it
+            }
+          }
+          setState(() {});
+        }
+      };
+      _videoPlayerController.addListener(_videoListener!);
+
+      // Initialize with timeout
+      await _videoPlayerController.initialize().timeout(
+        Duration(seconds: _initializationTimeoutSeconds),
+        onTimeout: () {
+          throw TimeoutException(
+            'Video initialization timed out during recovery',
+          );
+        },
+      );
+
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Recovery successful! Video initialized.');
+      }
+
+      // Check if initialization actually succeeded
+      if (!_videoPlayerController.value.hasError) {
+        setState(() {
+          _chewieController?.dispose();
+          _chewieController = _createChewieController(true);
+          _currentRetryAttempt = 0; // Reset counter on success
+          _hasDecoderError = false;
+          _recoveryInProgress = false; // Reset recovery flag on success
+        });
+
+        widget.onControllerInitialized?.call(_videoPlayerController);
+
+        // Ensure playback starts
+        Future.delayed(Duration(milliseconds: 300), () {
+          if (mounted && _chewieController != null) {
+            _chewieController!.play();
+          }
+        });
+      } else {
+        throw Exception(
+          'Initialization completed but controller has error: ${_videoPlayerController.value.errorDescription}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Recovery attempt failed: $e');
+      }
+
+      // Wait before next retry
+      await Future.delayed(Duration(seconds: 2));
+
+      // Reset recovery flag before retry
+      _recoveryInProgress = false;
+
+      // Recursive retry
+      if (mounted && _currentRetryAttempt < _maxRetryAttempts) {
+        await _retryAfterDecoderError(url);
+      } else {
+        setState(() {
+          _playbackError = true;
+          _errorMessage =
+              'Video decoder initialization failed after $_maxRetryAttempts attempts. '
+              'This appears to be a device limitation.';
+          _recoveryInProgress = false; // Ensure flag is reset on final failure
+        });
+      }
+    }
   }
 
   @override
@@ -633,8 +918,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             duration: Duration(milliseconds: widget.scaleDurationMs),
             curve: Curves.easeOutBack,
             child: Container(
-              alignment:
-                  _skipForward ? Alignment.centerRight : Alignment.centerLeft,
+              alignment: _skipForward
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
               padding: EdgeInsets.symmetric(horizontal: 40.w),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

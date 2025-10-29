@@ -9,13 +9,13 @@ class VideoCacheService {
   final BaseCacheManager _cacheManager;
   final Dio _dio;
 
-  /// Default maximum cache size allowed for a single file (200 MB)
+  /// Default maximum cache size allowed for a single file (1000 MB)
   final int maxCacheSizeBytes;
 
   VideoCacheService({
     BaseCacheManager? cacheManager,
     Dio? dio,
-    this.maxCacheSizeBytes = 200 * 1024 * 1024,
+    this.maxCacheSizeBytes = 1000 * 1024 * 1024,
   }) : _cacheManager = cacheManager ?? DefaultCacheManager(),
        _dio = dio ?? Dio();
 
@@ -67,5 +67,33 @@ class VideoCacheService {
   Future<bool> isFileCached(String url) async {
     final f = await getCachedFile(url);
     return f != null;
+  }
+
+  /// Remove a specific cached file by URL
+  /// Useful when a cached file is suspected to be corrupted
+  Future<bool> removeCachedFile(String url) async {
+    try {
+      await _cacheManager.removeFile(url);
+      if (kDebugMode) {
+        print('VideoCacheService: Removed cached file for $url');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('VideoCacheService.removeCachedFile error: $e');
+      return false;
+    }
+  }
+
+  /// Clear all cached video files
+  /// Use with caution - will clear entire cache
+  Future<void> clearAllCache() async {
+    try {
+      await _cacheManager.emptyCache();
+      if (kDebugMode) {
+        print('VideoCacheService: Cleared all cached files');
+      }
+    } catch (e) {
+      if (kDebugMode) print('VideoCacheService.clearAllCache error: $e');
+    }
   }
 }

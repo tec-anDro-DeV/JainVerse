@@ -55,7 +55,7 @@ class CommonVideoPlayerScreen extends StatefulWidget {
 
 class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
   VideoPlayerController? _videoPlayerController;
-  bool _descExpanded = false;
+  // description collapsing state removed: description now lives in the More panel
   late final ChannelVideoListViewModel _channelVideosViewModel;
   bool _loadingChannelVideos = false;
   late final VideoListViewModel _videoListViewModel;
@@ -130,6 +130,11 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       _loadVideoList();
     });
   }
+
+  // Controls the inline "more" panel visibility
+  bool _isMorePanelOpen = false;
+  // Optional runtime override for the panel top while dragging
+  double? _panelTopOffset;
 
   @override
   void dispose() {
@@ -353,402 +358,612 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // compute sizing for the inline panel placement
+    final media = MediaQuery.of(context);
+    final screenHeight = media.size.height;
+    final safeTop = media.padding.top;
+    // Video is rendered as 16:9 with width = screen width inside SafeArea.
+    final videoHeight = media.size.width * 9 / 16;
+    // Panel top will be aligned to the bottom edge of the video player
+    final panelTop = safeTop + videoHeight;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Fixed 16:9 video container with floating back button.
-            // The VideoPlayerWidget is wrapped in an AspectRatio inside a
-            // Stack so we can overlay UI on top of the video.
-            Container(
-              width: double.infinity,
-              color: Colors.black,
-              child: Stack(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: VideoPlayerWidget(
-                      key: ValueKey(
-                        widget.videoUrl,
-                      ), // Prevent unnecessary widget recreation
-                      videoUrl: widget.videoUrl,
-                      overlayVisibleMs: widget.overlayVisibleMs,
-                      fadeDurationMs: widget.fadeDurationMs,
-                      scaleDurationMs: widget.scaleDurationMs,
-                      onControllerInitialized: (controller) {
-                        // store controller reference so the screen can show duration
-                        setState(() {
-                          _videoPlayerController = controller;
-                        });
-                        // Mark video as watched when it starts playing
-                        _markVideoAsWatched();
-                      },
-                    ),
-                  ),
-
-                  // Floating back button positioned over the video.
-                  SafeArea(
-                    child: Padding(
-                      padding: EdgeInsets.all(8.w),
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          color: Colors.black38,
-                          shape: CircleBorder(),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => Navigator.of(context).pop(),
-                            child: SizedBox(
-                              width: 40.w,
-                              height: 40.w,
-                              child: Icon(
-                                Icons.arrow_back_ios_new,
-                                color: Colors.white,
-                                size: 20.w,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Video info section - Sticky header
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade200, width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4.w,
-                    offset: Offset(0, 2.w),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.videoTitle.isNotEmpty
-                        ? widget.videoTitle
-                        : 'Video Title',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18.sp,
-                      height: 1.3,
-                    ),
-                  ),
-                  SizedBox(height: 12.h),
-
-                  // Row: views  •  duration  •  uploaded ago
-                  Row(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Fixed 16:9 video container with floating back button.
+                // The VideoPlayerWidget is wrapped in an AspectRatio inside a
+                // Stack so we can overlay UI on top of the video.
+                Container(
+                  width: double.infinity,
+                  color: Colors.black,
+                  child: Stack(
                     children: [
-                      Icon(
-                        Icons.remove_red_eye_outlined,
-                        size: 18.w,
-                        color: Colors.grey.shade600,
-                      ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        _formatViews(widget.videoItem?.totalViews),
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14.sp,
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: VideoPlayerWidget(
+                          key: ValueKey(
+                            widget.videoUrl,
+                          ), // Prevent unnecessary widget recreation
+                          videoUrl: widget.videoUrl,
+                          overlayVisibleMs: widget.overlayVisibleMs,
+                          fadeDurationMs: widget.fadeDurationMs,
+                          scaleDurationMs: widget.scaleDurationMs,
+                          onControllerInitialized: (controller) {
+                            // store controller reference so the screen can show duration
+                            setState(() {
+                              _videoPlayerController = controller;
+                            });
+                            // Mark video as watched when it starts playing
+                            _markVideoAsWatched();
+                          },
                         ),
                       ),
-                      SizedBox(width: 12.w),
-                      Icon(
-                        Icons.access_time,
-                        size: 18.w,
-                        color: Colors.grey.shade600,
-                      ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        _videoPlayerController != null &&
-                                _videoPlayerController!.value.isInitialized
-                            ? _formatDuration(
-                                _videoPlayerController!.value.duration,
-                              )
-                            : '--:--',
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      if (widget.videoItem?.createdAt != null)
-                        Text(
-                          '• ${_formatTimeAgo(widget.videoItem!.createdAt)}',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14.sp,
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 8.h),
 
-                  // Channel info row below: avatar + channel name + subscribe button
-                  Row(
-                    children: [
-                      if (widget.videoItem?.channelImageUrl != null &&
-                          widget.videoItem!.channelImageUrl!.isNotEmpty)
-                        GestureDetector(
-                          onTap: _openChannel,
-                          child: CircleAvatar(
-                            radius: 24.w,
-                            backgroundImage: CachedNetworkImageProvider(
-                              widget.videoItem!.channelImageUrl!,
-                            ),
-                          ),
-                        ),
-                      SizedBox(width: 8.w),
-                      if (widget.videoItem?.channelName != null)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: _openChannel,
-                            child: Text(
-                              widget.videoItem!.channelName!,
-                              style: TextStyle(
-                                color: Colors.grey.shade800,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      SizedBox(width: 8.w),
-                      // Subscribe button on the right
-                      if (widget.videoItem?.channelId != null &&
-                          (widget.videoItem?.isOwn ?? false) == false)
-                        AnimatedSubscribeButton(
-                          isSubscribed: _isSubscribed,
-                          onPressed: _toggleSubscription,
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-
-                  // Like/Dislike buttons row
-                  Row(
-                    children: [
-                      AnimatedLikeDislikeButtons(
-                        likeState: _likeState,
-                        onLike: _toggleLike,
-                        onDislike: _toggleDislike,
-                        onReport: _showReportModal,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Scrollable content section
-            Expanded(
-              child: StreamBuilder<MediaItem?>(
-                stream: const MyApp().called().mediaItem,
-                builder: (context, snapshot) {
-                  // Check if mini player is visible (music is playing)
-                  final hasMiniPlayer = snapshot.hasData;
-
-                  // Calculate bottom padding based on mini player and nav bar
-                  final bottomPadding = hasMiniPlayer
-                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 20.w
-                      : AppSizes.basePadding + 20.w;
-
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.only(bottom: bottomPadding),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Description container
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(16.w),
-                          color: Colors.white,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Description',
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16.sp,
+                      // Floating back button positioned over the video.
+                      SafeArea(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.w),
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Material(
+                              color: Colors.black38,
+                              shape: CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () => Navigator.of(context).pop(),
+                                child: SizedBox(
+                                  width: 40.w,
+                                  height: 40.w,
+                                  child: Icon(
+                                    Icons.arrow_back_ios_new,
+                                    color: Colors.white,
+                                    size: 20.w,
+                                  ),
                                 ),
                               ),
-                              SizedBox(height: 8.h),
-                              Builder(
-                                builder: (context) {
-                                  final desc =
-                                      widget.videoItem?.description ?? '';
-                                  final hasDesc = desc.trim().isNotEmpty;
-                                  if (!hasDesc) {
-                                    return Text(
-                                      'Video description will appear here. You can add detailed information about the video content.',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 14.sp,
-                                        height: 1.5,
-                                      ),
-                                    );
-                                  }
-
-                                  // Show collapsed/expanded description with preserve newlines
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        desc,
-                                        maxLines: _descExpanded ? null : 3,
-                                        overflow: _descExpanded
-                                            ? TextOverflow.visible
-                                            : TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                          fontSize: 14.sp,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                      SizedBox(height: 6.h),
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _descExpanded = !_descExpanded;
-                                          });
-                                        },
-                                        child: Text(
-                                          _descExpanded
-                                              ? 'Show less'
-                                              : 'Show more',
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).primaryColor,
-                                            fontSize: 13.sp,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Recommended Videos Section
-                        Padding(
-                          padding: EdgeInsets.only(
-                            top: 12.h,
-                            left: 0,
-                            right: 0,
-                          ),
-                          child: Container(
-                            width: double.infinity,
-                            color: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 12.h,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Recommended videos (compact cards only)
-                                _buildRecommendedVideosList(),
-                              ],
                             ),
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                // NOTE: Video info moved into the scrollable content so only
+                // the VideoPlayerWidget remains sticky at the top.
+                // Scrollable content section
+                Expanded(
+                  child: StreamBuilder<MediaItem?>(
+                    stream: const MyApp().called().mediaItem,
+                    builder: (context, snapshot) {
+                      // Check if mini player is visible (music is playing)
+                      final hasMiniPlayer = snapshot.hasData;
 
-                        // More from this channel
-                        if (widget.videoItem?.channelId != null)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: 12.h,
-                              left: 0,
-                              right: 0,
-                            ),
-                            child: Container(
+                      // Calculate bottom padding based on mini player and nav bar
+                      final bottomPadding = hasMiniPlayer
+                          ? AppSizes.basePadding +
+                                AppSizes.miniPlayerPadding +
+                                20.w
+                          : AppSizes.basePadding + 20.w;
+
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: bottomPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Video info section (moved into scrollable content so only video is sticky)
+                            Container(
                               width: double.infinity,
-                              color: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12.w,
-                                vertical: 12.h,
+                              padding: EdgeInsets.all(16.w),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1,
+                                  ),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4.w,
+                                    offset: Offset(0, 2.w),
+                                  ),
+                                ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Text(
+                                    widget.videoTitle.isNotEmpty
+                                        ? widget.videoTitle
+                                        : 'Video Title',
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 18.sp,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                  SizedBox(height: 12.h),
+
+                                  // Row: views  •  duration  •  uploaded ago
                                   Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
                                     children: [
+                                      Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        size: 18.w,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      SizedBox(width: 6.w),
                                       Text(
-                                        'More from this channel',
+                                        _formatViews(
+                                          widget.videoItem?.totalViews,
+                                        ),
                                         style: TextStyle(
-                                          fontSize: 16.sp,
-                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600,
+                                          fontSize: 14.sp,
                                         ),
                                       ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          // navigate to full channel page
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ChannelVideosScreen(
-                                                    channelId: widget
-                                                        .videoItem!
-                                                        .channelId!,
-                                                    channelName: widget
-                                                        .videoItem!
-                                                        .channelName,
-                                                  ),
-                                            ),
-                                          );
+                                      SizedBox(width: 12.w),
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 18.w,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        _videoPlayerController != null &&
+                                                _videoPlayerController!
+                                                    .value
+                                                    .isInitialized
+                                            ? _formatDuration(
+                                                _videoPlayerController!
+                                                    .value
+                                                    .duration,
+                                              )
+                                            : '--:--',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 14.sp,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12.w),
+                                      if (widget.videoItem?.createdAt != null)
+                                        Text(
+                                          '• ${_formatTimeAgo(widget.videoItem!.createdAt)}',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 14.sp,
+                                          ),
+                                        ),
+                                      // Spacer and More button aligned to the right of the row
+                                      Spacer(),
+                                      TextButton(
+                                        onPressed: () {
+                                          // open panel and set its top to the computed panelTop
+                                          setState(() {
+                                            _isMorePanelOpen = true;
+                                            _panelTopOffset = panelTop;
+                                          });
                                         },
                                         child: Text(
-                                          'See all',
+                                          'More',
                                           style: TextStyle(
                                             color: Theme.of(
                                               context,
                                             ).primaryColor,
-                                            fontSize: 13.sp,
+                                            fontSize: 14.sp,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
                                     ],
                                   ),
+                                  SizedBox(height: 8.h),
+
+                                  // Channel info row below: avatar + channel name + subscribe button
+                                  Row(
+                                    children: [
+                                      if (widget.videoItem?.channelImageUrl !=
+                                              null &&
+                                          widget
+                                              .videoItem!
+                                              .channelImageUrl!
+                                              .isNotEmpty)
+                                        GestureDetector(
+                                          onTap: _openChannel,
+                                          child: CircleAvatar(
+                                            radius: 24.w,
+                                            backgroundImage:
+                                                CachedNetworkImageProvider(
+                                                  widget
+                                                      .videoItem!
+                                                      .channelImageUrl!,
+                                                ),
+                                          ),
+                                        ),
+                                      SizedBox(width: 8.w),
+                                      if (widget.videoItem?.channelName != null)
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: _openChannel,
+                                            child: Text(
+                                              widget.videoItem!.channelName!,
+                                              style: TextStyle(
+                                                color: Colors.grey.shade800,
+                                                fontSize: 16.sp,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      SizedBox(width: 8.w),
+                                      // Subscribe button on the right
+                                      if (widget.videoItem?.channelId != null &&
+                                          (widget.videoItem?.isOwn ?? false) ==
+                                              false)
+                                        AnimatedSubscribeButton(
+                                          isSubscribed: _isSubscribed,
+                                          onPressed: _toggleSubscription,
+                                        ),
+                                    ],
+                                  ),
                                   SizedBox(height: 12.h),
-                                  // Show vertical list of channel videos
-                                  _buildChannelVideosList(),
+
+                                  // Like/Dislike buttons row
+                                  Row(
+                                    children: [
+                                      AnimatedLikeDislikeButtons(
+                                        likeState: _likeState,
+                                        onLike: _toggleLike,
+                                        onDislike: _toggleDislike,
+                                        onReport: _showReportModal,
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
+                            // Recommended Videos Section
+                            Padding(
+                              padding: EdgeInsets.only(
+                                top: 12.h,
+                                left: 0,
+                                right: 0,
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                color: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12.w,
+                                  vertical: 12.h,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Recommended videos (compact cards only)
+                                    _buildRecommendedVideosList(),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // More from this channel
+                            if (widget.videoItem?.channelId != null)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: 12.h,
+                                  left: 0,
+                                  right: 0,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  color: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w,
+                                    vertical: 12.h,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'More from this channel',
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          GestureDetector(
+                                            onTap: () {
+                                              // navigate to full channel page
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ChannelVideosScreen(
+                                                        channelId: widget
+                                                            .videoItem!
+                                                            .channelId!,
+                                                        channelName: widget
+                                                            .videoItem!
+                                                            .channelName,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                            child: Text(
+                                              'See all',
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).primaryColor,
+                                                fontSize: 13.sp,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 12.h),
+                                      // Show vertical list of channel videos
+                                      _buildChannelVideosList(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Inline bottom-sheet style panel (does not dim or cover the video)
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            // Use explicit _panelTopOffset when dragging; otherwise choose open/closed
+            top:
+                _panelTopOffset ?? (_isMorePanelOpen ? panelTop : screenHeight),
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  final current =
+                      _panelTopOffset ??
+                      (_isMorePanelOpen ? panelTop : screenHeight);
+                  final updated = current + details.delta.dy;
+                  _panelTopOffset = updated.clamp(panelTop, screenHeight);
+                });
+              },
+              onVerticalDragEnd: (details) {
+                final velocity = details.velocity.pixelsPerSecond.dy;
+                final current =
+                    _panelTopOffset ??
+                    (_isMorePanelOpen ? panelTop : screenHeight);
+                const closeThreshold =
+                    120.0; // pixels beyond which panel will close
+
+                bool shouldClose = false;
+                if (velocity > 700) {
+                  shouldClose = true;
+                } else if (current > panelTop + closeThreshold) {
+                  shouldClose = true;
+                }
+
+                setState(() {
+                  if (shouldClose) {
+                    _isMorePanelOpen = false;
+                    _panelTopOffset = screenHeight;
+                  } else {
+                    _isMorePanelOpen = true;
+                    _panelTopOffset = panelTop;
+                  }
+                });
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20.w)),
+                child: Material(
+                  color: Colors.white,
+                  elevation: 12.0,
+                  child: Column(
+                    children: [
+                      // Top drag handle and close button
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 8.h,
+                          horizontal: 12.w,
+                        ),
+                        child: SizedBox(
+                          // Provide enough height for the handle and the close button
+                          height: 40.w,
+                          child: Stack(
+                            children: [
+                              // Center the small drag handle across the full width
+                              Align(
+                                alignment: Alignment.center,
+                                child: Container(
+                                  width: 40.w,
+                                  height: 4.h,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade400,
+                                    borderRadius: BorderRadius.circular(4.w),
+                                  ),
+                                ),
+                              ),
+
+                              // Close button aligned to the right, vertically centered
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: IconButton(
+                                    onPressed: () => setState(() {
+                                      _isMorePanelOpen = false;
+                                      _panelTopOffset = screenHeight;
+                                    }),
+                                    icon: Icon(
+                                      Icons.close,
+                                      size: 20.w,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                      ],
-                    ),
-                  );
-                },
+                        ),
+                      ),
+
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 8.h,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.videoTitle.isNotEmpty
+                                    ? widget.videoTitle
+                                    : 'Video Title',
+                                style: TextStyle(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.remove_red_eye_outlined,
+                                    size: 18.w,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  SizedBox(width: 6.w),
+                                  Text(
+                                    _formatViews(widget.videoItem?.totalViews),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14.sp,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  if (widget.videoItem?.createdAt != null)
+                                    Text(
+                                      _formatTimeAgo(
+                                        widget.videoItem!.createdAt,
+                                      ),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14.sp,
+                                      ),
+                                    ),
+                                ],
+                              ),
+
+                              SizedBox(height: 12.h),
+                              Divider(height: 1.h, color: Colors.grey.shade200),
+                              SizedBox(height: 12.h),
+
+                              // Full description
+                              Text(
+                                widget.videoItem?.description
+                                            ?.trim()
+                                            .isNotEmpty ==
+                                        true
+                                    ? widget.videoItem!.description!
+                                    : 'No description available.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade800,
+                                  fontSize: 14.sp,
+                                  height: 1.5,
+                                ),
+                              ),
+
+                              SizedBox(height: 18.h),
+                              Divider(height: 1.h, color: Colors.grey.shade200),
+                              SizedBox(height: 12.h),
+
+                              // Channel info duplicated inside panel
+                              Row(
+                                children: [
+                                  if (widget.videoItem?.channelImageUrl !=
+                                          null &&
+                                      widget
+                                          .videoItem!
+                                          .channelImageUrl!
+                                          .isNotEmpty)
+                                    GestureDetector(
+                                      onTap: _openChannel,
+                                      child: CircleAvatar(
+                                        radius: 24.w,
+                                        backgroundImage:
+                                            CachedNetworkImageProvider(
+                                              widget
+                                                  .videoItem!
+                                                  .channelImageUrl!,
+                                            ),
+                                      ),
+                                    ),
+                                  SizedBox(width: 8.w),
+                                  if (widget.videoItem?.channelName != null)
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: _openChannel,
+                                        child: Text(
+                                          widget.videoItem!.channelName!,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade800,
+                                            fontSize: 16.sp,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  SizedBox(width: 8.w),
+                                  if (widget.videoItem?.channelId != null &&
+                                      (widget.videoItem?.isOwn ?? false) ==
+                                          false)
+                                    AnimatedSubscribeButton(
+                                      isSubscribed: _isSubscribed,
+                                      onPressed: _toggleSubscription,
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: 24.h),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
