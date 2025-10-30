@@ -18,6 +18,8 @@ class VideoItem {
   final int? totalViews;
   final int? totalLikes;
   final int? report; // 1 = reported, otherwise null/0
+  final int? block; // 1 = blocked
+  final String? reason; // reason for blocking
   final bool isOwn;
 
   VideoItem({
@@ -37,6 +39,8 @@ class VideoItem {
     this.totalViews,
     this.totalLikes,
     this.report,
+    this.block,
+    this.reason,
     this.isOwn = false,
   });
 
@@ -124,6 +128,8 @@ class VideoItem {
       totalLikes: parseInt(j['total_likes']),
       totalViews: parseInt(j['total_views']),
       report: parseInt(j['report']),
+      block: parseInt(j['block']),
+      reason: j['reason'] != null ? j['reason'].toString() : null,
       isOwn: parseIsOwn(j['is_own']),
     );
   }
@@ -146,6 +152,8 @@ class VideoItem {
     int? totalViews,
     int? totalLikes,
     int? report,
+    int? block,
+    String? reason,
     bool? isOwn,
   }) {
     return VideoItem(
@@ -165,6 +173,8 @@ class VideoItem {
       totalViews: totalViews ?? this.totalViews,
       totalLikes: totalLikes ?? this.totalLikes,
       report: report ?? this.report,
+      block: block ?? this.block,
+      reason: reason ?? this.reason,
       isOwn: isOwn ?? this.isOwn,
     );
   }

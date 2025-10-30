@@ -13,6 +13,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/widgets/verification/document_picker_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 
 class VerifyArtistScreen extends StatefulWidget {
@@ -42,12 +43,16 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
   String? _documentUrl;
   double? _documentUploadProgress;
   bool _isDocumentUploading = false;
+  // Previously uploaded (server-side) URLs - shown in "Previously uploaded" section
+  String? _previousDocumentUrl;
 
   // Certificate upload state
   File? _certificateFile;
   String? _certificateUrl;
   double? _certificateUploadProgress;
   bool _isCertificateUploading = false;
+  // Previously uploaded (server-side) URLs - shown in "Previously uploaded" section
+  String? _previousCertificateUrl;
 
   // Verification status
   VerificationStatusData? _verificationStatus;
@@ -87,6 +92,13 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
       if (response.status && response.data != null) {
         setState(() {
           _verificationStatus = response.data;
+
+          // Keep server-side previously uploaded URLs separate from the
+          // current upload fields. This prevents the upload widgets from
+          // being pre-populated with previous uploads when the user wants
+          // to submit new files (e.g., on Rejected status).
+          _previousDocumentUrl = _verificationStatus?.documentUrl;
+          _previousCertificateUrl = _verificationStatus?.certificateUrl;
         });
       }
     } catch (e) {
@@ -130,48 +142,70 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
                               bottom: bottomPadding,
                             ),
                             children: [
-                              // Status card
-                              if (_verificationStatus != null)
+                              // Status card: only show if the user has previously
+                              // requested verification (pending/verified/rejected).
+                              if (_verificationStatus != null &&
+                                  (_verificationStatus!.isPending ||
+                                      _verificationStatus!.isVerified ||
+                                      _verificationStatus!.isRejected))
                                 _buildStatusCard(),
 
                               SizedBox(height: 12.w),
 
-                              // Instructions
-                              _buildInstructions(),
+                              // Instructions: hide when status is Pending
+                              if (!(_verificationStatus?.isPending ??
+                                  false)) ...[
+                                _buildInstructions(),
+                                SizedBox(height: 12.w),
+                              ],
 
-                              SizedBox(height: 12.w),
+                              // Previously uploaded documents (when available).
+                              if ((_previousDocumentUrl != null &&
+                                      _previousDocumentUrl!.isNotEmpty) ||
+                                  (_previousCertificateUrl != null &&
+                                      _previousCertificateUrl!.isNotEmpty)) ...[
+                                _buildPreviousUploadsSection(),
+                                SizedBox(height: 12.w),
+                              ],
 
-                              // Document picker
-                              DocumentPickerWidget(
-                                title: 'Government/Legal Document',
-                                description:
-                                    'Upload your government ID, license, or any legal document for identity verification.',
-                                type: DocumentPickerType.document,
-                                selectedFile: _documentFile,
-                                uploadedUrl: _documentUrl,
-                                uploadProgress: _documentUploadProgress,
-                                isUploading: _isDocumentUploading,
-                                onFileSelected: _onDocumentSelected,
-                                onRemoveFile: () =>
-                                    _removeFile(isDocument: true),
-                              ),
+                              // If status is Pending, do NOT show upload options.
+                              // If status is Rejected or there is no status, allow uploads.
+                              if (!(_verificationStatus?.isPending ??
+                                  false)) ...[
+                                // Document picker
+                                DocumentPickerWidget(
+                                  title: 'Government/Legal Document',
+                                  description:
+                                      'Upload your government ID, license, or any legal document for identity verification.',
+                                  type: DocumentPickerType.document,
+                                  selectedFile: _documentFile,
+                                  uploadedUrl: _documentUrl,
+                                  uploadProgress: _documentUploadProgress,
+                                  isUploading: _isDocumentUploading,
+                                  onFileSelected: _onDocumentSelected,
+                                  onRemoveFile: () =>
+                                      _removeFile(isDocument: true),
+                                ),
 
-                              SizedBox(height: 2.w),
+                                SizedBox(height: 2.w),
 
-                              // Certificate picker
-                              DocumentPickerWidget(
-                                title: 'License/Ownership Certificate',
-                                description:
-                                    'Upload your music license, copyright certificate, or ownership proof documents.',
-                                type: DocumentPickerType.certificate,
-                                selectedFile: _certificateFile,
-                                uploadedUrl: _certificateUrl,
-                                uploadProgress: _certificateUploadProgress,
-                                isUploading: _isCertificateUploading,
-                                onFileSelected: _onCertificateSelected,
-                                onRemoveFile: () =>
-                                    _removeFile(isDocument: false),
-                              ),
+                                // Certificate picker
+                                DocumentPickerWidget(
+                                  title: 'License/Ownership Certificate',
+                                  description:
+                                      'Upload your music license, copyright certificate, or ownership proof documents.',
+                                  type: DocumentPickerType.certificate,
+                                  selectedFile: _certificateFile,
+                                  uploadedUrl: _certificateUrl,
+                                  uploadProgress: _certificateUploadProgress,
+                                  isUploading: _isCertificateUploading,
+                                  onFileSelected: _onCertificateSelected,
+                                  onRemoveFile: () =>
+                                      _removeFile(isDocument: false),
+                                ),
+
+                                SizedBox(height: 16.w),
+                              ],
 
                               SizedBox(height: 16.w),
 
@@ -207,7 +241,7 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
-              'Verify as Artist',
+              'Request as Artist',
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.bold,
@@ -362,7 +396,7 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
             '• Upload clear, high-quality images or documents\n'
             '• Ensure all text is readable and not blurred\n'
             '• Accepted formats: JPG, PNG, WEBP, PDF, DOC, TXT\n'
-            '• Maximum file size: 10MB per file\n'
+            '• Maximum file size: 2MB per file\n'
             '• Both documents are required for verification',
             style: TextStyle(
               fontSize: 13.sp,
@@ -373,6 +407,235 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPreviousUploadsSection() {
+    final docUrl = _previousDocumentUrl;
+    final certUrl = _previousCertificateUrl;
+
+    if ((docUrl == null || docUrl.isEmpty) &&
+        (certUrl == null || certUrl.isEmpty)) {
+      return SizedBox.shrink();
+    }
+
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: appColors().colorBackEditText,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: appColors().gray[300]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Previously uploaded documents',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: appColors().colorTextHead,
+              fontFamily: 'Poppins',
+            ),
+          ),
+          SizedBox(height: 12.w),
+          if (docUrl != null && docUrl.isNotEmpty) ...[
+            _buildUploadedFileTile(
+              label: 'Government/Legal Document',
+              url: docUrl,
+            ),
+            SizedBox(height: 8.w),
+          ],
+          if (certUrl != null && certUrl.isNotEmpty) ...[
+            _buildUploadedFileTile(
+              label: 'License/Ownership Certificate',
+              url: certUrl,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadedFileTile({required String label, required String url}) {
+    final isImage = _isImageUrl(url);
+
+    return Row(
+      children: [
+        if (isImage)
+          GestureDetector(
+            onTap: () => _showImagePreview(url),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8.r),
+              child: Image.network(
+                url,
+                width: 64.w,
+                height: 64.w,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Container(
+                  width: 64.w,
+                  height: 64.w,
+                  color: appColors().gray[300],
+                  child: Icon(Icons.broken_image, color: Colors.white),
+                ),
+              ),
+            ),
+          )
+        else
+          _buildExtensionIcon(url),
+
+        SizedBox(width: 12.w),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: appColors().colorTextHead,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(height: 6.w),
+              Text(
+                // Don't show the raw link; display a friendly filename instead.
+                Uri.tryParse(url)?.pathSegments.last ?? 'Uploaded file',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: appColors().colorText,
+                  fontFamily: 'Poppins',
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(width: 8.w),
+
+        Column(
+          children: [
+            IconButton(
+              onPressed: () => _openUrl(url),
+              icon: Icon(Icons.open_in_new, color: appColors().primaryColorApp),
+              tooltip: 'Open',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  bool _isImageUrl(String url) {
+    final ext = url.toLowerCase().split('?').first.split('.').last;
+    return ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
+  }
+
+  Widget _buildExtensionIcon(String url) {
+    final ext = url.toLowerCase().split('?').first.split('.').last;
+
+    // Use app primary color as background for all extension icons per request
+    final Color bgColor = appColors().primaryColorApp;
+    IconData icon = Icons.insert_drive_file;
+
+    switch (ext) {
+      case 'pdf':
+        icon = Icons.picture_as_pdf;
+        break;
+      case 'doc':
+      case 'docx':
+        icon = Icons.description;
+        break;
+      case 'txt':
+        icon = Icons.text_snippet;
+        break;
+      case 'xls':
+      case 'xlsx':
+      case 'csv':
+        icon = Icons.grid_on;
+        break;
+      default:
+        icon = Icons.insert_drive_file;
+    }
+
+    // For unknown types show a badge with extension letters if icon is generic
+    if (icon == Icons.insert_drive_file) {
+      final label = ext.length <= 4
+          ? ext.toUpperCase()
+          : ext.substring(0, 4).toUpperCase();
+      return Container(
+        width: 64.w,
+        height: 64.w,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16.sp,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 64.w,
+      height: 64.w,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Icon(icon, color: Colors.white, size: 28.w),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    try {
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        _showErrorMessage('Invalid URL');
+        return;
+      }
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showErrorMessage('Cannot open URL');
+      }
+    } catch (e) {
+      _showErrorMessage('Error opening URL: $e');
+    }
+  }
+
+  void _showImagePreview(String url) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: EdgeInsets.all(16.w),
+          child: GestureDetector(
+            onTap: () => Navigator.of(ctx).pop(),
+            child: InteractiveViewer(
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (c, e, s) => Container(
+                  color: appColors().gray[300],
+                  child: Center(child: Icon(Icons.broken_image)),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

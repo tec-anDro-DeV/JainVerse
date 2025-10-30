@@ -159,6 +159,14 @@ class _DocumentPickerWidgetState extends State<DocumentPickerWidget> {
   Widget _buildSelectedFileArea() {
     final file = widget.selectedFile;
     final isUploaded = widget.uploadedUrl != null;
+    // Determine if the file/url points to an image for preview
+    bool isImageFile() {
+      final path = file?.path ?? widget.uploadedUrl ?? '';
+      final ext = path.toLowerCase().split('.').last;
+      return ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
+    }
+
+    final showImagePreview = isImageFile();
 
     return Container(
       margin: EdgeInsets.all(16.w),
@@ -177,22 +185,65 @@ class _DocumentPickerWidgetState extends State<DocumentPickerWidget> {
       ),
       child: Row(
         children: [
-          // File icon
-          Container(
-            width: 48.w,
-            height: 48.w,
-            decoration: BoxDecoration(
-              color: isUploaded
-                  ? appColors().primaryColorApp
-                  : appColors().gray[400],
-              borderRadius: BorderRadius.circular(8.r),
+          // Image preview or file icon
+          if (showImagePreview)
+            GestureDetector(
+              onTap: () {
+                // Show full screen preview
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: InteractiveViewer(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12.r),
+                        child: file != null
+                            ? Image.file(File(file.path))
+                            : Image.network(widget.uploadedUrl ?? ''),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: file != null
+                    ? Image.file(
+                        File(file.path),
+                        width: 72.w,
+                        height: 72.w,
+                        fit: BoxFit.cover,
+                      )
+                    : Image.network(
+                        widget.uploadedUrl ?? '',
+                        width: 72.w,
+                        height: 72.w,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          width: 72.w,
+                          height: 72.w,
+                          color: appColors().gray[300],
+                          child: Icon(Icons.broken_image, color: Colors.white),
+                        ),
+                      ),
+              ),
+            )
+          else
+            Container(
+              width: 48.w,
+              height: 48.w,
+              decoration: BoxDecoration(
+                color: isUploaded
+                    ? appColors().primaryColorApp
+                    : appColors().gray[400],
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(
+                _getFileIcon(file?.path ?? ''),
+                color: Colors.white,
+                size: 24.w,
+              ),
             ),
-            child: Icon(
-              _getFileIcon(file?.path ?? ''),
-              color: Colors.white,
-              size: 24.w,
-            ),
-          ),
 
           SizedBox(width: 12.w),
 

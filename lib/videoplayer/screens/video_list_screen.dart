@@ -386,7 +386,7 @@ class _VideoListBodyState extends State<VideoListBody>
                 hintText: 'Search videos...',
                 onChanged: _onSearchChanged,
                 showClearButton: true,
-                height: 45.h,
+                height: 55.h,
                 margin: EdgeInsets.zero,
               ),
             ),

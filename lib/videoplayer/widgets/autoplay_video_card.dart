@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -32,6 +34,14 @@ class AutoplayVideoCard extends StatefulWidget {
 class _AutoplayVideoCardState extends State<AutoplayVideoCard>
     with AutomaticKeepAliveClientMixin {
   bool _isVideoVisible = false;
+  // Seek/progress state
+  double _progress = 0.0; // 0..1
+  bool _isInteracting = false; // user is dragging/tapping the seekbar
+  bool _controlsVisible =
+      true; // overlay controls visible; auto-hide but keep seekbar
+  Timer? _hideControlsTimer;
+  final GlobalKey _barKey = GlobalKey();
+  VoidCallback? _controllerListener;
 
   @override
   bool get wantKeepAlive => true;
@@ -50,7 +60,119 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
       if (!widget.shouldPlay || widget.sharedController == null) {
         setState(() => _isVideoVisible = false);
       }
+      // Reattach listener to new controller
+      _detachController(oldWidget.sharedController);
+      _attachController(widget.sharedController);
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _attachController(widget.sharedController);
+  }
+
+  @override
+  void dispose() {
+    _detachController(widget.sharedController);
+    _hideControlsTimer?.cancel();
+    super.dispose();
+  }
+
+  void _attachController(VideoPlayerController? controller) {
+    if (controller == null) return;
+    // remove old if any
+    _detachController(controller);
+    _controllerListener = () {
+      if (!mounted) return;
+      final c = controller;
+      if (c.value.isInitialized) {
+        final d = c.value.duration.inMilliseconds;
+        final p = c.value.position.inMilliseconds.clamp(0, d);
+        final newProgress = d == 0 ? 0.0 : (p / d);
+        if (!_isInteracting) {
+          // update progress (will be animated in UI)
+          setState(() => _progress = newProgress);
+        }
+      }
+    };
+    controller.addListener(_controllerListener!);
+  }
+
+  void _detachController(VideoPlayerController? controller) {
+    if (controller == null) return;
+    if (_controllerListener != null) {
+      try {
+        controller.removeListener(_controllerListener!);
+      } catch (_) {}
+      _controllerListener = null;
+    }
+  }
+
+  void _startHideControlsTimer() {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        _controlsVisible = false;
+        _isInteracting = false;
+      });
+    });
+  }
+
+  void _showControlsTemporarily() {
+    _hideControlsTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _controlsVisible = true;
+    });
+    _startHideControlsTimer();
+  }
+
+  void _handleSeekAtGlobal(Offset globalPosition) {
+    final barBox = _barKey.currentContext?.findRenderObject() as RenderBox?;
+    final controller = widget.sharedController;
+    if (barBox == null || controller == null || !controller.value.isInitialized)
+      return;
+    final local = barBox.globalToLocal(globalPosition);
+    final rel = (local.dx / barBox.size.width).clamp(0.0, 1.0);
+    setState(() => _progress = rel);
+    _seekToRelative(rel);
+    // show dot briefly for taps
+    setState(() => _isInteracting = true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      setState(() => _isInteracting = false);
+    });
+    _startHideControlsTimer();
+  }
+
+  void _updateDragProgress(Offset globalPosition) {
+    final barBox = _barKey.currentContext?.findRenderObject() as RenderBox?;
+    if (barBox == null) return;
+    final local = barBox.globalToLocal(globalPosition);
+    final rel = (local.dx / barBox.size.width).clamp(0.0, 1.0);
+    setState(() => _progress = rel);
+  }
+
+  void _finishDragSeek() {
+    final controller = widget.sharedController;
+    if (controller == null || !controller.value.isInitialized) {
+      setState(() => _isInteracting = false);
+      return;
+    }
+    _seekToRelative(_progress);
+    setState(() => _isInteracting = false);
+    _startHideControlsTimer();
+  }
+
+  void _seekToRelative(double rel) {
+    final controller = widget.sharedController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final duration = controller.value.duration;
+    if (duration == Duration.zero) return;
+    final millis = (duration.inMilliseconds * rel).round();
+    controller.seekTo(Duration(milliseconds: millis));
   }
 
   void _updatePlaybackState() {
@@ -68,11 +190,15 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
       if (!controller.value.isPlaying) {
         controller.play();
       }
+      // Show controls briefly when this card gains focus
+      _showControlsTemporarily();
     } else {
       // Pause and fade back to thumbnail
       if (controller.value.isPlaying) {
         controller.pause();
       }
+      _hideControlsTimer?.cancel();
+      if (mounted) setState(() => _controlsVisible = false);
       setState(() => _isVideoVisible = false);
     }
   }
@@ -179,10 +305,10 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                           ),
                         ),
 
-                      // Duration badge (bottom right)
-                      if (widget.item.duration.isNotEmpty)
+                      // Duration badge (bottom right) — only visible when controls are shown
+                      if (widget.item.duration.isNotEmpty && _controlsVisible)
                         Positioned(
-                          bottom: 8.h,
+                          bottom: 28.h,
                           right: 8.w,
                           child: Container(
                             padding: EdgeInsets.symmetric(
@@ -199,6 +325,133 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                                 color: Colors.white,
                                 fontSize: 11.sp,
                                 fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Thin sticky seek bar at the very bottom of the video (no gap)
+                      // Only enabled for the focused card (shouldPlay) and when controller is ready
+                      if (widget.sharedController != null &&
+                          widget.sharedController!.value.isInitialized &&
+                          widget.shouldPlay)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          // keep height a little larger for touch area but the visible track is thin
+                          child: GestureDetector(
+                            key: _barKey,
+                            behavior: HitTestBehavior.translucent,
+                            onTapDown: (details) {
+                              if (!widget.shouldPlay) return;
+                              _showControlsTemporarily();
+                              _handleSeekAtGlobal(details.globalPosition);
+                            },
+                            onHorizontalDragStart: (details) {
+                              if (!widget.shouldPlay) return;
+                              _hideControlsTimer?.cancel();
+                              setState(() => _isInteracting = true);
+                            },
+                            onHorizontalDragUpdate: (details) {
+                              if (!widget.shouldPlay) return;
+                              _updateDragProgress(details.globalPosition);
+                            },
+                            onHorizontalDragEnd: (details) {
+                              if (!widget.shouldPlay) return;
+                              _finishDragSeek();
+                            },
+                            child: SizedBox(
+                              height: 28.h,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final width = constraints.maxWidth;
+                                  final primary = Theme.of(
+                                    context,
+                                  ).primaryColor;
+                                  // Ensure we render progress with smooth animation when not interacting
+                                  // Anchor the visible track to the very bottom so it is flush with the video edge.
+                                  return Stack(
+                                    children: [
+                                      // background track anchored to bottom
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          height: 5.w,
+                                          decoration: BoxDecoration(
+                                            color: primary.withOpacity(0.18),
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(2.w),
+                                              topRight: Radius.circular(2.w),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // animated progress anchored to bottom
+                                      Positioned(
+                                        left: 0,
+                                        bottom: 0,
+                                        child: AnimatedContainer(
+                                          duration: _isInteracting
+                                              ? Duration.zero
+                                              : const Duration(
+                                                  milliseconds: 300,
+                                                ),
+                                          width: (width * _progress).clamp(
+                                            0.0,
+                                            width,
+                                          ),
+                                          height: 5.w,
+                                          decoration: BoxDecoration(
+                                            color: primary,
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(2.w),
+                                              topRight: Radius.circular(2.w),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // seek dot — visible only while interacting and when controls visible
+                                      if (_isInteracting &&
+                                          widget.shouldPlay &&
+                                          _controlsVisible)
+                                        Positioned(
+                                          left:
+                                              (width * _progress).clamp(
+                                                0.0,
+                                                width,
+                                              ) -
+                                              6.w,
+                                          // position the dot so its center aligns with the track center
+                                          bottom: (5.h / 2) - 6.w,
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            opacity: _isInteracting ? 1.0 : 0.0,
+                                            child: Container(
+                                              width: 12.w,
+                                              height: 12.w,
+                                              decoration: BoxDecoration(
+                                                color: primary,
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black26,
+                                                    blurRadius: 4,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ),

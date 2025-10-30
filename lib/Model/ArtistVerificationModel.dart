@@ -45,10 +45,9 @@ class VerificationStatusResponse {
     return VerificationStatusResponse(
       status: json['status'] ?? false,
       msg: json['msg'] ?? '',
-      data:
-          json['data'] != null
-              ? VerificationStatusData.fromJson(json['data'])
-              : null,
+      data: json['data'] != null
+          ? VerificationStatusData.fromJson(json['data'])
+          : null,
     );
   }
 }
@@ -78,21 +77,34 @@ class VerificationStatusData {
   factory VerificationStatusData.fromJson(Map<String, dynamic> json) {
     final rawStatus = json['artist_verify_status']?.toString() ?? '';
     final normalizedStatus = _normalizeStatus(rawStatus);
+    // Helper to parse string fields and treat empty strings as null
+    String? parseNullableString(dynamic value) {
+      if (value == null) return null;
+      final s = value.toString();
+      return s.trim().isEmpty ? null : s;
+    }
+
+    // Some APIs return 'document' / 'certificate' while others use
+    // 'document_url' / 'certificate_url'. Try both for compatibility.
+    final documentCandidate =
+        json['document_url'] ?? json['document'] ?? json['documentUrl'];
+    final certificateCandidate =
+        json['certificate_url'] ??
+        json['certificate'] ??
+        json['certificateUrl'];
 
     return VerificationStatusData(
       artistVerifyStatus: normalizedStatus,
       originalStatus: rawStatus,
       reason: json['reason'] ?? '',
-      documentUrl: json['document_url'],
-      certificateUrl: json['certificate_url'],
-      submittedAt:
-          json['submitted_at'] != null
-              ? DateTime.tryParse(json['submitted_at'])
-              : null,
-      reviewedAt:
-          json['reviewed_at'] != null
-              ? DateTime.tryParse(json['reviewed_at'])
-              : null,
+      documentUrl: parseNullableString(documentCandidate),
+      certificateUrl: parseNullableString(certificateCandidate),
+      submittedAt: json['submitted_at'] != null
+          ? DateTime.tryParse(json['submitted_at'])
+          : null,
+      reviewedAt: json['reviewed_at'] != null
+          ? DateTime.tryParse(json['reviewed_at'])
+          : null,
     );
   }
 

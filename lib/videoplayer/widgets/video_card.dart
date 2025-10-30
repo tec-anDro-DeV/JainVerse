@@ -12,6 +12,7 @@ class VideoCard extends StatelessWidget {
   final bool showPopupMenu;
   final double? width;
   final Function(String)? onMenuAction;
+  final String? blockedReason;
 
   const VideoCard({
     Key? key,
@@ -20,6 +21,7 @@ class VideoCard extends StatelessWidget {
     this.showPopupMenu = true,
     this.width,
     this.onMenuAction,
+    this.blockedReason,
   }) : super(key: key);
 
   String _getTimeAgo(DateTime? dateTime) {
@@ -82,17 +84,16 @@ class VideoCard extends StatelessWidget {
                         child: CachedNetworkImage(
                           imageUrl: item.thumbnailUrl,
                           fit: BoxFit.cover,
-                          placeholder:
-                              (c, u) => Container(color: Colors.grey.shade200),
-                          errorWidget:
-                              (c, u, e) => Container(
-                                color: Colors.grey.shade300,
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 48.w,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
+                          placeholder: (c, u) =>
+                              Container(color: Colors.grey.shade200),
+                          errorWidget: (c, u, e) => Container(
+                            color: Colors.grey.shade300,
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 48.w,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -166,30 +167,30 @@ class VideoCard extends StatelessWidget {
                     backgroundColor: Colors.grey.shade300,
                     backgroundImage:
                         item.channelImageUrl != null &&
-                                item.channelImageUrl!.isNotEmpty
-                            ? CachedNetworkImageProvider(item.channelImageUrl!)
-                                as ImageProvider?
-                            : null,
+                            item.channelImageUrl!.isNotEmpty
+                        ? CachedNetworkImageProvider(item.channelImageUrl!)
+                              as ImageProvider?
+                        : null,
                     child:
                         (item.channelImageUrl == null ||
-                                item.channelImageUrl!.isEmpty)
-                            ? Text(
-                              // show initials fallback if name available
-                              (item.channelName != null &&
-                                      item.channelName!.isNotEmpty)
-                                  ? item.channelName!
+                            item.channelImageUrl!.isEmpty)
+                        ? Text(
+                            // show initials fallback if name available
+                            (item.channelName != null &&
+                                    item.channelName!.isNotEmpty)
+                                ? item.channelName!
                                       .split(' ')
                                       .map((s) => s.isNotEmpty ? s[0] : '')
                                       .take(2)
                                       .join()
-                                  : 'C',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
-                              ),
-                            )
-                            : null,
+                                : 'C',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          )
+                        : null,
                   ),
 
                   SizedBox(width: 12.w),
@@ -232,6 +233,20 @@ class VideoCard extends StatelessWidget {
                             height: 1.2,
                           ),
                         ),
+                        // If the video is blocked, show a small reason line under metadata
+                        if (blockedReason != null &&
+                            blockedReason!.isNotEmpty) ...[
+                          SizedBox(height: 6.h),
+                          Text(
+                            blockedReason!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -300,65 +315,64 @@ class VideoCard extends StatelessWidget {
                             }
                           }
                         },
-                        itemBuilder:
-                            (context) => [
-                              PopupMenuItem(
-                                value: 'watch_later',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.watch_later_outlined,
-                                      size: 18.w,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Text('Save to Watch Later'),
-                                  ],
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'watch_later',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.watch_later_outlined,
+                                  size: 18.w,
+                                  color: Colors.grey.shade800,
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'add_playlist',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.playlist_add,
-                                      size: 18.w,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Text('Add to Playlist'),
-                                  ],
+                                SizedBox(width: 12.w),
+                                Text('Save to Watch Later'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'add_playlist',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.playlist_add,
+                                  size: 18.w,
+                                  color: Colors.grey.shade800,
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'share',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.share,
-                                      size: 18.w,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Text('Share'),
-                                  ],
+                                SizedBox(width: 12.w),
+                                Text('Add to Playlist'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'share',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.share,
+                                  size: 18.w,
+                                  color: Colors.grey.shade800,
                                 ),
-                              ),
-                              PopupMenuItem(
-                                value: 'not_interested',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.not_interested,
-                                      size: 18.w,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Text('Not interested'),
-                                  ],
+                                SizedBox(width: 12.w),
+                                Text('Share'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'not_interested',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.not_interested,
+                                  size: 18.w,
+                                  color: Colors.grey.shade800,
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: 12.w),
+                                Text('Not interested'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],

@@ -30,6 +30,8 @@ class CommonVideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
   final String videoTitle;
   final VideoItem? videoItem;
+  // If true, restrict displayed lists to the video's channel and exclude blocked videos.
+  final bool restrictToChannel;
   // overlay timing configuration (ms)
   final int overlayVisibleMs;
   final int fadeDurationMs;
@@ -40,6 +42,7 @@ class CommonVideoPlayerScreen extends StatefulWidget {
     required this.videoUrl,
     required this.videoTitle,
     this.videoItem,
+    this.restrictToChannel = false,
     this.overlayVisibleMs = 900,
     this.fadeDurationMs = 300,
     this.scaleDurationMs = 160,
@@ -754,29 +757,32 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                                 ],
                               ),
                             ),
-                            // Recommended Videos Section
-                            Padding(
-                              padding: EdgeInsets.only(
-                                top: 12.h,
-                                left: 0,
-                                right: 0,
-                              ),
-                              child: Container(
-                                width: double.infinity,
-                                color: Colors.white,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12.w,
-                                  vertical: 12.h,
+                            // Recommended Videos Section - hide when opened from a
+                            // user's channel so the player only shows that channel's videos.
+                            if (!widget.restrictToChannel)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: 12.h,
+                                  left: 0,
+                                  right: 0,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Recommended videos ( cards only)
-                                    _buildRecommendedVideosList(),
-                                  ],
+                                child: Container(
+                                  width: double.infinity,
+                                  color: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w,
+                                    vertical: 12.h,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Recommended videos ( cards only)
+                                      _buildRecommendedVideosList(),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
 
                             // More from this channel
                             if (widget.videoItem?.channelId != null)
@@ -1210,11 +1216,18 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       );
     }
 
-    // Exclude the currently playing video from the displayed channel videos
+    // Exclude the currently playing video from the displayed channel videos.
+    // If `restrictToChannel` is true, additionally only show videos from
+    // the same channel as the current video and exclude blocked videos.
     final currentVideoId = widget.videoItem?.id;
-    final items = _channelVideosViewModel.items
-        .where((v) => v.id != currentVideoId)
-        .toList();
+    final items = _channelVideosViewModel.items.where((v) {
+      if (v.id == currentVideoId) return false;
+      if (widget.restrictToChannel) {
+        if (v.channelId != widget.videoItem?.channelId) return false;
+        if ((v.block ?? 0) == 1) return false;
+      }
+      return true;
+    }).toList();
 
     if (items.isEmpty) {
       return Center(
@@ -1265,6 +1278,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                             : widget.videoUrl,
                         videoTitle: syncedItem.title,
                         videoItem: syncedItem,
+                        restrictToChannel: widget.restrictToChannel,
                       ),
                     );
                     if (nav.canPop()) {
@@ -1348,11 +1362,18 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
       );
     }
 
-    // Exclude the currently playing video from recommended videos list
+    // Exclude the currently playing video from recommended videos list.
+    // If `restrictToChannel` is true, only include videos from the same
+    // channel and exclude blocked videos.
     final currentVideoId = widget.videoItem?.id;
-    final items = _videoListViewModel.items
-        .where((v) => v.id != currentVideoId)
-        .toList();
+    final items = _videoListViewModel.items.where((v) {
+      if (v.id == currentVideoId) return false;
+      if (widget.restrictToChannel) {
+        if (v.channelId != widget.videoItem?.channelId) return false;
+        if ((v.block ?? 0) == 1) return false;
+      }
+      return true;
+    }).toList();
 
     if (items.isEmpty) {
       return Center(
@@ -1401,6 +1422,7 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                           : widget.videoUrl,
                       videoTitle: syncedItem.title,
                       videoItem: syncedItem,
+                      restrictToChannel: widget.restrictToChannel,
                     ),
                   );
                   if (nav.canPop()) {

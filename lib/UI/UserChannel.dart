@@ -67,6 +67,15 @@ class _UserChannelState extends State<UserChannel>
   bool _isLoadingVideos = true;
   String? _videosError;
 
+  // Helper getters for blocked/unblocked videos
+  List<VideoItem> get _blockedVideos {
+    return _myVideos.where((v) => (v.block ?? 0) == 1).toList();
+  }
+
+  List<VideoItem> get _unblockedVideos {
+    return _myVideos.where((v) => (v.block ?? 0) != 1).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -215,25 +224,7 @@ class _UserChannelState extends State<UserChannel>
                       ),
                     ],
                   ),
-                  if (_selectedImage != null ||
-                      _currentChannel.imageUrl.isNotEmpty) ...[
-                    SizedBox(height: 16.w),
-                    _buildPhotoOption(
-                      icon: Icons.delete_rounded,
-                      label: 'Remove Photo',
-                      gradient: LinearGradient(
-                        colors: [Colors.red[400]!, Colors.red[600]!],
-                      ),
-                      fullWidth: true,
-                      onTap: () {
-                        setState(() {
-                          _selectedImage = null;
-                          // Note: Removing server-side image requires API; here we only clear local selection.
-                        });
-                        Navigator.of(ctx).pop();
-                      },
-                    ),
-                  ],
+                  // Removed local "Remove Photo" action - server-side removal requires API.
                 ],
               ),
             ),
@@ -320,25 +311,7 @@ class _UserChannelState extends State<UserChannel>
                       ),
                     ],
                   ),
-                  if (_selectedBannerImage != null ||
-                      _currentChannel.bannerImageUrl.isNotEmpty) ...[
-                    SizedBox(height: 16.w),
-                    _buildPhotoOption(
-                      icon: Icons.delete_rounded,
-                      label: 'Remove Banner',
-                      gradient: LinearGradient(
-                        colors: [Colors.red[400]!, Colors.red[600]!],
-                      ),
-                      fullWidth: true,
-                      onTap: () {
-                        setState(() {
-                          _selectedBannerImage = null;
-                          // server-side removal would require API call; this only clears selection locally
-                        });
-                        Navigator.of(ctx).pop();
-                      },
-                    ),
-                  ],
+                  // Removed local "Remove Banner" action - server-side removal requires API.
                 ],
               ),
             ),
@@ -643,10 +616,17 @@ class _UserChannelState extends State<UserChannel>
                               else
                                 _buildInfoCard(),
 
-                              // My Videos Section (only in non-edit mode)
+                              // My Videos + Blocked Videos Sections (only in non-edit mode)
+                              // Render unblocked (My Videos) first, then blocked videos below.
                               if (!_isEditMode) ...[
                                 SizedBox(height: 32.w),
+                                // My Videos (unblocked)
                                 _buildMyVideosSection(),
+                                // If there are blocked videos, add spacing then show them below
+                                if (_blockedVideos.isNotEmpty)
+                                  SizedBox(height: 24.w),
+                                if (_blockedVideos.isNotEmpty)
+                                  _buildBlockedVideosSection(),
                               ],
 
                               SizedBox(height: 24.w),
@@ -1335,9 +1315,9 @@ class _UserChannelState extends State<UserChannel>
                 ),
               ],
             ),
-            if (_myVideos.isNotEmpty)
+            if (_unblockedVideos.isNotEmpty)
               Text(
-                '${_myVideos.length} ${_myVideos.length == 1 ? 'video' : 'videos'}',
+                '${_unblockedVideos.length} ${_unblockedVideos.length == 1 ? 'video' : 'videos'}',
                 style: TextStyle(
                   fontSize: 14.sp,
                   color: Colors.grey[600],
@@ -1349,12 +1329,12 @@ class _UserChannelState extends State<UserChannel>
 
         SizedBox(height: 16.w),
 
-        // Videos List or Loading/Error State
+        // Videos List or Loading/Error State - only for unblocked videos
         if (_isLoadingVideos)
           _buildLoadingVideos()
         else if (_videosError != null)
           _buildErrorState()
-        else if (_myVideos.isEmpty)
+        else if (_unblockedVideos.isEmpty)
           _buildEmptyState()
         else
           _buildVideosList(),
@@ -1456,7 +1436,7 @@ class _UserChannelState extends State<UserChannel>
 
   Widget _buildVideosList() {
     return Column(
-      children: _myVideos.map((video) {
+      children: _unblockedVideos.map((video) {
         return Padding(
           padding: EdgeInsets.only(bottom: 16.w),
           child: VideoCard(
@@ -1471,6 +1451,12 @@ class _UserChannelState extends State<UserChannel>
   }
 
   void _openVideoPlayer(VideoItem video) {
+    // If video is blocked, show reason instead of opening player
+    if ((video.block ?? 0) == 1) {
+      _showBlockedReasonDialog(video);
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1478,8 +1464,106 @@ class _UserChannelState extends State<UserChannel>
           videoUrl: video.videoUrl,
           videoTitle: video.title,
           videoItem: video,
+          restrictToChannel: true,
         ),
       ),
+    );
+  }
+
+  void _showBlockedReasonDialog(VideoItem video) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.block, color: Colors.redAccent),
+              SizedBox(width: 8.w),
+              Text('Video Blocked'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(video.title, style: TextStyle(fontWeight: FontWeight.w600)),
+              SizedBox(height: 12.w),
+              Text(
+                video.reason ?? 'No reason provided by the moderation team.',
+                style: TextStyle(color: Colors.grey[800]),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Blocked Videos section
+  Widget _buildBlockedVideosSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.block, size: 24.w, color: Colors.redAccent),
+                SizedBox(width: 12.w),
+                Text(
+                  'Blocked Videos',
+                  style: TextStyle(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w700,
+                    color: appColors().colorTextHead,
+                  ),
+                ),
+              ],
+            ),
+            if (_blockedVideos.isNotEmpty)
+              Text(
+                '${_blockedVideos.length} ${_blockedVideos.length == 1 ? 'video' : 'videos'}',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+
+        SizedBox(height: 16.w),
+
+        // Render blocked videos list
+        _buildBlockedVideosList(),
+      ],
+    );
+  }
+
+  Widget _buildBlockedVideosList() {
+    if (_isLoadingVideos) return _buildLoadingVideos();
+    if (_videosError != null) return _buildErrorState();
+
+    return Column(
+      children: _blockedVideos.map((video) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.w),
+          child: VideoCard(
+            item: video,
+            onTap: () => _openVideoPlayer(video),
+            showPopupMenu: true,
+            blockedReason: video.reason ?? 'Blocked by moderation',
+            onMenuAction: (action) => _handleVideoAction(action, video),
+          ),
+        );
+      }).toList(),
     );
   }
 
