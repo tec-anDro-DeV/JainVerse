@@ -148,10 +148,9 @@ class myState extends State<ProfileEdit> {
     mobileController.text = modelSettings.data.mobile;
 
     // Set email if available
-    emailController.text =
-        modelSettings.data.email.isNotEmpty
-            ? modelSettings.data.email
-            : 'Not provided';
+    emailController.text = modelSettings.data.email.isNotEmpty
+        ? modelSettings.data.email
+        : 'Not provided';
 
     // Note: Country selection is now handled in _setCountryFromUserData()
     // after countries are loaded from the API to avoid race conditions
@@ -361,6 +360,10 @@ class myState extends State<ProfileEdit> {
 
       // Launch native cropper and require a 1:1 square crop
       final File? cropped = await _cropImage(file);
+
+      // FIX: Wait for FlutterSurfaceView to stabilize after UCrop closes
+      await Future.delayed(const Duration(milliseconds: 500));
+
       if (cropped != null) {
         // Show preview with Flip option before applying
         final File? finalFile = await _showFlipPreview(cropped);
@@ -399,6 +402,10 @@ class myState extends State<ProfileEdit> {
 
       // Launch native cropper and require a 1:1 square crop
       final File? cropped = await _cropImage(file);
+
+      // FIX: Wait for FlutterSurfaceView to stabilize after UCrop closes
+      await Future.delayed(const Duration(milliseconds: 500));
+
       if (cropped != null) {
         // Show preview with Flip option before applying
         final File? finalFile = await _showFlipPreview(cropped);
@@ -564,10 +571,9 @@ class myState extends State<ProfileEdit> {
                           SizedBox(width: 12.w),
                           Spacer(),
                           TextButton(
-                            onPressed:
-                                isProcessing
-                                    ? null
-                                    : () => Navigator.of(ctx2).pop(null),
+                            onPressed: isProcessing
+                                ? null
+                                : () => Navigator.of(ctx2).pop(null),
                             style: TextButton.styleFrom(
                               foregroundColor: appColors().primaryColorApp,
                             ),
@@ -575,20 +581,19 @@ class myState extends State<ProfileEdit> {
                           ),
                           SizedBox(width: 8.w),
                           ElevatedButton(
-                            onPressed:
-                                isProcessing
-                                    ? null
-                                    : () async {
-                                      if (!listEquals(
+                            onPressed: isProcessing
+                                ? null
+                                : () async {
+                                    if (!listEquals(
+                                      previewBytes,
+                                      originalBytes,
+                                    )) {
+                                      await imageFile.writeAsBytes(
                                         previewBytes,
-                                        originalBytes,
-                                      )) {
-                                        await imageFile.writeAsBytes(
-                                          previewBytes,
-                                        );
-                                      }
-                                      Navigator.of(ctx2).pop(imageFile);
-                                    },
+                                      );
+                                    }
+                                    Navigator.of(ctx2).pop(imageFile);
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: appColors().primaryColorApp,
                             ),
@@ -740,12 +745,11 @@ class myState extends State<ProfileEdit> {
                       builder: (context, snapshot) {
                         // Calculate proper bottom padding accounting for mini player and navigation
                         final hasMiniPlayer = snapshot.hasData;
-                        final bottomPadding =
-                            hasMiniPlayer
-                                ? AppSizes.basePadding +
-                                    AppSizes.miniPlayerPadding +
-                                    100.w
-                                : AppSizes.basePadding + 100.w;
+                        final bottomPadding = hasMiniPlayer
+                            ? AppSizes.basePadding +
+                                  AppSizes.miniPlayerPadding +
+                                  100.w
+                            : AppSizes.basePadding + 100.w;
 
                         return SingleChildScrollView(
                           controller: _scrollController,
@@ -830,10 +834,9 @@ class myState extends State<ProfileEdit> {
                                       ),
                                     ),
                                     SizedBox(
-                                      height:
-                                          nameError != null
-                                              ? 90.w
-                                              : AppSizes.inputHeight,
+                                      height: nameError != null
+                                          ? 90.w
+                                          : AppSizes.inputHeight,
                                       child: InputField(
                                         controller: nameController,
                                         hintText: 'Enter full name',
@@ -872,10 +875,9 @@ class myState extends State<ProfileEdit> {
                                       ),
                                     ),
                                     SizedBox(
-                                      height:
-                                          phoneError != null
-                                              ? 90.w
-                                              : AppSizes.inputHeight,
+                                      height: phoneError != null
+                                          ? 90.w
+                                          : AppSizes.inputHeight,
                                       child: InputField(
                                         controller: mobileController,
                                         hintText: 'Enter phone number',
@@ -952,10 +954,9 @@ class myState extends State<ProfileEdit> {
                                     SizedBox(
                                       height: AppSizes.inputHeight,
                                       child: GenderInputField(
-                                        value:
-                                            gender == "Select Gender"
-                                                ? null
-                                                : gender,
+                                        value: gender == "Select Gender"
+                                            ? null
+                                            : gender,
                                         onChanged: (String? newValue) {
                                           setState(() {
                                             gender =
@@ -1113,98 +1114,95 @@ class myState extends State<ProfileEdit> {
                                     width: double.infinity,
                                     height: AppSizes.inputHeight,
                                     child: ElevatedButton(
-                                      onPressed:
-                                          _isLoading
-                                              ? null
-                                              : () async {
-                                                // Close keyboard first
-                                                FocusScope.of(
-                                                  context,
-                                                ).unfocus();
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () async {
+                                              // Close keyboard first
+                                              FocusScope.of(context).unfocus();
 
-                                                // Validate form before proceeding
-                                                if (!_validateForm()) {
-                                                  return; // _validateForm() already handles scrolling to error field
+                                              // Validate form before proceeding
+                                              if (!_validateForm()) {
+                                                return; // _validateForm() already handles scrolling to error field
+                                              }
+
+                                              // Debug the selectedCountry value before sending
+                                              log(
+                                                '🏳️ DEBUG: selectedCountry value = "$selectedCountry"',
+                                              );
+                                              log(
+                                                '🏳️ DEBUG: selectedCountry isEmpty = ${selectedCountry == null}',
+                                              );
+                                              log(
+                                                '🏳️ DEBUG: selectedCountry == "Select Country" = ${selectedCountry == "Select Country"}',
+                                              );
+
+                                              // Debug date values
+                                              log(
+                                                '📅 DEBUG: dateOfBirth value = "$dateOfBirth"',
+                                              );
+                                              log(
+                                                '📅 DEBUG: birthdateController.text = "${birthdateController.text}"',
+                                              );
+
+                                              // Show loading state with loader widget
+                                              setState(() {
+                                                _isLoading = true;
+                                              });
+
+                                              try {
+                                                // Make a single API call with both profile data and image
+                                                await ProfilePresenter()
+                                                    .getProfileUpdate(
+                                                      context,
+                                                      _imageChanged
+                                                          ? _tempSelectedImage
+                                                          : null,
+                                                      nameController.text,
+                                                      passwordController.text,
+                                                      mobileController.text,
+                                                      dateOfBirth,
+                                                      gender,
+                                                      selectedCountry?.id
+                                                              .toString() ??
+                                                          '', // Send country ID as string
+                                                      token,
+                                                      false,
+                                                    );
+
+                                                // Reset image change tracking after successful save
+                                                _imageChanged = false;
+                                                _tempSelectedImage = null;
+
+                                                // Small delay to show success message
+                                                await Future.delayed(
+                                                  Duration(milliseconds: 500),
+                                                );
+
+                                                // Hide loading state before navigation
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isLoading = false;
+                                                  });
+
+                                                  // Navigate back to AccountPage after successful update
+                                                  Navigator.pop(context);
+                                                }
+                                              } catch (e) {
+                                                // Hide loading state on error
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isLoading = false;
+                                                  });
                                                 }
 
-                                                // Debug the selectedCountry value before sending
+                                                // Handle any errors that might occur during the update
                                                 log(
-                                                  '🏳️ DEBUG: selectedCountry value = "$selectedCountry"',
+                                                  '❌ Error updating profile: $e',
                                                 );
-                                                log(
-                                                  '🏳️ DEBUG: selectedCountry isEmpty = ${selectedCountry == null}',
-                                                );
-                                                log(
-                                                  '🏳️ DEBUG: selectedCountry == "Select Country" = ${selectedCountry == "Select Country"}',
-                                                );
-
-                                                // Debug date values
-                                                log(
-                                                  '📅 DEBUG: dateOfBirth value = "$dateOfBirth"',
-                                                );
-                                                log(
-                                                  '📅 DEBUG: birthdateController.text = "${birthdateController.text}"',
-                                                );
-
-                                                // Show loading state with loader widget
-                                                setState(() {
-                                                  _isLoading = true;
-                                                });
-
-                                                try {
-                                                  // Make a single API call with both profile data and image
-                                                  await ProfilePresenter()
-                                                      .getProfileUpdate(
-                                                        context,
-                                                        _imageChanged
-                                                            ? _tempSelectedImage
-                                                            : null,
-                                                        nameController.text,
-                                                        passwordController.text,
-                                                        mobileController.text,
-                                                        dateOfBirth,
-                                                        gender,
-                                                        selectedCountry?.id
-                                                                .toString() ??
-                                                            '', // Send country ID as string
-                                                        token,
-                                                        false,
-                                                      );
-
-                                                  // Reset image change tracking after successful save
-                                                  _imageChanged = false;
-                                                  _tempSelectedImage = null;
-
-                                                  // Small delay to show success message
-                                                  await Future.delayed(
-                                                    Duration(milliseconds: 500),
-                                                  );
-
-                                                  // Hide loading state before navigation
-                                                  if (mounted) {
-                                                    setState(() {
-                                                      _isLoading = false;
-                                                    });
-
-                                                    // Navigate back to AccountPage after successful update
-                                                    Navigator.pop(context);
-                                                  }
-                                                } catch (e) {
-                                                  // Hide loading state on error
-                                                  if (mounted) {
-                                                    setState(() {
-                                                      _isLoading = false;
-                                                    });
-                                                  }
-
-                                                  // Handle any errors that might occur during the update
-                                                  log(
-                                                    '❌ Error updating profile: $e',
-                                                  );
-                                                  // The ProfilePresenter already handles showing error toasts,
-                                                  // so we don't need to show additional error messages here
-                                                }
-                                              },
+                                                // The ProfilePresenter already handles showing error toasts,
+                                                // so we don't need to show additional error messages here
+                                              }
+                                            },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             appColors().primaryColorApp,
@@ -1215,44 +1213,42 @@ class myState extends State<ProfileEdit> {
                                         ),
                                         elevation: 0,
                                       ),
-                                      child:
-                                          _isLoading
-                                              ? Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  SizedBox(
-                                                    width: 20.w,
-                                                    height: 20.w,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      valueColor:
-                                                          AlwaysStoppedAnimation<
-                                                            Color
-                                                          >(Colors.white),
-                                                    ),
+                                      child: _isLoading
+                                          ? Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                SizedBox(
+                                                  width: 20.w,
+                                                  height: 20.w,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.white),
                                                   ),
-                                                  SizedBox(width: 12.w),
-                                                  Text(
-                                                    'Updating...',
-                                                    style: TextStyle(
-                                                      fontSize:
-                                                          AppSizes.fontMedium,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ],
-                                              )
-                                              : Text(
-                                                'Save',
-                                                style: TextStyle(
-                                                  fontSize: AppSizes.fontMedium,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.white,
                                                 ),
+                                                SizedBox(width: 12.w),
+                                                Text(
+                                                  'Updating...',
+                                                  style: TextStyle(
+                                                    fontSize:
+                                                        AppSizes.fontMedium,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Text(
+                                              'Save',
+                                              style: TextStyle(
+                                                fontSize: AppSizes.fontMedium,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white,
                                               ),
+                                            ),
                                     ),
                                   ),
                                 ),

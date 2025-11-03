@@ -104,24 +104,70 @@ class _VideoListBodyState extends State<VideoListBody>
 
   @override
   void dispose() {
+    debugPrint('[VideoListScreen] Disposing');
+
     WidgetsBinding.instance.removeObserver(this);
+
+    // Cancel timers first
     _autoplayTimer?.cancel();
+    _autoplayTimer = null;
     _debounceTimer?.cancel();
-    _searchController.dispose();
-    _scrollController?.removeListener(_onScroll);
-    _viewModel.removeListener(_onViewModel);
+    _debounceTimer = null;
 
-    // Remove subscription and like/dislike listeners
-    SubscriptionStateManager().removeListener(_onSubscriptionChanged);
-    LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
+    // Dispose search controller
+    try {
+      _searchController.dispose();
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error disposing search controller: $e');
+    }
 
+    // Remove scroll listener
+    try {
+      _scrollController?.removeListener(_onScroll);
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error removing scroll listener: $e');
+    }
+
+    // Remove view model listener
+    try {
+      _viewModel.removeListener(_onViewModel);
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error removing view model listener: $e');
+    }
+
+    // Remove global state listeners
+    try {
+      SubscriptionStateManager().removeListener(_onSubscriptionChanged);
+      LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error removing state listeners: $e');
+    }
+
+    // Dispose scroll controller if owned
     if (_ownsScrollController) {
       try {
         _scrollController?.dispose();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[VideoListScreen] Error disposing scroll controller: $e');
+      }
     }
-    _sharedController?.dispose();
-    _viewModel.dispose();
+
+    // Dispose shared video controller with error handling
+    try {
+      _sharedController?.pause();
+      _sharedController?.dispose();
+      _sharedController = null;
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error disposing video controller: $e');
+    }
+
+    // Dispose view model
+    try {
+      _viewModel.dispose();
+    } catch (e) {
+      debugPrint('[VideoListScreen] Error disposing view model: $e');
+    }
+
     super.dispose();
   }
 

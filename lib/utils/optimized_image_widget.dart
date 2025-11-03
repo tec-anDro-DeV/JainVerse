@@ -51,10 +51,12 @@ class _OptimizedImageWidgetState extends State<OptimizedImageWidget>
       return _buildErrorWidget();
     }
 
-    // Check memory usage and clear cache if necessary
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ImageCacheOptimizer.clearExcessiveCache();
-    });
+    // Check memory usage periodically (not every frame)
+    if (DateTime.now().millisecondsSinceEpoch % 100 == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ImageCacheOptimizer.clearExcessiveCache();
+      });
+    }
 
     return CachedNetworkImage(
       imageUrl: widget.imageUrl!,
@@ -70,8 +72,8 @@ class _OptimizedImageWidgetState extends State<OptimizedImageWidget>
       maxHeightDiskCache: widget.height?.toInt() ?? 400,
 
       // Placeholder with shimmer effect
-      placeholder:
-          (context, url) => widget.placeholder ?? _buildShimmerPlaceholder(),
+      placeholder: (context, url) =>
+          widget.placeholder ?? _buildShimmerPlaceholder(),
 
       // Error widget
       errorWidget: (context, url, error) {
@@ -164,8 +166,10 @@ class _OptimizedImageWidgetState extends State<OptimizedImageWidget>
 
 /// Memory-efficient image cache manager
 class ImageCacheOptimizer {
-  static const int _maxCacheSize = 100 * 1024 * 1024; // 100MB
-  static const int _maxCacheObjects = 1000;
+  static const int _maxCacheSize = 50 * 1024 * 1024; // Reduced to 50MB
+  static const int _maxCacheObjects = 500; // Reduced to 500 objects
+  static DateTime? _lastCleanup;
+  static const Duration _cleanupInterval = Duration(minutes: 5);
 
   /// Initialize the image cache optimizer
   static void initialize() {
@@ -176,7 +180,7 @@ class ImageCacheOptimizer {
   static void optimizeCache() {
     final imageCache = PaintingBinding.instance.imageCache;
 
-    // Set memory limits
+    // Set memory limits (more aggressive)
     imageCache.maximumSizeBytes = _maxCacheSize;
     imageCache.maximumSize = _maxCacheObjects;
 
@@ -186,13 +190,36 @@ class ImageCacheOptimizer {
   }
 
   static void clearExcessiveCache() {
+    final now = DateTime.now();
+
+    // Rate limit cache clearing
+    if (_lastCleanup != null &&
+        now.difference(_lastCleanup!) < _cleanupInterval) {
+      return;
+    }
+
     final imageCache = PaintingBinding.instance.imageCache;
 
-    if (imageCache.currentSizeBytes > _maxCacheSize * 0.8) {
+    // More aggressive clearing at 70% instead of 80%
+    if (imageCache.currentSizeBytes > _maxCacheSize * 0.7) {
       imageCache.clear();
+      imageCache.clearLiveImages();
+      _lastCleanup = now;
       developer.log(
         '[ImageCacheOptimizer] Cache cleared due to excessive memory usage',
       );
+    }
+  }
+
+  static void forceClearCache() {
+    try {
+      final imageCache = PaintingBinding.instance.imageCache;
+      imageCache.clear();
+      imageCache.clearLiveImages();
+      _lastCleanup = DateTime.now();
+      developer.log('[ImageCacheOptimizer] Cache force cleared');
+    } catch (e) {
+      developer.log('[ImageCacheOptimizer] Error clearing cache: $e');
     }
   }
 

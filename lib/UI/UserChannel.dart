@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
+import 'package:jainverse/widgets/user_channel/banner_section.dart';
+import 'package:jainverse/widgets/user_channel/info_card.dart';
+import 'package:jainverse/widgets/user_channel/edit_form.dart';
+import 'package:jainverse/widgets/user_channel/my_videos_section.dart';
 import 'package:jainverse/models/channel_model.dart';
 import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/main.dart';
@@ -18,6 +23,9 @@ import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/utils/image_compressor.dart';
+import 'package:jainverse/utils/crash_prevention_helper.dart';
+import 'package:jainverse/utils/image_optimizer.dart';
 
 class UserChannel extends StatefulWidget {
   final ChannelModel channel;
@@ -54,6 +62,43 @@ class _UserChannelState extends State<UserChannel>
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
   File? _selectedBannerImage;
+
+  /// Converts an [XFile] (or a path that might be a content:// URI) into a
+  /// local temporary File with a file:// path that native crop libraries can
+  /// safely open. Returns null on failure.
+  Future<File?> _xFileToLocalFile(XFile xfile, {String? prefix}) async {
+    try {
+      // If the path is a content URI (Android), read the bytes and write to tmp
+      final rawPath = xfile.path;
+      if (rawPath.startsWith('content://')) {
+        final bytes = await xfile.readAsBytes();
+        final tmp = await getTemporaryDirectory();
+        final out = File(
+          '${tmp.path}/${prefix ?? 'img'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        await out.writeAsBytes(bytes);
+        return out;
+      }
+
+      final f = File(rawPath);
+      if (await f.exists()) return f;
+
+      // Fallback: try reading bytes and writing to temp
+      try {
+        final bytes = await xfile.readAsBytes();
+        final tmp = await getTemporaryDirectory();
+        final out = File(
+          '${tmp.path}/${prefix ?? 'img'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        await out.writeAsBytes(bytes);
+        return out;
+      } catch (e) {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
 
   // Form validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -137,6 +182,14 @@ class _UserChannelState extends State<UserChannel>
     _nameFocus.dispose();
     _handleFocus.dispose();
     _descriptionFocus.dispose();
+    // Clean up temporary image files if any (non-blocking)
+    if (_selectedImage != null) {
+      _selectedImage!.delete().then((_) {}).catchError((_) {});
+    }
+    if (_selectedBannerImage != null) {
+      _selectedBannerImage!.delete().then((_) {}).catchError((_) {});
+    }
+
     super.dispose();
   }
 
@@ -156,6 +209,12 @@ class _UserChannelState extends State<UserChannel>
 
   Future<void> _pickImage() async {
     try {
+      // free Flutter image caches and pause audio to reduce native/GPU memory
+      CrashPreventionHelper.cleanupImageCache();
+      try {
+        await _audioHandler?.pause();
+      } catch (_) {}
+
       await showDialog(
         context: context,
         barrierDismissible: true,
@@ -238,6 +297,12 @@ class _UserChannelState extends State<UserChannel>
 
   Future<void> _pickBannerImage() async {
     try {
+      // free Flutter image caches and pause audio to reduce native/GPU memory
+      CrashPreventionHelper.cleanupImageCache();
+      try {
+        await _audioHandler?.pause();
+      } catch (_) {}
+
       await showDialog(
         context: context,
         barrierDismissible: true,
@@ -327,10 +392,20 @@ class _UserChannelState extends State<UserChannel>
     try {
       final pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 80,
+        imageQuality: 70,
+        // limit capture to safe profile size to avoid large ARGB_8888 buffers
+        maxWidth: 1080,
+        maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final cropped = await _cropImage(File(pickedFile.path));
+        final local = await _xFileToLocalFile(pickedFile, prefix: 'profile');
+        if (local == null) {
+          _showErrorSnackbar('Failed to access captured image');
+          return;
+        }
+        // Warn user if the picked image is very large and allow cancel
+        if (!await _checkImageSizeAndWarn(local)) return;
+        final cropped = await _cropImage(local);
         if (cropped != null) {
           setState(() => _selectedImage = cropped);
         }
@@ -344,13 +419,21 @@ class _UserChannelState extends State<UserChannel>
     try {
       final pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
+        imageQuality: 70,
+        // downscale large gallery images before handing them to UCrop
+        maxWidth: 1080,
+        maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final cropped = await _cropImage(File(pickedFile.path));
-        if (cropped != null) {
-          setState(() => _selectedImage = cropped);
+        final local = await _xFileToLocalFile(pickedFile, prefix: 'profile');
+        if (local == null) {
+          _showErrorSnackbar('Failed to access selected image');
+          return;
         }
+        // Warn user about very large images (may blow native cropper memory)
+        if (!await _checkImageSizeAndWarn(local)) return;
+        final cropped = await _cropImage(local);
+        if (cropped != null) setState(() => _selectedImage = cropped);
       }
     } catch (e) {
       _showErrorSnackbar('Error: $e');
@@ -361,10 +444,20 @@ class _UserChannelState extends State<UserChannel>
     try {
       final pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 80,
+        imageQuality: 70,
+        // limit banner capture to a reasonable size
+        maxWidth: 1920,
+        maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final cropped = await _cropBannerImage(File(pickedFile.path));
+        final local = await _xFileToLocalFile(pickedFile, prefix: 'banner');
+        if (local == null) {
+          _showErrorSnackbar('Failed to access captured banner image');
+          return;
+        }
+        // Warn user about very large banner images
+        if (!await _checkImageSizeAndWarn(local)) return;
+        final cropped = await _cropBannerImage(local);
         if (cropped != null) {
           setState(() => _selectedBannerImage = cropped);
         }
@@ -378,10 +471,19 @@ class _UserChannelState extends State<UserChannel>
     try {
       final pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
+        imageQuality: 70,
+        maxWidth: 1920,
+        maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final cropped = await _cropBannerImage(File(pickedFile.path));
+        final local = await _xFileToLocalFile(pickedFile, prefix: 'banner');
+        if (local == null) {
+          _showErrorSnackbar('Failed to access selected banner image');
+          return;
+        }
+        // Warn user about very large banner images
+        if (!await _checkImageSizeAndWarn(local)) return;
+        final cropped = await _cropBannerImage(local);
         if (cropped != null) {
           setState(() => _selectedBannerImage = cropped);
         }
@@ -391,11 +493,63 @@ class _UserChannelState extends State<UserChannel>
     }
   }
 
+  /// Warn user if the selected image file is very large (>10MB by default).
+  /// Returns true if user chooses to proceed, false if they cancel.
+  Future<bool> _checkImageSizeAndWarn(File file) async {
+    try {
+      final size = await file.length();
+      final sizeMB = size / (1024 * 1024);
+
+      if (sizeMB > 10) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Large Image Detected'),
+            content: Text(
+              'This image is ${sizeMB.toStringAsFixed(1)} MB. '
+              'Large images may cause issues. We recommend using smaller images.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Continue Anyway'),
+              ),
+            ],
+          ),
+        );
+
+        return proceed == true;
+      }
+      return true;
+    } catch (e) {
+      // If anything goes wrong with size checking, allow operation to continue
+      return true;
+    }
+  }
+
   Future<File?> _cropImage(File imageFile) async {
     try {
+      // Downscale / optimize input before passing to native cropper to avoid
+      // native bitmap OOMs on large images/low-memory devices.
+      File source = imageFile;
+      try {
+        // Use aggressive pre-crop optimizer (smaller safe size) before native cropper
+        final pre = await ImageOptimizer.optimizeProfileForCropping(source);
+        if (pre != null) source = pre;
+      } catch (_) {}
+
       final croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
+        sourcePath: source.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        // Limit output and compress to prevent very large images
+        maxWidth: 1080,
+        maxHeight: 1080,
+        compressQuality: 85,
+        compressFormat: ImageCompressFormat.jpg,
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Image',
@@ -407,7 +561,37 @@ class _UserChannelState extends State<UserChannel>
           IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: true),
         ],
       );
-      if (croppedFile != null) return File(croppedFile.path);
+
+      if (croppedFile != null) {
+        final file = File(croppedFile.path);
+
+        // Prefer the pure-Dart optimizer first; fallback to platform compressor
+        try {
+          final optimized = await ImageOptimizer.optimizeProfileImage(file);
+          if (optimized != null) {
+            // Clear Flutter image caches & give native side a moment to free
+            CrashPreventionHelper.cleanupImageCache();
+            PaintingBinding.instance.imageCache.clear();
+            PaintingBinding.instance.imageCache.clearLiveImages();
+            // small delay to let native/freeing occur
+            await Future.delayed(const Duration(milliseconds: 200));
+            return optimized;
+          }
+        } catch (_) {}
+
+        final compressed = await ImageCompressor.compressImage(file);
+        final resultFile = compressed ?? file;
+
+        // Clear caches and pause briefly to reduce native/GPU memory pressure
+        try {
+          CrashPreventionHelper.cleanupImageCache();
+          PaintingBinding.instance.imageCache.clear();
+          PaintingBinding.instance.imageCache.clearLiveImages();
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        return resultFile;
+      }
     } catch (e) {
       _showErrorSnackbar('Error cropping image: $e');
     }
@@ -416,9 +600,22 @@ class _UserChannelState extends State<UserChannel>
 
   Future<File?> _cropBannerImage(File imageFile) async {
     try {
+      // Pre-optimize source before passing to native cropper
+      File source = imageFile;
+      try {
+        // Use aggressive pre-crop optimizer for banners to reduce native memory use
+        final pre = await ImageOptimizer.optimizeBannerForCropping(source);
+        if (pre != null) source = pre;
+      } catch (_) {}
+
       final croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
+        sourcePath: source.path,
         aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
+        // Limit output and compress
+        maxWidth: 1920,
+        maxHeight: 1080,
+        compressQuality: 85,
+        compressFormat: ImageCompressFormat.jpg,
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop Banner Image',
@@ -430,7 +627,33 @@ class _UserChannelState extends State<UserChannel>
           IOSUiSettings(title: 'Crop Banner', aspectRatioLockEnabled: true),
         ],
       );
-      if (croppedFile != null) return File(croppedFile.path);
+
+      if (croppedFile != null) {
+        final file = File(croppedFile.path);
+
+        try {
+          final optimized = await ImageOptimizer.optimizeBannerImage(file);
+          if (optimized != null) {
+            CrashPreventionHelper.cleanupImageCache();
+            PaintingBinding.instance.imageCache.clear();
+            PaintingBinding.instance.imageCache.clearLiveImages();
+            await Future.delayed(const Duration(milliseconds: 200));
+            return optimized;
+          }
+        } catch (_) {}
+
+        final compressed = await ImageCompressor.compressBannerImage(file);
+        final resultFile = compressed ?? file;
+
+        try {
+          CrashPreventionHelper.cleanupImageCache();
+          PaintingBinding.instance.imageCache.clear();
+          PaintingBinding.instance.imageCache.clearLiveImages();
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        return resultFile;
+      }
     } catch (e) {
       _showErrorSnackbar('Error cropping banner: $e');
     }
@@ -646,443 +869,105 @@ class _UserChannelState extends State<UserChannel>
   }
 
   Widget _buildBannerSection() {
-    // Wrap in SizedBox with height = banner height + avatar overflow
-    // Banner is 200.w, avatar overflows by 60.w
-    return SizedBox(
-      height: 200.w + 80.w, // Extra space for avatar overflow and margin
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Banner Image
-          Container(
-            width: double.infinity,
-            height: 200.w,
-            decoration: BoxDecoration(color: Colors.grey[200]),
-            child: _selectedBannerImage != null
-                ? Image.file(
-                    _selectedBannerImage!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                  )
-                : (_currentChannel.bannerImageUrl.isNotEmpty
-                      ? Image.network(
-                          _currentChannel.bannerImageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholderBanner();
-                          },
-                        )
-                      : _buildPlaceholderBanner()),
-          ),
-
-          // Edit banner button overlay (top-right in edit mode)
-          if (_isEditMode)
-            Positioned(
-              top: 16.w,
-              right: 16.w,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    _pickBannerImage();
-                  },
-                  borderRadius: BorderRadius.circular(10.w),
-                  child: Container(
-                    padding: EdgeInsets.all(10.w),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(10.w),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.image, color: Colors.white, size: 16.w),
-                        SizedBox(width: 6.w),
-                        Text(
-                          'Edit Banner',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // Profile Avatar positioned at 20% from left (80% in the banner)
-          // Wrapped in Positioned with specific bounds to prevent hit-test conflicts
-          Positioned(
-            left: MediaQuery.of(context).size.width * 0.20 - 70.w,
-            bottom: 20.w, // Changed from -60.w to 20.w to keep it inside bounds
-            width: 140.w,
-            height: 140.w,
-            child: _buildAvatarSection(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderBanner() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            appColors().primaryColorApp.withOpacity(0.3),
-            appColors().primaryColorApp.withOpacity(0.1),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image_outlined, size: 48.w, color: Colors.grey[400]),
-            SizedBox(height: 8.w),
-            Text(
-              _isEditMode ? 'Tap "Edit Banner" to add' : 'No banner image',
-              style: TextStyle(color: Colors.grey[500], fontSize: 13.sp),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarSection() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // Main Avatar Container - tappable in edit mode
-        GestureDetector(
-          onTap: _isEditMode
-              ? () {
-                  print('Avatar tapped!'); // Debug
-                  _pickImage();
-                }
-              : null,
-          child: Container(
-            width: 140.w,
-            height: 140.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  appColors().primaryColorApp,
-                  appColors().primaryColorApp.withOpacity(0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(4.w),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: Colors.white, width: 3),
-                ),
-                child: ClipOval(
-                  child: _selectedImage != null
-                      ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                      : (_currentChannel.imageUrl.isNotEmpty
-                            ? Image.network(
-                                _currentChannel.imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildPlaceholderAvatar();
-                                },
-                              )
-                            : _buildPlaceholderAvatar()),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Edit button overlay in edit mode - positioned outside the circle
-        if (_isEditMode)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Material(
-              color: Colors.transparent,
-              elevation: 4,
-              borderRadius: BorderRadius.circular(50.w),
-              child: InkWell(
-                onTap: () {
-                  print('Profile edit button tapped!'); // Debug
-                  _pickImage();
-                },
-                borderRadius: BorderRadius.circular(50.w),
-                child: Container(
-                  padding: EdgeInsets.all(10.w),
-                  decoration: BoxDecoration(
-                    color: appColors().primaryColorApp,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                  ),
-                  child: Icon(
-                    Icons.camera_alt,
-                    color: Colors.white,
-                    size: 20.w,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+    return BannerSection(
+      isEditMode: _isEditMode,
+      selectedBannerImage: _selectedBannerImage,
+      bannerImageUrl: _currentChannel.bannerImageUrl,
+      onPickBanner: _pickBannerImage,
+      avatarIsEditMode: _isEditMode,
+      avatarSelectedImage: _selectedImage,
+      avatarImageUrl: _currentChannel.imageUrl,
+      onPickImage: _pickImage,
     );
   }
 
   Widget _buildInfoCard() {
-    // Simplified info layout: plain background, rows separated by dividers.
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 8.w),
-      child: Column(
-        children: [
-          _buildInfoListTile(
-            icon: Icons.badge_outlined,
-            label: 'Channel Name',
-            value: _currentChannel.name,
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.alternate_email,
-            label: 'Channel Handle',
-            value: '@${_currentChannel.handle}',
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.description_outlined,
-            label: 'Description',
-            value: _currentChannel.description.isNotEmpty
-                ? _currentChannel.description
-                : 'No description yet',
-            isPlaceholder: _currentChannel.description.isEmpty,
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.calendar_today_outlined,
-            label: 'Created On',
-            value: _formatDate(_currentChannel.createdAt),
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.video_library_outlined,
-            label: 'Total Videos',
-            value: _currentChannel.totalVideos.toString(),
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.group_outlined,
-            label: 'Subscribers',
-            value: _currentChannel.totalSubscribers.toString(),
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-          _buildInfoListTile(
-            icon: Icons.visibility_outlined,
-            label: 'Total Views',
-            value: _currentChannel.totalViews.toString(),
-          ),
-        ],
-      ),
-    );
-  }
+    final items = {
+      'Channel Name': _currentChannel.name,
+      'Channel Handle': '@${_currentChannel.handle}',
+      'Description': _currentChannel.description.isNotEmpty
+          ? _currentChannel.description
+          : 'No description yet',
+      'Created On': _formatDate(_currentChannel.createdAt),
+      'Total Videos': _currentChannel.totalVideos.toString(),
+      'Subscribers': _currentChannel.totalSubscribers.toString(),
+      'Total Views': _currentChannel.totalViews.toString(),
+    };
 
-  // New helper: render a ListTile-like row for info without a card.
-  Widget _buildInfoListTile({
-    required IconData icon,
-    required String label,
-    required String value,
-    bool isPlaceholder = false,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 12.w),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: appColors().primaryColorApp.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10.w),
-            ),
-            child: Icon(icon, size: 20.w, color: appColors().primaryColorApp),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    color: appColors().colorTextHead,
-                  ),
-                ),
-                SizedBox(height: 4.w),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 15.sp,
-                    color: isPlaceholder
-                        ? Colors.grey[500]
-                        : appColors().colorTextHead,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    final icons = {
+      'Channel Name': Icons.badge_outlined,
+      'Channel Handle': Icons.alternate_email,
+      'Description': Icons.description_outlined,
+      'Created On': Icons.calendar_today_outlined,
+      'Total Videos': Icons.video_library_outlined,
+      'Subscribers': Icons.group_outlined,
+      'Total Views': Icons.visibility_outlined,
+    };
+
+    return InfoCard(items: items, icons: icons);
   }
 
   Widget _buildEditForm() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18.w),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            spreadRadius: 0,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(24.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildModernTextField(
-            controller: _nameController,
-            focusNode: _nameFocus,
-            label: 'Channel Name',
-            hint: 'Enter channel name',
-            icon: Icons.badge_outlined,
-            nextFocus: _handleFocus,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter a channel name';
-              }
-              if (value.trim().length < 3) {
-                return 'Name must be at least 3 characters';
-              }
-              return null;
-            },
-          ),
-          SizedBox(height: 20.w),
-          _buildModernTextField(
-            controller: _handleController,
-            focusNode: _handleFocus,
-            label: 'Channel Handle',
-            hint: 'Enter channel handle',
-            icon: Icons.alternate_email,
-            nextFocus: _descriptionFocus,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter a channel handle';
-              }
-              if (value.trim().length < 3) {
-                return 'Handle must be at least 3 characters';
-              }
-              if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value.trim())) {
-                return 'Handle can only contain letters, numbers, and underscores';
-              }
-              return null;
-            },
-          ),
-          SizedBox(height: 20.w),
-          _buildModernTextField(
-            controller: _descriptionController,
-            focusNode: _descriptionFocus,
-            label: 'Description (Optional)',
-            hint: 'Tell viewers about your channel',
-            icon: Icons.description_outlined,
-            maxLength: 200,
-            helperText: 'Maximum 200 characters',
-            // Start with a few lines and allow the field to grow with content
-            minLines: 3,
-            maxLines: null,
-            expands: false,
-          ),
-          SizedBox(height: 24.w),
+    // Create field widgets using existing _buildModernTextField helper to keep logic
+    final nameField = _buildModernTextField(
+      controller: _nameController,
+      focusNode: _nameFocus,
+      label: 'Channel Name',
+      hint: 'Enter channel name',
+      icon: Icons.badge_outlined,
+      nextFocus: _handleFocus,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter a channel name';
+        }
+        if (value.trim().length < 3) {
+          return 'Name must be at least 3 characters';
+        }
+        return null;
+      },
+    );
 
-          // Save Changes Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: appColors().primaryColorApp,
-                padding: EdgeInsets.symmetric(vertical: 16.w),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.w),
-                ),
-                elevation: 2,
-              ),
-              onPressed: _isUpdating ? null : _updateChannel,
-              child: _isUpdating
-                  ? SizedBox(
-                      height: 20.w,
-                      width: 20.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      'Save Changes',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-          ),
-          SizedBox(height: 12.w),
+    final handleField = _buildModernTextField(
+      controller: _handleController,
+      focusNode: _handleFocus,
+      label: 'Channel Handle',
+      hint: 'Enter channel handle',
+      icon: Icons.alternate_email,
+      nextFocus: _descriptionFocus,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter a channel handle';
+        }
+        if (value.trim().length < 3) {
+          return 'Handle must be at least 3 characters';
+        }
+        if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value.trim())) {
+          return 'Handle can only contain letters, numbers, and underscores';
+        }
+        return null;
+      },
+    );
 
-          // Cancel Button
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: appColors().primaryColorApp),
-                padding: EdgeInsets.symmetric(vertical: 16.w),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.w),
-                ),
-              ),
-              onPressed: _isUpdating ? null : _toggleEditMode,
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                  color: appColors().primaryColorApp,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    final descriptionField = _buildModernTextField(
+      controller: _descriptionController,
+      focusNode: _descriptionFocus,
+      label: 'Description (Optional)',
+      hint: 'Tell viewers about your channel',
+      icon: Icons.description_outlined,
+      maxLength: 200,
+      helperText: 'Maximum 200 characters',
+      minLines: 3,
+      maxLines: null,
+      expands: false,
+    );
+
+    return EditForm(
+      nameField: nameField,
+      handleField: handleField,
+      descriptionField: descriptionField,
+      isUpdating: _isUpdating,
+      onSave: _updateChannel,
+      onCancel: _toggleEditMode,
     );
   }
 
@@ -1113,19 +998,6 @@ class _UserChannelState extends State<UserChannel>
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderAvatar() {
-    return Container(
-      color: appColors().primaryColorApp.withOpacity(0.1),
-      child: Center(
-        child: Icon(
-          Icons.person,
-          size: 60.w,
-          color: appColors().primaryColorApp,
         ),
       ),
     );
@@ -1329,15 +1201,14 @@ class _UserChannelState extends State<UserChannel>
 
         SizedBox(height: 16.w),
 
-        // Videos List or Loading/Error State - only for unblocked videos
-        if (_isLoadingVideos)
-          _buildLoadingVideos()
-        else if (_videosError != null)
-          _buildErrorState()
-        else if (_unblockedVideos.isEmpty)
-          _buildEmptyState()
-        else
-          _buildVideosList(),
+        MyVideosSection(
+          videos: _unblockedVideos,
+          isLoading: _isLoadingVideos,
+          error: _videosError,
+          onRetry: _loadMyVideos,
+          onTap: _openVideoPlayer,
+          onMenuAction: (action, video) => _handleVideoAction(action, video),
+        ),
       ],
     );
   }
@@ -1391,62 +1262,6 @@ class _UserChannelState extends State<UserChannel>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      // Use the available horizontal space so the empty state appears centered
-      width: double.infinity,
-      padding: EdgeInsets.all(32.w),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12.w),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.video_library_outlined,
-            size: 64.w,
-            color: Colors.grey.shade400,
-          ),
-          SizedBox(height: 16.w),
-          Text(
-            'No videos yet',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          SizedBox(height: 8.w),
-          Text(
-            'Upload your first video to get started',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVideosList() {
-    return Column(
-      children: _unblockedVideos.map((video) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 16.w),
-          child: VideoCard(
-            item: video,
-            onTap: () => _openVideoPlayer(video),
-            showPopupMenu: true,
-            onMenuAction: (action) => _handleVideoAction(action, video),
-          ),
-        );
-      }).toList(),
     );
   }
 

@@ -251,52 +251,72 @@ class _state extends State<HomeDiscover>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.resumed:
-        // Remove explicit play call - let AudioService handle playback state
-        // Only trigger background refresh when app is resumed
-        _handleAppResume();
-        break;
-      case AppLifecycleState.paused:
-        // Remove explicit pause call - AudioService will handle background playback
-        // Stop periodic refresh when app goes to background
-        _stopPeriodicRefresh();
-        break;
-      case AppLifecycleState.inactive:
-        // Remove explicit pause call - let AudioService manage playback continuity
-        break;
-      case AppLifecycleState.detached:
-        // Only stop when app is actually being terminated
-        _audioHandler?.stop();
-        _stopPeriodicRefresh();
-        break;
-      case AppLifecycleState.hidden:
-        _stopPeriodicRefresh();
-        break;
+    if (!mounted) return;
+
+    try {
+      switch (state) {
+        case AppLifecycleState.resumed:
+          // Remove explicit play call - let AudioService handle playback state
+          // Only trigger background refresh when app is resumed
+          // Use unawaited to prevent blocking the lifecycle callback
+          unawaited(_handleAppResume());
+          break;
+        case AppLifecycleState.paused:
+          // Remove explicit pause call - AudioService will handle background playback
+          // Stop periodic refresh when app goes to background
+          _stopPeriodicRefresh();
+          break;
+        case AppLifecycleState.inactive:
+          // Remove explicit pause call - let AudioService manage playback continuity
+          break;
+        case AppLifecycleState.detached:
+          // Only stop when app is actually being terminated
+          _audioHandler?.stop();
+          _stopPeriodicRefresh();
+          break;
+        case AppLifecycleState.hidden:
+          _stopPeriodicRefresh();
+          break;
+      }
+    } catch (e, stackTrace) {
+      print('Error in didChangeAppLifecycleState: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
   // Handle app resume - refresh data in background while showing cached data
   Future<void> _handleAppResume() async {
+    if (!mounted) return;
+
     print('App resumed, checking for background refresh');
 
-    // Check if we should force refresh for long periods of inactivity
-    if (_shouldForceRefresh()) {
-      print('Force refresh due to long inactivity');
-      // Clear cache and refresh
-      await CacheManager.clearCache(CacheManager.MUSIC_CATEGORIES_CACHE_KEY);
-      _refreshDataInBackground();
-    } else if (_shouldRefreshData()) {
-      print('Triggering background refresh');
-      _refreshDataInBackground();
-    }
+    try {
+      // Check if we should force refresh for long periods of inactivity
+      if (_shouldForceRefresh()) {
+        print('Force refresh due to long inactivity');
+        // Clear cache and refresh
+        await CacheManager.clearCache(CacheManager.MUSIC_CATEGORIES_CACHE_KEY);
+        // Use unawaited to prevent blocking
+        unawaited(_refreshDataInBackground());
+      } else if (_shouldRefreshData()) {
+        print('Triggering background refresh');
+        // Use unawaited to prevent blocking the UI
+        unawaited(_refreshDataInBackground());
+      }
 
-    // Start periodic refresh timer if not already running
-    _startPeriodicRefresh();
+      // Start periodic refresh timer if not already running
+      _startPeriodicRefresh();
+    } catch (e, stackTrace) {
+      print('Error in app resume handler: $e');
+      print('Stack trace: $stackTrace');
+    }
   }
 
   // Start periodic background refresh every 10 minutes
   void _startPeriodicRefresh() {
+    // Don't start if widget not mounted
+    if (!mounted) return;
+
     _periodicRefreshTimer?.cancel(); // Cancel existing timer if any
 
     _periodicRefreshTimer = Timer.periodic(const Duration(minutes: 10), (
@@ -304,7 +324,11 @@ class _state extends State<HomeDiscover>
     ) {
       if (mounted && _shouldRefreshData()) {
         print('Periodic background refresh triggered');
-        _refreshDataInBackground();
+        // Use unawaited to prevent blocking
+        unawaited(_refreshDataInBackground());
+      } else if (!mounted) {
+        // Cancel timer if widget is no longer mounted
+        timer.cancel();
       }
     });
   }
@@ -345,14 +369,22 @@ class _state extends State<HomeDiscover>
       if (connected) {
         print('Starting background refresh...');
 
+        // Run the network call in a separate isolate to prevent blocking the UI thread
         final freshData = await _presenter
             .getCatSubCatMusicList(token, context)
             .timeout(
-              const Duration(seconds: 15),
+              const Duration(seconds: 10),
               onTimeout: () {
+                print('Background refresh timed out after 10 seconds');
                 throw TimeoutException('Background refresh timed out');
               },
             );
+
+        // Check if widget is still mounted before proceeding
+        if (!mounted) {
+          print('Widget unmounted during background refresh');
+          return;
+        }
 
         // Save to cache
         await CacheManager.saveToCache(
@@ -372,11 +404,14 @@ class _state extends State<HomeDiscover>
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Background refresh failed: $e');
+      print('Stack trace: $stackTrace');
       // Don't show error to user for background refresh failures
     } finally {
-      _isRefreshingInBackground = false;
+      if (mounted) {
+        _isRefreshingInBackground = false;
+      }
     }
   }
 
@@ -1003,12 +1038,9 @@ class _state extends State<HomeDiscover>
                 stream: _audioHandler!.mediaItem,
                 builder: (context, snapshot) {
                   final hasMiniPlayer = snapshot.hasData;
-                  final bottomPadding =
-                      hasMiniPlayer
-                          ? AppSizes.basePadding +
-                              AppSizes.miniPlayerPadding +
-                              15.w
-                          : AppSizes.basePadding;
+                  final bottomPadding = hasMiniPlayer
+                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 15.w
+                      : AppSizes.basePadding;
 
                   return SliverPadding(
                     padding: EdgeInsets.fromLTRB(
@@ -1029,52 +1061,51 @@ class _state extends State<HomeDiscover>
         // header and will scroll away with the video list instead of
         // remaining sticky.
         NestedScrollView(
-          headerSliverBuilder:
-              (context, innerBoxIsScrolled) => [
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height:
-                        MediaQuery.of(context).padding.top +
-                        AppSizes.topPaddingOffset,
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height:
+                    MediaQuery.of(context).padding.top +
+                    AppSizes.topPaddingOffset,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: 18.w),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    vertical: 5.w,
+                    horizontal: AppSizes.contentHorizontalPadding,
                   ),
-                ),
-                SliverToBoxAdapter(
                   child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 18.w),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 5.w,
-                        horizontal: AppSizes.contentHorizontalPadding,
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18.w),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 8.w,
-                              offset: Offset(0, 2.w),
-                            ),
-                          ],
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18.w),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8.w,
+                          offset: Offset(0, 2.w),
                         ),
-                        child: AuthTabBar(
-                          selectedRole: _selectedMedia,
-                          onRoleChanged: (media) {
-                            setState(() {
-                              _selectedMedia = media;
-                            });
-                          },
-                          options: const ['Audio', 'Video'],
-                        ),
-                      ),
+                      ],
+                    ),
+                    child: AuthTabBar(
+                      selectedRole: _selectedMedia,
+                      onRoleChanged: (media) {
+                        setState(() {
+                          _selectedMedia = media;
+                        });
+                      },
+                      options: const ['Audio', 'Video'],
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: SizedBox(height: AppSizes.contentTopPadding),
-                ),
-              ],
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(height: AppSizes.contentTopPadding),
+            ),
+          ],
           // Keep the existing VideoListBody as the body. NestedScrollView will
           // coordinate scrolling so the header will scroll away with the list.
           body: _videoListWidget,
@@ -1103,9 +1134,8 @@ class _state extends State<HomeDiscover>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) =>
-                        AllCategoryByName(_audioHandler, category.cat_name),
+                builder: (context) =>
+                    AllCategoryByName(_audioHandler, category.cat_name),
               ),
             ).then((value) {
               // Only reload if coming back from AllCategoryByName
@@ -1220,8 +1250,9 @@ class _state extends State<HomeDiscover>
   }
 
   Widget _buildMusicCategories(ModelCatSubcatMusic data) {
-    List<DataCat> nonEmptyCategories =
-        data.data.where((cat) => cat.sub_category.isNotEmpty).toList();
+    List<DataCat> nonEmptyCategories = data.data
+        .where((cat) => cat.sub_category.isNotEmpty)
+        .toList();
 
     if (nonEmptyCategories.isEmpty) {
       return _buildNoDataWidget();
@@ -1278,10 +1309,9 @@ class _state extends State<HomeDiscover>
           Text(
             'No Record Found !!',
             style: TextStyle(
-              color:
-                  (sharedPreThemeData.themeImageBack.isEmpty)
-                      ? appColors().colorText
-                      : appColors().colorText,
+              color: (sharedPreThemeData.themeImageBack.isEmpty)
+                  ? appColors().colorText
+                  : appColors().colorText,
               fontFamily: 'Poppins', // Explicitly using existing font family
               fontSize: 25.w,
             ),
@@ -1365,9 +1395,8 @@ class _state extends State<HomeDiscover>
     onTap() => _handleItemTap(category, idx, context, "Popular Songs");
 
     return PopularSongCard(
-      songId:
-          subCategory.id
-              .toString(), // Pass songId for global favorites management
+      songId: subCategory.id
+          .toString(), // Pass songId for global favorites management
       imagePath: imagePath,
       songName: name,
       artistName: artistName,
@@ -1376,48 +1405,39 @@ class _state extends State<HomeDiscover>
       height: 160.w, // Decreased height for more compact card
       isCompact: isSingle,
       // Remove static isFavorite - let PopularSongCard use global provider
-      onPlay:
-          () => _musicActionHandler.handlePlaySong(
-            subCategory.id.toString(),
-            name,
-          ),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            name,
-            "song",
-            subCategory.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            name,
-            "song",
-            itemId: subCategory.id.toString(),
-            slug: subCategory.slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            subCategory.id.toString(),
-            name,
-            favoriteIds: _favoriteIds,
-          ),
+      onPlay: () =>
+          _musicActionHandler.handlePlaySong(subCategory.id.toString(), name),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        name,
+        "song",
+        subCategory.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        name,
+        "song",
+        itemId: subCategory.id.toString(),
+        slug: subCategory.slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        subCategory.id.toString(),
+        name,
+        favoriteIds: _favoriteIds,
+      ),
     );
   }
 
@@ -1427,10 +1447,9 @@ class _state extends State<HomeDiscover>
     final screenWidth = MediaQuery.of(context).size.width;
 
     // Base height calculation - optimized for tighter spacing
-    double baseHeightRatio =
-        screenHeight < 600
-            ? 0.22
-            : 0.20; // Reduced ratios for more compact layout
+    double baseHeightRatio = screenHeight < 600
+        ? 0.22
+        : 0.20; // Reduced ratios for more compact layout
     double baseHeight = screenHeight * baseHeightRatio;
 
     // Adjust for screen width - wider screens can use slightly less height ratio
@@ -1581,19 +1600,14 @@ class _state extends State<HomeDiscover>
           onTap: onTap,
           sharedPreThemeData: sharedPreThemeData,
           songCount: subCategory.description ?? 'Playlist',
-          onShare:
-              () => _musicActionHandler.handleShare(
-                name,
-                "playlist",
-                itemId: subCategory.id.toString(),
-                slug: subCategory.slug,
-              ),
-          onRemove:
-              () => _handleRemoveWithId(
-                name,
-                "playlist",
-                subCategory.id.toString(),
-              ),
+          onShare: () => _musicActionHandler.handleShare(
+            name,
+            "playlist",
+            itemId: subCategory.id.toString(),
+            slug: subCategory.slug,
+          ),
+          onRemove: () =>
+              _handleRemoveWithId(name, "playlist", subCategory.id.toString()),
         );
 
       case "Popular Artist":
@@ -1611,13 +1625,12 @@ class _state extends State<HomeDiscover>
           artistName: artistName,
           onTap: onTap,
           sharedPreThemeData: sharedPreThemeData,
-          onShare:
-              () => _musicActionHandler.handleShare(
-                name,
-                "album",
-                itemId: subCategory.id.toString(),
-                slug: subCategory.slug,
-              ),
+          onShare: () => _musicActionHandler.handleShare(
+            name,
+            "album",
+            itemId: subCategory.id.toString(),
+            slug: subCategory.slug,
+          ),
         );
 
       case "New Albums and EP's":
@@ -1628,13 +1641,12 @@ class _state extends State<HomeDiscover>
           description: description,
           onTap: onTap,
           sharedPreThemeData: sharedPreThemeData,
-          onShare:
-              () => _musicActionHandler.handleShare(
-                name,
-                "album",
-                itemId: subCategory.id.toString(),
-                slug: subCategory.slug,
-              ),
+          onShare: () => _musicActionHandler.handleShare(
+            name,
+            "album",
+            itemId: subCategory.id.toString(),
+            slug: subCategory.slug,
+          ),
         );
 
       case "Popular Songs":
@@ -1647,48 +1659,41 @@ class _state extends State<HomeDiscover>
           isFavorite: _isSongFavorited(
             subCategory.id.toString(),
           ), // Add favorite status
-          onPlay:
-              () => _musicActionHandler.handlePlaySong(
-                subCategory.id.toString(),
-                name,
-              ),
-          onPlayNext:
-              () => _musicActionHandler.handlePlayNext(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onAddToQueue:
-              () => _musicActionHandler.handleAddToQueue(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onDownload:
-              () => _musicActionHandler.handleDownload(
-                name,
-                "song",
-                subCategory.id.toString(),
-              ),
-          onAddToPlaylist:
-              () => _musicActionHandler.handleAddToPlaylist(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onShare:
-              () => _musicActionHandler.handleShare(
-                name,
-                "song",
-                itemId: subCategory.id.toString(),
-                slug: subCategory.slug,
-              ),
-          onFavorite:
-              () => _musicActionHandler.handleFavoriteToggle(
-                subCategory.id.toString(),
-                name,
-                favoriteIds: _favoriteIds,
-              ),
+          onPlay: () => _musicActionHandler.handlePlaySong(
+            subCategory.id.toString(),
+            name,
+          ),
+          onPlayNext: () => _musicActionHandler.handlePlayNext(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onDownload: () => _musicActionHandler.handleDownload(
+            name,
+            "song",
+            subCategory.id.toString(),
+          ),
+          onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onShare: () => _musicActionHandler.handleShare(
+            name,
+            "song",
+            itemId: subCategory.id.toString(),
+            slug: subCategory.slug,
+          ),
+          onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+            subCategory.id.toString(),
+            name,
+            favoriteIds: _favoriteIds,
+          ),
         );
 
       case "Trending Genres":
@@ -1704,57 +1709,49 @@ class _state extends State<HomeDiscover>
       case "New Songs":
       default:
         return SongCard(
-          songId:
-              subCategory.id
-                  .toString(), // Pass songId for global favorites management
+          songId: subCategory.id
+              .toString(), // Pass songId for global favorites management
           imagePath: imagePath,
           songName: name,
           artistName: artistName,
           onTap: onTap,
           sharedPreThemeData: sharedPreThemeData,
           // Remove static isFavorite - let SongCard use global provider
-          onPlay:
-              () => _musicActionHandler.handlePlaySong(
-                subCategory.id.toString(),
-                name,
-              ),
-          onPlayNext:
-              () => _musicActionHandler.handlePlayNext(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onAddToQueue:
-              () => _musicActionHandler.handleAddToQueue(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onDownload:
-              () => _musicActionHandler.handleDownload(
-                name,
-                "song",
-                subCategory.id.toString(),
-              ),
-          onAddToPlaylist:
-              () => _musicActionHandler.handleAddToPlaylist(
-                subCategory.id.toString(),
-                name,
-                artistName,
-              ),
-          onShare:
-              () => _musicActionHandler.handleShare(
-                name,
-                "song",
-                itemId: subCategory.id.toString(),
-                slug: subCategory.slug,
-              ),
-          onFavorite:
-              () => _musicActionHandler.handleFavoriteToggle(
-                subCategory.id.toString(),
-                name,
-                favoriteIds: _favoriteIds,
-              ),
+          onPlay: () => _musicActionHandler.handlePlaySong(
+            subCategory.id.toString(),
+            name,
+          ),
+          onPlayNext: () => _musicActionHandler.handlePlayNext(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onDownload: () => _musicActionHandler.handleDownload(
+            name,
+            "song",
+            subCategory.id.toString(),
+          ),
+          onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+            subCategory.id.toString(),
+            name,
+            artistName,
+          ),
+          onShare: () => _musicActionHandler.handleShare(
+            name,
+            "song",
+            itemId: subCategory.id.toString(),
+            slug: subCategory.slug,
+          ),
+          onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+            subCategory.id.toString(),
+            name,
+            favoriteIds: _favoriteIds,
+          ),
         );
     }
   }
@@ -1793,13 +1790,12 @@ class _state extends State<HomeDiscover>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (_) => ArtistDetailScreen(
-                audioHandler: _audioHandler,
-                idTag: artistId,
-                typ: 'Artists',
-                catName: artistName,
-              ),
+          builder: (_) => ArtistDetailScreen(
+            audioHandler: _audioHandler,
+            idTag: artistId,
+            typ: 'Artists',
+            catName: artistName,
+          ),
           settings: const RouteSettings(name: '/track_info_to_artist_songs'),
         ),
       ).then((value) {
@@ -2087,43 +2083,39 @@ class _state extends State<HomeDiscover>
     _currentOverlayEntry = null;
 
     final overlayEntry = OverlayEntry(
-      builder:
-          (context) => Positioned(
-            top: MediaQuery.of(context).padding.top + 45.w,
-            left: 16,
-            right: 16,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 45.w,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 1,
+                  offset: Offset(0, 2),
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 1,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+              ],
+            ),
+            child: Center(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: Center(
-                  child: Text(
-                    message,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
+        ),
+      ),
     );
 
     overlay.insert(overlayEntry);

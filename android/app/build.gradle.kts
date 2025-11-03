@@ -29,13 +29,34 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+        
+        // Add native crash reporting and debugging flags
+        ndk {
+            debugSymbolLevel = "FULL"
+        }
     }
 
     buildTypes {
+        debug {
+            // Enable debug symbols for crash analysis
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Keep crash reporting symbols
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+    
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }

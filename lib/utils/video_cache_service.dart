@@ -9,13 +9,13 @@ class VideoCacheService {
   final BaseCacheManager _cacheManager;
   final Dio _dio;
 
-  /// Default maximum cache size allowed for a single file (1000 MB)
+  /// Default maximum cache size allowed for a single file (500 MB)
   final int maxCacheSizeBytes;
 
   VideoCacheService({
     BaseCacheManager? cacheManager,
     Dio? dio,
-    this.maxCacheSizeBytes = 1000 * 1024 * 1024,
+    this.maxCacheSizeBytes = 500 * 1024 * 1024,
   }) : _cacheManager = cacheManager ?? DefaultCacheManager(),
        _dio = dio ?? Dio();
 

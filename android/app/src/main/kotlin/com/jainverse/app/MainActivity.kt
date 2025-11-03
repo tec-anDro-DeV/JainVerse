@@ -17,9 +17,16 @@ import android.content.IntentFilter
 import android.view.KeyEvent
 import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.RenderMode
 
 class MainActivity: AudioServiceFragmentActivity() {
     private val CHANNEL = "com.jainverse.background_audio"
+    
+    // FIX: Use TextureView instead of SurfaceView to prevent crashes after UCrop
+    override fun getRenderMode(): RenderMode {
+        return RenderMode.texture
+    }
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var audioManager: AudioManager
     private lateinit var methodChannel: MethodChannel

@@ -74,8 +74,21 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
 
   @override
   void dispose() {
-    _detachController(widget.sharedController);
-    _hideControlsTimer?.cancel();
+    // Cancel timer first
+    try {
+      _hideControlsTimer?.cancel();
+      _hideControlsTimer = null;
+    } catch (e) {
+      debugPrint('[AutoplayCard] Error canceling timer: $e');
+    }
+
+    // Detach controller listener
+    try {
+      _detachController(widget.sharedController);
+    } catch (e) {
+      debugPrint('[AutoplayCard] Error detaching controller: $e');
+    }
+
     super.dispose();
   }
 
@@ -91,8 +104,12 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
         final p = c.value.position.inMilliseconds.clamp(0, d);
         final newProgress = d == 0 ? 0.0 : (p / d);
         if (!_isInteracting) {
-          // update progress (will be animated in UI)
-          setState(() => _progress = newProgress);
+          // Schedule setState for after the current frame to avoid build-phase conflicts
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() => _progress = newProgress);
+            }
+          });
         }
       }
     };
@@ -188,14 +205,28 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
       // Fade in video and start playback
       setState(() => _isVideoVisible = true);
       if (!controller.value.isPlaying) {
-        controller.play();
+        // Use post frame callback to avoid build conflicts
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              controller.value.isInitialized &&
+              !controller.value.isPlaying) {
+            controller.play();
+          }
+        });
       }
       // Show controls briefly when this card gains focus
       _showControlsTemporarily();
     } else {
       // Pause and fade back to thumbnail
       if (controller.value.isPlaying) {
-        controller.pause();
+        // Use post frame callback to avoid build conflicts
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              controller.value.isInitialized &&
+              controller.value.isPlaying) {
+            controller.pause();
+          }
+        });
       }
       _hideControlsTimer?.cancel();
       if (mounted) setState(() => _controlsVisible = false);

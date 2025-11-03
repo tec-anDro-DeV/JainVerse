@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/utils/video_cache_service.dart';
 import 'package:video_player/video_player.dart';
 
 /// A self-contained video player widget that handles caching, Chewie
@@ -36,12 +35,11 @@ class VideoPlayerWidget extends StatefulWidget {
   State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
 }
 
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
+    with WidgetsBindingObserver {
   late VideoPlayerController _videoPlayerController;
   ChewieController? _chewieController;
   VoidCallback? _videoListener;
-  final VideoCacheService _videoCacheService = VideoCacheService();
-  bool _usingCachedFile = false;
   bool _playbackError = false;
   String _errorMessage = '';
   bool _audioDisabled = false;
@@ -68,7 +66,38 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _prepareControllerWithCache(widget.videoUrl);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Pause playback when app goes to background to save memory
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (_videoPlayerController.value.isInitialized &&
+          _videoPlayerController.value.isPlaying) {
+        _videoPlayerController.pause();
+        if (kDebugMode) {
+          debugPrint('[VideoPlayer] Paused due to app lifecycle change');
+        }
+      }
+    }
+    // Resume when app comes back to foreground
+    else if (state == AppLifecycleState.resumed) {
+      if (_videoPlayerController.value.isInitialized &&
+          !_videoPlayerController.value.isPlaying) {
+        // Only auto-resume if no error
+        if (!_playbackError && !_videoPlayerController.value.hasError) {
+          _videoPlayerController.play();
+          if (kDebugMode) {
+            debugPrint('[VideoPlayer] Resumed due to app lifecycle change');
+          }
+        }
+      }
+    }
   }
 
   @override
@@ -101,39 +130,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     });
 
     try {
-      // Check for cached file first
-      final cached = await _videoCacheService.getCachedFile(url);
-      if (cached != null && cached.existsSync()) {
-        _usingCachedFile = true;
-        _videoPlayerController = VideoPlayerController.file(cached);
-        if (kDebugMode) {
-          debugPrint('[VideoPlayer] Using cached file');
-        }
-      } else {
-        _videoPlayerController = VideoPlayerController.networkUrl(
-          Uri.parse(url),
-          httpHeaders: {'Accept': '*/*', 'Connection': 'keep-alive'},
-        );
-        if (kDebugMode) {
-          debugPrint('[VideoPlayer] Using network URL');
-        }
+      // ALWAYS use network streaming to avoid memory issues from caching
+      // Cached files consume too much memory on low-end devices/emulators
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: {'Accept': '*/*', 'Connection': 'keep-alive'},
+        videoPlayerOptions: VideoPlayerOptions(
+          // Enable mixed content mode for better compatibility
+          mixWithOthers: false,
+          // Allow background audio
+          allowBackgroundPlayback: false,
+        ),
+      );
 
-        // Start background caching (non-blocking)
-        _videoCacheService
-            .cacheFile(url)
-            .then((file) async {
-              if (mounted && !_usingCachedFile) {
-                if (kDebugMode) {
-                  debugPrint('[VideoPlayer] Cache completed for future use');
-                }
-                // Don't auto-switch during playback to avoid interruption
-              }
-            })
-            .catchError((e) {
-              if (kDebugMode) {
-                debugPrint('[VideoPlayer] Cache error (non-critical): $e');
-              }
-            });
+      if (kDebugMode) {
+        debugPrint(
+          '[VideoPlayer] Using network streaming (caching disabled for memory optimization)',
+        );
       }
 
       // Add listener before initialization
@@ -460,6 +473,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         DeviceOrientation.portraitDown,
       ],
       fullScreenByDefault: false,
+      // Memory optimization: Reduce buffer to prevent OOM
+      maxScale: 1.0,
       // Removed allowMuting to prevent audio conflicts
       // Chewie will handle muting through its built-in controls
       errorBuilder: (context, errorMessage) {
@@ -528,7 +543,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       _chewieController = null;
     } catch (_) {}
 
-    _usingCachedFile = false;
     await _prepareControllerWithCache(widget.videoUrl);
   }
 
@@ -598,25 +612,16 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       }
       await _videoPlayerController.dispose();
 
-      // Step 2: Clear potentially corrupted cache for this URL
-      if (kDebugMode) {
-        debugPrint(
-          '[VideoPlayer] Clearing cache for potentially corrupted file...',
-        );
-      }
-      await _videoCacheService.removeCachedFile(url);
-
-      // Step 3: Wait longer to allow system to fully release resources
+      // Step 2: Wait longer to allow system to fully release resources
       // MediaCodec on emulator needs more time to clean up
       await Future.delayed(Duration(milliseconds: 1500));
 
-      // Step 4: Reset state
+      // Step 3: Reset state
       setState(() {
         _playbackError = false;
         _errorMessage = '';
         _hasDecoderError = false;
         _audioDisabled = false;
-        _usingCachedFile = false;
       });
 
       if (kDebugMode) {
@@ -728,12 +733,51 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
-    _chewieController?.dispose();
-    if (_videoListener != null) {
-      _videoPlayerController.removeListener(_videoListener!);
+    if (kDebugMode) {
+      debugPrint('[VideoPlayer] Disposing widget');
     }
-    _videoPlayerController.dispose();
+
+    WidgetsBinding.instance.removeObserver(this);
+
+    // Cancel all timers first
     _skipOverlayTimer?.cancel();
+    _skipOverlayTimer = null;
+
+    // Dispose Chewie controller with error handling
+    try {
+      _chewieController?.pause();
+      _chewieController?.dispose();
+      _chewieController = null;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Error disposing Chewie: $e');
+      }
+    }
+
+    // Remove video listener with error handling
+    try {
+      if (_videoListener != null) {
+        _videoPlayerController.removeListener(_videoListener!);
+        _videoListener = null;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Error removing listener: $e');
+      }
+    }
+
+    // Dispose video controller with error handling
+    try {
+      if (_videoPlayerController.value.isInitialized) {
+        _videoPlayerController.pause();
+      }
+      _videoPlayerController.dispose();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[VideoPlayer] Error disposing controller: $e');
+      }
+    }
+
     super.dispose();
   }
 

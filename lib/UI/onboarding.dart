@@ -144,134 +144,152 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Content Column with animations
           SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
-              child: Column(
-                children: [
-                  // Top Spacing
-                  SizedBox(height: screenHeight * 0.45),
-
-                  // Logo with slide-down animation
-                  SlideTransition(
-                    position: _logoOffsetAnimation!,
-                    child: FadeTransition(
-                      opacity: _logoAnimationController!,
-                      child: Image.asset(
-                        'assets/images/logo-transparent.png',
-                        width:
-                            MediaQuery.of(context).size.width *
-                            0.4, // Use width-based sizing
-                        fit: BoxFit.fill,
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                  ),
-
-                  // Flexible spacer
-                  const Spacer(),
-
-                  // Text with fade-in animation
-                  FadeTransition(
-                    opacity: _textOpacityAnimation!,
-                    child: Column(
-                      children: [
-                        // Welcome Text
-                        Text(
-                          'Welcome to',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: AppSizes.fontH1 + 10.sp,
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Nunito-Regular',
-                            height: 1.2,
-                          ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingL,
                         ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Top Spacing
+                            SizedBox(height: screenHeight * 0.45),
 
-                        // App Name Text
-                        Text(
-                          'JainVerse',
-                          style: TextStyle(
-                            color: appColors()
-                                .primaryColorApp, // Keeping the punchy orange
-                            fontSize: AppSizes.fontH1 + 10.sp,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Poppins',
-                            height: 1.2,
-                          ),
-                        ),
-
-                        // Spacing
-                        SizedBox(height: AppSizes.paddingM),
-
-                        // Description Text
-                        Text(
-                          'A divine space of stavan and bhakti, guiding your soul towards peace.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: AppSizes.fontSmall + 2.sp,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Spacing
-                  SizedBox(height: screenHeight * 0.02),
-
-                  // Get Started Button with fade-in animation
-                  FadeTransition(
-                    opacity: _buttonOpacityAnimation!,
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: AppSizes.inputHeight,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Reset to dark status bar icons before navigating
-                          SystemChrome.setSystemUIOverlayStyle(
-                            SystemUiOverlayStyle.light.copyWith(
-                              statusBarColor: const Color.fromARGB(
-                                255,
-                                255,
-                                255,
-                                255,
+                            // Logo with slide-down animation
+                            SlideTransition(
+                              position: _logoOffsetAnimation!,
+                              child: FadeTransition(
+                                opacity: _logoAnimationController!,
+                                child: Image.asset(
+                                  'assets/images/logo-transparent.png',
+                                  width:
+                                      MediaQuery.of(context).size.width *
+                                      0.4, // Use width-based sizing
+                                  fit: BoxFit.fill,
+                                ),
                               ),
-                              statusBarIconBrightness: Brightness.dark,
                             ),
-                          );
-                          // Direct navigation to Login screen - Use pushReplacement to prevent back navigation
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const Login(),
+
+                            // Flexible spacer
+                            const SizedBox(height: 20),
+
+                            // Text with fade-in animation
+                            FadeTransition(
+                              opacity: _textOpacityAnimation!,
+                              child: Column(
+                                children: [
+                                  // Welcome Text
+                                  Text(
+                                    'Welcome to',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: AppSizes.fontH1 + 10.sp,
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: 'Nunito-Regular',
+                                      height: 1.2,
+                                    ),
+                                  ),
+
+                                  // App Name Text
+                                  Text(
+                                    'JainVerse',
+                                    style: TextStyle(
+                                      color: appColors()
+                                          .primaryColorApp, // Keeping the punchy orange
+                                      fontSize: AppSizes.fontH1 + 10.sp,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Poppins',
+                                      height: 1.2,
+                                    ),
+                                  ),
+
+                                  // Spacing
+                                  SizedBox(height: AppSizes.paddingM),
+
+                                  // Description Text
+                                  Text(
+                                    'A divine space of stavan and bhakti, guiding your soul towards peace.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: AppSizes.fontSmall + 2.sp,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: appColors().primaryColorApp,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppSizes.borderRadius,
+
+                            // Spacing
+                            SizedBox(height: screenHeight * 0.02),
+
+                            // Get Started Button with fade-in animation
+                            FadeTransition(
+                              opacity: _buttonOpacityAnimation!,
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: AppSizes.inputHeight,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // Reset to dark status bar icons before navigating
+                                    SystemChrome.setSystemUIOverlayStyle(
+                                      SystemUiOverlayStyle.light.copyWith(
+                                        statusBarColor: const Color.fromARGB(
+                                          255,
+                                          255,
+                                          255,
+                                          255,
+                                        ),
+                                        statusBarIconBrightness:
+                                            Brightness.dark,
+                                      ),
+                                    );
+                                    // Direct navigation to Login screen - Use pushReplacement to prevent back navigation
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const Login(),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        appColors().primaryColorApp,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppSizes.borderRadius,
+                                      ),
+                                    ),
+                                    elevation: 4,
+                                  ),
+                                  child: Text(
+                                    'Get Started',
+                                    style: TextStyle(
+                                      fontSize: AppSizes.fontLarge,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          elevation: 4,
-                        ),
-                        child: Text(
-                          'Get Started',
-                          style: TextStyle(
-                            fontSize: AppSizes.fontLarge,
-                            fontWeight: FontWeight.w600,
-                          ),
+
+                            // Bottom spacing
+                            SizedBox(height: screenHeight * 0.06),
+                          ],
                         ),
                       ),
                     ),
                   ),
-
-                  // Bottom spacing
-                  SizedBox(height: screenHeight * 0.06),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],

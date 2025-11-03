@@ -27,6 +27,9 @@ import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../widgets/common/app_header.dart';
 import 'FavoriteGenres.dart';
@@ -93,6 +96,7 @@ class MyState extends State<AccountPage>
 
   static String name = '', email = '', artistStatus = 'P';
   static String imagePresent = '';
+  ImageProvider? _profileImageProvider;
   late ModelSettings modelSettings;
   bool hasPre = false;
   bool hasChannel = false;
@@ -135,6 +139,12 @@ class MyState extends State<AccountPage>
       modelSettings = ModelSettings.fromJson(parsed);
       if ((modelSettings.data.image.isNotEmpty)) {
         imagePresent = AppConstant.ImageUrl + modelSettings.data.image;
+        // Prepare a robust image provider (try direct bytes first)
+        try {
+          await _prepareProfileImage(imagePresent);
+        } catch (e) {
+          if (kDebugMode) print('prepareProfileImage failed: $e');
+        }
       } else {
         // Clear the image when the new user doesn't have a profile image
         imagePresent = '';
@@ -219,6 +229,49 @@ class MyState extends State<AccountPage>
     }
 
     setState(() {});
+  }
+
+  // Try to fetch image bytes directly (safer than NetworkImage alone) and
+  // produce a MemoryImage; falls back to NetworkImage on any failure.
+  Future<void> _prepareProfileImage(String url) async {
+    try {
+      if (url.isEmpty) {
+        if (mounted) setState(() => _profileImageProvider = null);
+        return;
+      }
+
+      final uri = Uri.parse(url);
+      final HttpClient client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final HttpClientRequest req = await client.getUrl(uri);
+      // Request closed connection to avoid servers that mis-handle keep-alive
+      req.headers.set(HttpHeaders.connectionHeader, 'close');
+      req.headers.set(HttpHeaders.acceptHeader, 'image/*');
+
+      final HttpClientResponse resp = await req.close().timeout(
+        const Duration(seconds: 12),
+        onTimeout: () => throw Exception('Timeout while fetching image bytes'),
+      );
+
+      if (resp.statusCode == 200) {
+        final Uint8List bytes = await consolidateHttpClientResponseBytes(resp);
+        if (bytes.isNotEmpty) {
+          if (mounted) {
+            setState(() => _profileImageProvider = MemoryImage(bytes));
+          }
+          client.close(force: true);
+          return;
+        }
+      }
+      client.close(force: true);
+    } catch (e) {
+      // swallow and fall back to NetworkImage
+      if (kDebugMode) print('Profile image bytes fetch failed: $e');
+    }
+
+    // Fallback: use network provider (may still fail but is last resort)
+    if (mounted) setState(() => _profileImageProvider = NetworkImage(url));
   }
 
   Future<void> checkUserChannel() async {
@@ -820,14 +873,17 @@ class MyState extends State<AccountPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: appColors().primaryColorApp.withOpacity(0.3),
-                  image: imagePresent.isNotEmpty
+                  image:
+                      (imagePresent.isNotEmpty || _profileImageProvider != null)
                       ? DecorationImage(
-                          image: NetworkImage(imagePresent),
+                          image:
+                              _profileImageProvider ??
+                              NetworkImage(imagePresent),
                           fit: BoxFit.cover,
                         )
                       : null,
                 ),
-                child: imagePresent.isEmpty
+                child: (imagePresent.isEmpty && _profileImageProvider == null)
                     ? Icon(
                         Icons.person,
                         size: 40.w,
@@ -898,13 +954,24 @@ class MyState extends State<AccountPage>
               // Edit Button
               GestureDetector(
                 onTap: () async {
-                  await Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ProfileEdit(),
                       settings: const RouteSettings(arguments: 'afterlogin'),
                     ),
                   );
+
+                  // If the profile edit returned true (successful update), reload settings
+                  // which will refresh imagePresent and cause the UI to rebuild with the new image.
+                  if (result == true) {
+                    try {
+                      await _initializeData();
+                    } catch (e) {
+                      // Fallback: at least call getSettings to refresh the page
+                      await getSettings();
+                    }
+                  }
                 },
                 child: Icon(
                   Icons.edit_outlined,

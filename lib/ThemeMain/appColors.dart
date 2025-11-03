@@ -28,17 +28,17 @@ class appColors {
     900: Color(0xFF000000),
   });
 
-  final primaryColorApp = const MaterialColor(0xFFC28D50, <int, Color>{
-    50: Color(0xFFAC8447),
-    100: Color(0xFFAC8447),
-    200: Color(0xFFAC8447),
-    300: Color(0xFFAC8447),
-    400: Color(0xFFAC8447),
-    500: Color(0xFFAC8447),
-    600: Color(0xFFAC8447),
-    700: Color(0xFFAC8447),
-    800: Color(0xFFAC8447),
-    900: Color(0xFFAC8447),
+  final primaryColorApp = const MaterialColor(0xFFF58618, <int, Color>{
+    50: Color(0xFFFDECE4),
+    100: Color(0xFFFACDB3),
+    200: Color(0xFFF7AB80),
+    300: Color(0xFFF4894D),
+    400: Color(0xFFF26E26),
+    500: Color(0xFFF05500),
+    600: Color(0xFFE64E00),
+    700: Color(0xFFD94600),
+    800: Color(0xFFCD3E00),
+    900: Color(0xFFBB2F00),
   });
 
   // final PrimaryDarkColorApp = const MaterialColor(0xFFAC8447, <int, Color>{

@@ -111,6 +111,10 @@ class _CreateChannelState extends State<CreateChannel>
       if (pickedFile == null) return;
       File file = File(pickedFile.path);
       final File? cropped = await _cropImage(file);
+
+      // FIX: Wait for FlutterSurfaceView to stabilize after UCrop closes
+      await Future.delayed(const Duration(milliseconds: 500));
+
       if (cropped != null) {
         final File? finalFile = await _showFlipPreview(cropped);
         if (finalFile != null) setState(() => _selectedImage = finalFile);
@@ -129,6 +133,10 @@ class _CreateChannelState extends State<CreateChannel>
       if (pickedFile == null) return;
       File file = File(pickedFile.path);
       final File? cropped = await _cropImage(file);
+
+      // FIX: Wait for FlutterSurfaceView to stabilize after UCrop closes
+      await Future.delayed(const Duration(milliseconds: 500));
+
       if (cropped != null) {
         final File? finalFile = await _showFlipPreview(cropped);
         if (finalFile != null) setState(() => _selectedImage = finalFile);

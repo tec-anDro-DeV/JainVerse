@@ -90,18 +90,59 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
 
   @override
   void dispose() {
+    debugPrint('[AutoplayFeed] Disposing');
+
     WidgetsBinding.instance.removeObserver(this);
+
+    // Cancel timer first
     _autoplayTimer?.cancel();
-    _scrollController.removeListener(_onScroll);
-    _viewModel.removeListener(_onViewModelChanged);
+    _autoplayTimer = null;
 
-    // Remove subscription and like/dislike listeners
-    SubscriptionStateManager().removeListener(_onSubscriptionChanged);
-    LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
+    // Remove scroll listener
+    try {
+      _scrollController.removeListener(_onScroll);
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error removing scroll listener: $e');
+    }
 
-    _scrollController.dispose();
-    _sharedController?.dispose();
-    _viewModel.dispose();
+    // Remove view model listener
+    try {
+      _viewModel.removeListener(_onViewModelChanged);
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error removing view model listener: $e');
+    }
+
+    // Remove global state listeners
+    try {
+      SubscriptionStateManager().removeListener(_onSubscriptionChanged);
+      LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error removing state listeners: $e');
+    }
+
+    // Dispose scroll controller
+    try {
+      _scrollController.dispose();
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error disposing scroll controller: $e');
+    }
+
+    // Dispose shared video controller with error handling
+    try {
+      _sharedController?.pause();
+      _sharedController?.dispose();
+      _sharedController = null;
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error disposing video controller: $e');
+    }
+
+    // Dispose view model
+    try {
+      _viewModel.dispose();
+    } catch (e) {
+      debugPrint('[AutoplayFeed] Error disposing view model: $e');
+    }
+
     super.dispose();
   }
 
@@ -307,12 +348,11 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
     // Navigate to full player
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) => CommonVideoPlayerScreen(
-              videoUrl: syncedItem.videoUrl,
-              videoTitle: syncedItem.title,
-              videoItem: syncedItem,
-            ),
+        builder: (_) => CommonVideoPlayerScreen(
+          videoUrl: syncedItem.videoUrl,
+          videoTitle: syncedItem.title,
+          videoItem: syncedItem,
+        ),
       ),
     );
   }

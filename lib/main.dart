@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -76,148 +78,237 @@ class DeviceUtils {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // Add error handling for uncaught exceptions
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Stack trace: ${details.stack}');
+  };
 
-  // Request notification permission at startup (Android 13+)
-  if (Platform.isAndroid) {
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    if (androidInfo.version.sdkInt >= 33) {
-      final status = await Permission.notification.request();
-      if (!status.isGranted) {
-        debugPrint('Notification permission not granted');
+  // Catch errors not caught by Flutter
+  runZonedGuarded<Future<void>>(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Request notification permission at startup (Android 13+)
+      if (Platform.isAndroid) {
+        try {
+          final androidInfo = await DeviceInfoPlugin().androidInfo;
+          if (androidInfo.version.sdkInt >= 33) {
+            final status = await Permission.notification.request();
+            if (!status.isGranted) {
+              debugPrint('Notification permission not granted');
+            }
+          }
+        } catch (e) {
+          debugPrint('Error requesting notification permission: $e');
+        }
       }
-    }
-  }
 
-  // Request notification permission for iOS
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  if (Platform.isIOS) {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
-  }
+      // Request notification permission for iOS
+      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+          FlutterLocalNotificationsPlugin();
+      if (Platform.isIOS) {
+        await flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+      }
 
-  // Initialize flutter_local_notifications with Android and iOS settings
-  final AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  final DarwinInitializationSettings initializationSettingsIOS =
-      DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+      // Initialize flutter_local_notifications with Android and iOS settings
+      final AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      final DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: true,
+            requestSoundPermission: true,
+          );
+      final InitializationSettings initializationSettings =
+          InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsIOS,
+          );
+      await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+      // Initialize Hive for local storage
+      await Hive.initFlutter();
+      Hive.registerAdapter(DownloadedMusicAdapter());
+
+      // Initialize Image Cache Optimizer for better memory management
+      ImageCacheOptimizer.initialize();
+
+      // Debug: periodically log image cache usage to help identify memory pressure
+      if (kDebugMode) {
+        Timer.periodic(const Duration(seconds: 5), (_) {
+          try {
+            final cache = PaintingBinding.instance.imageCache;
+            debugPrint(
+              'Image cache: ${cache.currentSizeBytes ~/ 1024} KB / ${cache.maximumSizeBytes ~/ 1024} KB',
+            );
+          } catch (e) {
+            debugPrint('Image cache monitor error: $e');
+          }
+        });
+      }
+
+      // Initialize offline support services
+      final startupController = StartupController();
+      final downloadController = DownloadController();
+      final offlineModeService = OfflineModeService();
+      final appRouterManager = AppRouterManager();
+
+      try {
+        // Initialize core services for offline support with timeout
+        debugPrint('Initializing downloadController...');
+        await downloadController.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('DownloadController initialization timed out');
+          },
+        );
+
+        debugPrint('Initializing startupController...');
+        await startupController.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('StartupController initialization timed out');
+          },
+        );
+
+        debugPrint('Initializing offlineModeService...');
+        await offlineModeService.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('OfflineModeService initialization timed out');
+          },
+        );
+
+        debugPrint('Initializing appRouterManager...');
+        await appRouterManager
+            .initialize(navigatorKey)
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                debugPrint('AppRouterManager initialization timed out');
+              },
+            );
+
+        debugPrint('All offline services initialized successfully');
+      } catch (e, stackTrace) {
+        debugPrint('Error initializing offline services: $e');
+        debugPrint('Stack trace: $stackTrace');
+
+        // Try to initialize critical services individually
+        try {
+          debugPrint(
+            'Attempting to initialize OfflineModeService separately...',
+          );
+          await offlineModeService.initialize().timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('OfflineModeService separate init timed out');
+            },
+          );
+        } catch (offlineError, offlineStack) {
+          debugPrint('OfflineModeService initialization failed: $offlineError');
+          debugPrint('Stack: $offlineStack');
+        }
+
+        try {
+          debugPrint('Attempting to initialize AppRouterManager separately...');
+          await appRouterManager
+              .initialize(navigatorKey)
+              .timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  debugPrint('AppRouterManager separate init timed out');
+                },
+              );
+        } catch (routerError, routerStack) {
+          debugPrint('AppRouterManager initialization failed: $routerError');
+          debugPrint('Stack: $routerStack');
+        }
+      }
+
+      // Set system UI overlay style to ensure status bar is properly handled
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
       );
-  final InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsIOS,
-  );
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  // Initialize Hive for local storage
-  await Hive.initFlutter();
-  Hive.registerAdapter(DownloadedMusicAdapter());
+      // Also set preferred orientations
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
 
-  // Initialize Image Cache Optimizer for better memory management
-  ImageCacheOptimizer.initialize();
+      // Initialize session storage before audio
+      final session = SessionStorage();
+      session['page'] = "0"; // Set default page immediately
 
-  // Initialize offline support services
-  final startupController = StartupController();
-  final downloadController = DownloadController();
-  final offlineModeService = OfflineModeService();
-  final appRouterManager = AppRouterManager();
+      // Enhanced AudioService initialization with comprehensive background playback support
+      try {
+        _audioHandler =
+            await AudioService.init(
+              builder: () => AudioPlayerHandlerImpl.instance,
+              config: AudioServiceConfig(
+                androidNotificationChannelId: 'com.jainverse.audio.channel',
+                androidNotificationChannelName: 'JainVerse',
+                androidNotificationChannelDescription:
+                    'JainVerse music playback controls',
+                androidNotificationIcon: 'mipmap/ic_launcher',
+                androidShowNotificationBadge: true,
+                // CRITICAL: Keep service alive when paused for background playback
+                androidStopForegroundOnPause: false,
+                androidResumeOnClick:
+                    true, // Resume playback when notification tapped
+                artDownscaleWidth: 256,
+                artDownscaleHeight: 256,
+                fastForwardInterval: Duration(seconds: 10),
+                rewindInterval: Duration(seconds: 10),
+                preloadArtwork: true,
+                // Note: androidNotificationOngoing removed to prevent conflict with androidStopForegroundOnPause: false
+              ),
+            ).timeout(
+              const Duration(seconds: 15),
+              onTimeout: () {
+                debugPrint('AudioService initialization timed out');
+                throw TimeoutException('AudioService init timeout');
+              },
+            );
 
-  try {
-    // Initialize core services for offline support
-    debugPrint('Initializing downloadController...');
-    await downloadController.initialize();
+        // Initialize MusicManager with the audio handler
+        MusicManager().setAudioHandler(_audioHandler!);
+      } catch (e, stackTrace) {
+        debugPrint('Failed to initialize AudioService: $e');
+        debugPrint('Stack trace: $stackTrace');
+        // Continue app initialization even if audio service fails
+      }
 
-    debugPrint('Initializing startupController...');
-    await startupController.initialize();
+      HttpOverrides.global = MyHttpOverrides();
 
-    debugPrint('Initializing offlineModeService...');
-    await offlineModeService.initialize();
-
-    debugPrint('Initializing appRouterManager...');
-    await appRouterManager.initialize(navigatorKey);
-
-    debugPrint('All offline services initialized successfully');
-  } catch (e) {
-    debugPrint('Error initializing offline services: $e');
-
-    // Try to initialize critical services individually
-    try {
-      debugPrint('Attempting to initialize OfflineModeService separately...');
-      await offlineModeService.initialize();
-    } catch (offlineError) {
-      debugPrint('OfflineModeService initialization failed: $offlineError');
-    }
-
-    try {
-      debugPrint('Attempting to initialize AppRouterManager separately...');
-      await appRouterManager.initialize(navigatorKey);
-    } catch (routerError) {
-      debugPrint('AppRouterManager initialization failed: $routerError');
-    }
-  }
-
-  // Set system UI overlay style to ensure status bar is properly handled
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
-
-  // Also set preferred orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Initialize session storage before audio
-  final session = SessionStorage();
-  session['page'] = "0"; // Set default page immediately
-
-  // Enhanced AudioService initialization with comprehensive background playback support
-  _audioHandler = await AudioService.init(
-    builder: () => AudioPlayerHandlerImpl.instance,
-    config: AudioServiceConfig(
-      androidNotificationChannelId: 'com.jainverse.audio.channel',
-      androidNotificationChannelName: 'JainVerse',
-      androidNotificationChannelDescription:
-          'JainVerse music playback controls',
-      androidNotificationIcon: 'mipmap/ic_launcher',
-      androidShowNotificationBadge: true,
-      // CRITICAL: Keep service alive when paused for background playback
-      androidStopForegroundOnPause: false,
-      androidResumeOnClick: true, // Resume playback when notification tapped
-      artDownscaleWidth: 256,
-      artDownscaleHeight: 256,
-      fastForwardInterval: Duration(seconds: 10),
-      rewindInterval: Duration(seconds: 10),
-      preloadArtwork: true,
-      // Note: androidNotificationOngoing removed to prevent conflict with androidStopForegroundOnPause: false
-    ),
-  );
-
-  // Initialize MusicManager with the audio handler
-  MusicManager().setAudioHandler(_audioHandler!);
-
-  HttpOverrides.global = MyHttpOverrides();
-
-  runApp(
-    ScreenUtilInit(
-      designSize: DeviceUtils.getDesignSizeFromWindow(),
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (context, child) {
-        return const MyApp();
-      },
-    ),
+      runApp(
+        ScreenUtilInit(
+          designSize: DeviceUtils.getDesignSizeFromWindow(),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (context, child) {
+            return const MyApp();
+          },
+        ),
+      );
+    },
+    (error, stack) {
+      // Handle errors that escape Flutter's error handling
+      debugPrint('Uncaught error: $error');
+      debugPrint('Stack trace: $stack');
+    },
   );
 }
 
@@ -260,8 +351,8 @@ class MyApp extends StatelessWidget {
           if (settings.name?.startsWith('/tab/') == true) {
             final tabIndex = int.tryParse(settings.name!.split('/').last) ?? 0;
             return MaterialPageRoute(
-              builder:
-                  (context) => MainNavigationWrapper(initialIndex: tabIndex),
+              builder: (context) =>
+                  MainNavigationWrapper(initialIndex: tabIndex),
             );
           }
 
