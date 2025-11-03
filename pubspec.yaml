@@ -43,7 +43,7 @@ dependencies:
 
   # Data Persistence
   floor: ^1.4.2
-  path_provider: ^2.1.2
+  path_provider: ^2.1.5
   shared_preferences: ^2.2.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
@@ -53,8 +53,9 @@ dependencies:
   # flutter_share: ^2.0.0
   share_plus: ^11.0.0
   fluttertoast: ^8.2.4
-  image_picker: ^1.0.7
-  image_cropper: ^9.1.0
+  image_picker: ^1.2.0
+  image_cropper: ^11.0.0
+  flutter_image_compress: ^2.4.0
   intl: ^0.20.2
   iphone_has_notch: ^1.0.0
   package_info_plus: ^8.3.0
@@ -101,7 +102,7 @@ dependencies:
 
   audio_service_web: any
   animations: ^2.0.11
-  image: ^4.0.17
+  image: ^4.5.4
   video_player: ^2.8.1
   visibility_detector: ^0.4.0+2
 
