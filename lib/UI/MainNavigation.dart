@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
@@ -9,25 +10,30 @@ import 'package:session_storage/session_storage.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../main.dart';
+import '../managers/media_coordinator.dart';
+import '../services/audio_player_service.dart';
 import '../services/offline_mode_service.dart';
 import '../services/tab_navigation_service.dart';
 import '../utils/music_player_state_manager.dart';
+import '../videoplayer/managers/video_player_state_provider.dart';
+import '../videoplayer/widgets/mini_video_player.dart';
 import '../widgets/music/mini_music_player.dart';
 import '../widgets/offline_mode_prompt.dart';
 import 'HomeDiscover.dart';
 import 'MyLibrary.dart';
 import 'Search.dart';
 
-class MainNavigationWrapper extends StatefulWidget {
+class MainNavigationWrapper extends ConsumerStatefulWidget {
   final int initialIndex;
 
   const MainNavigationWrapper({super.key, this.initialIndex = 0});
 
   @override
-  State<MainNavigationWrapper> createState() => _MainNavigationWrapperState();
+  ConsumerState<MainNavigationWrapper> createState() =>
+      _MainNavigationWrapperState();
 }
 
-class _MainNavigationWrapperState extends State<MainNavigationWrapper>
+class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     with TickerProviderStateMixin {
   late TabController _tabController;
   final session = SessionStorage();
@@ -83,6 +89,20 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper>
 
   @override
   Widget build(BuildContext context) {
+    // Set up media coordination listener (only runs during build, not in initState)
+    ref.listen(videoPlayerProvider, (previous, next) {
+      final coordinator = ref.read(mediaCoordinatorProvider.notifier);
+
+      if (next.currentVideoId != null) {
+        // Video is active
+        coordinator.setVideoActive();
+      } else if (previous?.currentVideoId != null &&
+          next.currentVideoId == null) {
+        // Video was just stopped
+        coordinator.clearActivePlayer();
+      }
+    });
+
     // Get the global audio handler
     final audioHandler = const MyApp().called();
 
@@ -132,14 +152,14 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper>
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       // Determine if device should use centered 50% width layout (tablet/iPad)
-                      final shortestSide =
-                          MediaQuery.of(context).size.shortestSide;
+                      final shortestSide = MediaQuery.of(
+                        context,
+                      ).size.shortestSide;
                       final bool useCenteredLayout = shortestSide >= 600;
                       // On tablets/iPad use 60% inner width for mini player -> left/right = 18% each
-                      final double horizontalInset =
-                          useCenteredLayout
-                              ? (MediaQuery.of(context).size.width * 0.18)
-                              : 0.0;
+                      final double horizontalInset = useCenteredLayout
+                          ? (MediaQuery.of(context).size.width * 0.18)
+                          : 0.0;
 
                       return Stack(
                         children: [
@@ -168,24 +188,15 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper>
                               ),
                             ),
 
-                          // Global Persistent Mini Player - Hidden when full player is visible or on restricted pages
+                          // Global Persistent Mini Players - Hidden when full player is visible or on restricted pages
+                          // Show either music OR video mini player based on coordination
                           if (!stateManager.isFullPlayerVisible &&
                               !stateManager.shouldHideMiniPlayer)
                             Positioned(
                               left: horizontalInset,
                               right: horizontalInset,
                               bottom: _getBottomNavigationHeight(),
-                              child: StreamBuilder<MediaItem?>(
-                                stream: audioHandler.mediaItem,
-                                builder: (context, snapshot) {
-                                  if (snapshot.hasData) {
-                                    return MiniMusicPlayer(
-                                      audioHandler,
-                                    ).buildMiniPlayer(context);
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
+                              child: _buildCoordinatedMiniPlayers(audioHandler),
                             ),
 
                           // Offline Mode Prompt - Shows when connectivity is lost
@@ -206,6 +217,43 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper>
             );
           },
         );
+      },
+    );
+  }
+
+  /// Build coordinated mini players (music OR video, never both)
+  Widget _buildCoordinatedMiniPlayers(AudioPlayerHandler audioHandler) {
+    final videoState = ref.watch(videoPlayerProvider);
+    final coordinatorState = ref.watch(mediaCoordinatorProvider);
+
+    // Show the appropriate mini player based on current state
+    // Coordination is handled by ref.listen in initState
+    return StreamBuilder<MediaItem?>(
+      stream: audioHandler.mediaItem,
+      builder: (context, snapshot) {
+        final hasMusic = snapshot.hasData;
+        final hasVideo = videoState.currentVideoId != null;
+
+        // Respect explicit coordinator state when available
+        if (coordinatorState == ActiveMediaPlayer.video) {
+          // Coordinator says video should be visible
+          if (hasVideo) return const MiniVideoPlayer();
+          // fallthrough to other checks if no video present
+        } else if (coordinatorState == ActiveMediaPlayer.music) {
+          // Coordinator says music should be visible
+          if (hasMusic)
+            return MiniMusicPlayer(audioHandler).buildMiniPlayer(context);
+          // fallthrough to other checks if no music present
+        }
+
+        // Fallback priority: Video > Music
+        if (hasVideo) {
+          return const MiniVideoPlayer();
+        } else if (hasMusic) {
+          return MiniMusicPlayer(audioHandler).buildMiniPlayer(context);
+        }
+
+        return const SizedBox.shrink();
       },
     );
   }
@@ -409,10 +457,9 @@ class BottomNavCustomState extends State<BottomNavCustom>
           builder: (context, constraints) {
             final shortestSide = MediaQuery.of(context).size.shortestSide;
             final bool useCenteredInner = shortestSide >= 600;
-            final double innerWidth =
-                useCenteredInner
-                    ? MediaQuery.of(context).size.width * 0.6
-                    : double.infinity;
+            final double innerWidth = useCenteredInner
+                ? MediaQuery.of(context).size.width * 0.6
+                : double.infinity;
 
             // iPad specific detection: iOS + large shortest side
             final bool isiPad =
@@ -424,10 +471,9 @@ class BottomNavCustomState extends State<BottomNavCustom>
             return Container(
               height: 75.w,
               // No top margin; allow a small bottom margin only on iPad
-              margin:
-                  useCenteredInner
-                      ? EdgeInsets.only(bottom: iPadBottomMargin)
-                      : EdgeInsets.fromLTRB(28.w, 0, 28.w, 12.w),
+              margin: useCenteredInner
+                  ? EdgeInsets.only(bottom: iPadBottomMargin)
+                  : EdgeInsets.fromLTRB(28.w, 0, 28.w, 12.w),
               alignment: Alignment.center,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: innerWidth),
@@ -472,8 +518,9 @@ class BottomNavCustomState extends State<BottomNavCustom>
           animation: widget.tabController!,
           builder: (context, child) {
             // For share button (index 3), never show as selected
-            final isSelected =
-                index == 3 ? false : widget.tabController!.index == index;
+            final isSelected = index == 3
+                ? false
+                : widget.tabController!.index == index;
             final activeIconPath = navItems[index]['activeIcon']!;
             final inactiveIconPath = navItems[index]['inactiveIcon']!;
 

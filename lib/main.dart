@@ -5,9 +5,11 @@ import 'dart:math';
 import 'package:audio_service/audio_service.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
@@ -89,6 +91,22 @@ Future<void> main() async {
   runZonedGuarded<Future<void>>(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Reduce image memory pressure: set a lower image cache limit.
+      // This helps prevent the app from holding too many decoded images in memory.
+      try {
+        final cache = PaintingBinding.instance.imageCache;
+        // Limit to ~30 MB
+        cache.maximumSizeBytes = 30 * 1024 * 1024;
+        // Optional: limit number of decoded images cached
+        cache.maximumSize = 100;
+      } catch (e) {
+        debugPrint('Error setting image cache limits: $e');
+      }
+
+      // Add a lifecycle observer to clear the image cache on memory pressure
+      // or when the app is backgrounded.
+      WidgetsBinding.instance.addObserver(_ImageCacheObserver());
 
       // Request notification permission at startup (Android 13+)
       if (Platform.isAndroid) {
@@ -294,13 +312,15 @@ Future<void> main() async {
       HttpOverrides.global = MyHttpOverrides();
 
       runApp(
-        ScreenUtilInit(
-          designSize: DeviceUtils.getDesignSizeFromWindow(),
-          minTextAdapt: true,
-          splitScreenMode: true,
-          builder: (context, child) {
-            return const MyApp();
-          },
+        ProviderScope(
+          child: ScreenUtilInit(
+            designSize: DeviceUtils.getDesignSizeFromWindow(),
+            minTextAdapt: true,
+            splitScreenMode: true,
+            builder: (context, child) {
+              return const MyApp();
+            },
+          ),
         ),
       );
     },
@@ -310,6 +330,35 @@ Future<void> main() async {
       debugPrint('Stack trace: $stack');
     },
   );
+}
+
+// Observer to clear image cache on memory pressure or when app is backgrounded.
+class _ImageCacheObserver extends WidgetsBindingObserver {
+  @override
+  void didHaveMemoryPressure() {
+    try {
+      final cache = PaintingBinding.instance.imageCache;
+      cache.clear();
+      cache.clearLiveImages();
+      debugPrint('Image cache cleared due to memory pressure');
+    } catch (e) {
+      debugPrint('Error clearing image cache: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      try {
+        final cache = PaintingBinding.instance.imageCache;
+        cache.clear();
+        cache.clearLiveImages();
+        debugPrint('Image cache cleared because app paused');
+      } catch (e) {
+        debugPrint('Error clearing image cache on pause: $e');
+      }
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {

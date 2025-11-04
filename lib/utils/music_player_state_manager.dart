@@ -1,6 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Access navigatorKey to obtain a BuildContext for ProviderScope.containerOf
+import '../main.dart' show navigatorKey;
+import '../managers/media_coordinator.dart';
 
 /// Global state manager for music player UI visibility
 class MusicPlayerStateManager extends ChangeNotifier {
@@ -106,6 +111,27 @@ class MusicPlayerStateManager extends ChangeNotifier {
     _shouldHideMiniPlayer = false; // Show mini player
     _currentPageContext = 'music_start';
     _safeNotifyListeners();
+
+    // Also notify the app-level media coordinator so music becomes the active
+    // media type and the video mini-player (if any) will be hidden.
+    try {
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        final container = ProviderScope.containerOf(ctx);
+        container.read(mediaCoordinatorProvider.notifier).setMusicActive();
+        print(
+          '[DEBUG] MusicPlayerStateManager: Notified media coordinator (music active)',
+        );
+      } else {
+        print(
+          '[DEBUG] MusicPlayerStateManager: navigatorKey.currentContext is null — cannot notify media coordinator',
+        );
+      }
+    } catch (e) {
+      print(
+        '[ERROR] MusicPlayerStateManager: Failed to notify media coordinator: $e',
+      );
+    }
   }
 
   /// Toggle navigation visibility independently (for custom scenarios)

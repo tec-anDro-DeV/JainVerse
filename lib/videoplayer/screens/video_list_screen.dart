@@ -5,12 +5,12 @@ import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
-import 'package:jainverse/videoplayer/widgets/autoplay_video_card.dart';
+import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:video_player/video_player.dart';
-import 'package:visibility_detector/visibility_detector.dart';
+// visibility_detector no longer needed for static VideoCard usage
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/widgets/common/search_bar.dart';
@@ -368,43 +368,32 @@ class _VideoListBodyState extends State<VideoListBody>
     }
   }
 
-  void _onItemVisibilityChanged(int index, double visibilityFraction) {
-    if (!mounted) return; // Guard against disposed state
-
-    _itemVisibility[index] = visibilityFraction;
-
-    // If currently playing video becomes less visible, pause it immediately
-    if (index == _currentlyPlayingIndex &&
-        visibilityFraction < _visibilityThreshold) {
-      _pauseCurrentVideo();
-      // Clear the playing index so new video can start
-      if (mounted) {
-        setState(() {
-          _currentlyPlayingIndex = null;
-        });
-      }
-    }
-  }
+  // Visibility-based autoplay removed for the main video list; keep method in
+  // other screens that still use visibility detection.
 
   void _openPlayer(VideoItem item) {
     // Pause and cleanup autoplay before navigation to prevent race condition
     _pauseCurrentVideo();
 
-    // Try to replace the current player if possible, otherwise push.
-    final nav = Navigator.of(context);
     // Sync video item with latest global state before navigation
     final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
-    final route = MaterialPageRoute(
-      builder: (_) => CommonVideoPlayerScreen(
-        videoUrl: syncedItem.videoUrl,
-        videoTitle: syncedItem.title,
-        videoItem: syncedItem,
-      ),
-    );
+
+    // Use new video player launcher
+    final nav = Navigator.of(context);
     if (nav.canPop()) {
-      nav.pushReplacement(route);
+      replaceWithVideoPlayer(
+        context,
+        videoUrl: syncedItem.videoUrl,
+        videoId: syncedItem.id.toString(),
+        videoItem: syncedItem,
+      );
     } else {
-      nav.push(route);
+      launchVideoPlayer(
+        context,
+        videoUrl: syncedItem.videoUrl,
+        videoId: syncedItem.id.toString(),
+        videoItem: syncedItem,
+      );
     }
   }
 
@@ -506,26 +495,11 @@ class _VideoListBodyState extends State<VideoListBody>
                       final item = _viewModel.items[index];
                       return Container(
                         padding: EdgeInsets.only(bottom: 16.h),
-                        child: VisibilityDetector(
-                          key: Key('video_visibility_${item.id}'),
-                          onVisibilityChanged: (info) {
-                            _onItemVisibilityChanged(
-                              index,
-                              info.visibleFraction,
-                            );
-                            // Trigger autoplay check when visibility changes
-                            if (!_isScrolling) {
-                              _checkAndPlayMostVisibleVideo();
-                            }
-                          },
-                          child: AutoplayVideoCard(
-                            item: item
-                                .syncWithGlobalState()
-                                .syncLikeWithGlobalState(), // Sync with global subscription and like state
-                            shouldPlay: _currentlyPlayingIndex == index,
-                            sharedController: _sharedController,
-                            onTap: () => _openPlayer(item),
-                          ),
+                        child: VideoCard(
+                          item: item
+                              .syncWithGlobalState()
+                              .syncLikeWithGlobalState(), // Sync with global subscription and like state
+                          onTap: () => _openPlayer(item),
                         ),
                       );
                     }, childCount: _viewModel.items.length + 1),
