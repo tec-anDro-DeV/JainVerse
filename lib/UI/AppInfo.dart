@@ -307,12 +307,11 @@ class MyState extends State<AppInfo> {
                     builder: (context, snapshot) {
                       // Calculate proper bottom padding accounting for mini player and navigation
                       final hasMiniPlayer = snapshot.hasData;
-                      final bottomPadding =
-                          hasMiniPlayer
-                              ? AppSizes.basePadding +
-                                  AppSizes.miniPlayerPadding +
-                                  100.w
-                              : AppSizes.basePadding + 100.w;
+                      final bottomPadding = hasMiniPlayer
+                          ? AppSizes.basePadding +
+                                AppSizes.miniPlayerPadding +
+                                100.w
+                          : AppSizes.basePadding + 100.w;
 
                       if (selectedIndex == -1) {
                         // Show main list of cards

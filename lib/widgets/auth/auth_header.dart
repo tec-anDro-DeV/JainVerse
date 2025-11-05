@@ -30,21 +30,37 @@ class AuthHeader extends StatelessWidget {
           Positioned.fill(
             child: Image.asset(backgroundImagePath, fit: BoxFit.cover),
           ),
-          // Logo with proper sizing
-          heroTag != null
-              ? Hero(
-                tag: heroTag!,
-                child: Image.asset(
-                  logoPath,
-                  width: screenWidth * logoWidth,
-                  fit: BoxFit.contain,
+          // Logo with proper sizing — constrain height so it never exceeds the header
+          // This prevents the logo from being cut off when the calculated width
+          // would make the image taller than the available `height`.
+          Builder(
+            builder: (_) {
+              // Reduce max height and nudge the logo upward so it won't sit
+              // flush with the bottom of the header and appear clipped by the
+              // content below (which often has rounded corners).
+              final logoMaxHeight = height * 0.75; // stronger clamp
+              final logoWidthPx = screenWidth * logoWidth;
+              final logoBottomPadding = height * 0.06;
+
+              final logoBox = SizedBox(
+                height: logoMaxHeight,
+                width: logoWidthPx,
+                child: Image.asset(logoPath, fit: BoxFit.contain),
+              );
+
+              final positionedLogo = Align(
+                alignment: const Alignment(0, -0.25),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: logoBottomPadding),
+                  child: logoBox,
                 ),
-              )
-              : Image.asset(
-                logoPath,
-                width: screenWidth * logoWidth,
-                fit: BoxFit.contain,
-              ),
+              );
+
+              return heroTag != null
+                  ? Hero(tag: heroTag!, child: positionedLogo)
+                  : positionedLogo;
+            },
+          ),
         ],
       ),
     );

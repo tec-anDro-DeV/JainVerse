@@ -28,47 +28,19 @@ class appColors {
     900: Color(0xFF000000),
   });
 
-  final primaryColorApp = const MaterialColor(0xFFF58618, <int, Color>{
-    50: Color(0xFFFDECE4),
-    100: Color(0xFFFACDB3),
-    200: Color(0xFFF7AB80),
-    300: Color(0xFFF4894D),
-    400: Color(0xFFF26E26),
-    500: Color(0xFFF05500),
-    600: Color(0xFFE64E00),
-    700: Color(0xFFD94600),
-    800: Color(0xFFCD3E00),
-    900: Color(0xFFBB2F00),
+  final primaryColorApp = const MaterialColor(0xFFF47B36, <int, Color>{
+    50: Color(0xFFF47B36),
+    100: Color(0xFFF47B36),
+    200: Color(0xFFF47B36),
+    300: Color(0xFFF47B36),
+    400: Color(0xFFF47B36),
+    500: Color(0xFFF47B36),
+    600: Color(0xFFF47B36),
+    700: Color(0xFFF47B36),
+    800: Color(0xFFF47B36),
+    900: Color(0xFFF47B36),
   });
 
-  // final PrimaryDarkColorApp = const MaterialColor(0xFFAC8447, <int, Color>{
-  //   50: Color(0xFFAC8447),
-  //   100: Color(0xFFAC8447),
-  //   200: Color(0xFFAC8447),
-  //   300: Color(0xFFAC8447),
-  //   400: Color(0xFFAC8447),
-  //   500: Color(0xFFAC8447),
-  //   600: Color(0xFFAC8447),
-  //   700: Color(0xFFAC8447),
-  //   800: Color(0xFFAC8447),
-  //   900: Color(0xFFAC8447),
-  // });
-  // final colorAccent = const MaterialColor(0xFFAC8447, <int, Color>{
-  //   50: Color(0xFFAC8447),
-  //   100: Color(0xFFAC8447),
-  //   200: Color(0xFFAC8447),
-  //   300: Color(0xFFAC8447),
-  //   400: Color(0xFFAC8447),
-  //   500: Color(0xFFAC8447),
-  //   600: Color(0xFFAC8447),
-  //   700: Color(0xFFAC8447),
-  //   800: Color(0xFFAC8447),
-  //   900: Color(0xFFAC8447),
-  // });
-  // Use explicit Color values for primary and accent to avoid confusing identical swatches
-  // final Color primary = const Color(0xFFAC8447);
-  // final Color primaryDark = const Color(0xFFCF3E20);
-  //final Color accent = const Color(0xFFAC8447);
   final gray = const MaterialColor(0xFFdddddd, <int, Color>{
     50: Color(0xFFf5f5f5),
     100: Color(0xFFeeeeee),
@@ -148,19 +120,6 @@ class appColors {
     900: Color(0xFF000000),
   });
 
-  // final buttonText = const MaterialColor(0xFFffffff, <int, Color>{
-  //   50: Color(0xFFffffff),
-  //   100: Color(0xFFffffff),
-  //   200: Color(0xFFffffff),
-  //   300: Color(0xFFffffff),
-  //   400: Color(0xFFffffff),
-  //   500: Color(0xFFffffff),
-  //   600: Color(0xFFffffff),
-  //   700: Color(0xFFffffff),
-  //   800: Color(0xFFffffff),
-  //   900: Color(0xFFffffff),
-  // });
-
   final colorBackground = const MaterialColor(0xFFffffff, <int, Color>{
     50: Color(0xFFffffff),
     100: Color(0xFFffffff),
@@ -212,40 +171,5 @@ class appColors {
     900: Color(0xFFffffff),
   });
 
-  // final panelBackground = const MaterialColor(0xFFffffff, <int, Color>{
-  //   50: Color(0xFFffffff),
-  //   100: Color(0xFFffffff),
-  //   200: Color(0xFFffffff),
-  //   300: Color(0xFFffffff),
-  //   400: Color(0xFFffffff),
-  //   500: Color(0xFFffffff),
-  //   600: Color(0xFFffffff),
-  //   700: Color(0xFFffffff),
-  //   800: Color(0xFFffffff),
-  //   900: Color(0xFFffffff),
-  // });
-
-  // Navigation bar colors
-  // final navBackground = const Color(0xFFF5F5F5);
-  // final navActiveIcon = const Color(0xFFAC8447);
-  // final navInactiveIcon = const Color.fromARGB(255, 129, 129, 129);
-  // final navShadow = const Color(
-  //   0x33000000,
-  // ); // Semi-transparent for softer shadow
-  // final navItemBackground = const Color(0xFFFFFFFF);
-
-  // Player colors
-  // final playerBackground = const Color(0xFFFFFFFF);
-  // final playerProgressActive = const Color(0xFFFF6B6B);
-  // final playerProgressInactive = const Color(
-  //   0x26FF6B6B,
-  // ); // Very light red with opacity
-  // final playerShadow = const Color(0x40000000); // Softer shadow
-  // final playerGradientStart = const Color(0xFFAC8447);
-  // final playerGradientEnd = const Color(0xFFFF6B6B);
-  // final playerButtonBackground = const Color(
-  //   0x269E9E9E,
-  // ); // Very light grey with opacity
-
-  final backgroundLogin = const Color(0xFFFFEFDC);
+  final backgroundLogin = const Color(0xFFFEF2EB);
 }

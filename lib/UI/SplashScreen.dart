@@ -382,6 +382,28 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Compute three lighter, translucent shades from the primary app color
+    // Outer: lightest and most transparent, Middle: lighter and semi-transparent,
+    // Inner: slightly lighter and more opaque (so logo sits on a subtle tint)
+    final Color basePrimary = appColors().primaryColorApp[500]!;
+    final HSLColor baseHsl = HSLColor.fromColor(basePrimary);
+
+    // Increase lightness (make colors lighter) and apply varying opacity
+    final Color outerCircleColor = baseHsl
+        .withLightness((baseHsl.lightness + 0.18).clamp(0.0, 1.0))
+        .toColor()
+        .withOpacity(0.22);
+
+    final Color middleCircleColor = baseHsl
+        .withLightness((baseHsl.lightness + 0.10).clamp(0.0, 1.0))
+        .toColor()
+        .withOpacity(0.40);
+
+    final Color innerCircleColor = baseHsl
+        .withLightness((baseHsl.lightness + 0.02).clamp(0.0, 1.0))
+        .toColor()
+        .withOpacity(0.72);
+
     return Scaffold(
       backgroundColor: appColors().backgroundLogin,
       body: SafeArea(
@@ -426,7 +448,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleOneAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFFFFE6C8),
+                                // darkest shade
+                                color: outerCircleColor,
                               ),
                             );
                           },
@@ -443,7 +466,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleTwoAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFFFFD39E),
+                                // medium shade
+                                color: middleCircleColor,
                               ),
                             );
                           },
@@ -460,7 +484,8 @@ class _SplashScreenState extends State<SplashScreen>
                                   _circleThreeAnimation.value,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: appColors().primaryColorApp,
+                                // lightest shade (near primary)
+                                color: innerCircleColor,
                               ),
                             );
                           },

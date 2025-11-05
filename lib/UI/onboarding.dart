@@ -160,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Top Spacing
-                            SizedBox(height: screenHeight * 0.45),
+                            SizedBox(height: screenHeight * 0.47),
 
                             // Logo with slide-down animation
                             SlideTransition(
@@ -171,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   'assets/images/logo-transparent.png',
                                   width:
                                       MediaQuery.of(context).size.width *
-                                      0.4, // Use width-based sizing
+                                      0.3, // Use width-based sizing
                                   fit: BoxFit.fill,
                                 ),
                               ),

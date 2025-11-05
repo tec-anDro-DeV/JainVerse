@@ -1133,20 +1133,7 @@ class MyState extends State<AccountPage>
           }
         },
       ),
-      ModernMenuItem(
-        icon: Icons.info_outline,
-        title: 'App Info',
-        iconColor: appColors().primaryColorApp,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AppInfo(),
-              settings: const RouteSettings(arguments: 'afterlogin'),
-            ),
-          );
-        },
-      ),
+
       // ModernMenuItem(
       //   icon: Icons.history,
       //   title: 'Purchase History',
@@ -1219,6 +1206,20 @@ class MyState extends State<AccountPage>
         iconColor: appColors().primaryColorApp,
         onTap: () {
           _showDeleteAccountDialog(context);
+        },
+      ),
+      ModernMenuItem(
+        icon: Icons.info_outline,
+        title: 'App Info',
+        iconColor: appColors().primaryColorApp,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AppInfo(),
+              settings: const RouteSettings(arguments: 'afterlogin'),
+            ),
+          );
         },
       ),
     ];
