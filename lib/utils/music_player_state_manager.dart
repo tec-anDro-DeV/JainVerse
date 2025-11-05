@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Access navigatorKey to obtain a BuildContext for ProviderScope.containerOf
 import '../main.dart' show navigatorKey;
 import '../managers/media_coordinator.dart';
+import '../videoplayer/managers/video_player_state_provider.dart';
 
 /// Global state manager for music player UI visibility
 class MusicPlayerStateManager extends ChangeNotifier {
@@ -119,6 +120,17 @@ class MusicPlayerStateManager extends ChangeNotifier {
       if (ctx != null) {
         final container = ProviderScope.containerOf(ctx);
         container.read(mediaCoordinatorProvider.notifier).setMusicActive();
+        try {
+          final videoNotifier = container.read(videoPlayerProvider.notifier);
+          unawaited(videoNotifier.forceStopForExternalMediaSwitch());
+          print(
+            '[DEBUG] MusicPlayerStateManager: Requested video mini player teardown',
+          );
+        } catch (e) {
+          print(
+            '[ERROR] MusicPlayerStateManager: Failed to stop video player during music start: $e',
+          );
+        }
         print(
           '[DEBUG] MusicPlayerStateManager: Notified media coordinator (music active)',
         );

@@ -24,6 +24,10 @@ class VideoPlayerState {
   final List<String>? playlist;
   final int? currentIndex;
 
+  // Mini player state
+  final bool isMinimized;
+  final bool showMiniPlayer;
+
   const VideoPlayerState({
     this.controller,
     this.isPlaying = false,
@@ -36,6 +40,8 @@ class VideoPlayerState {
     this.isFullScreen = false,
     this.showControls = true,
     this.currentVideoId,
+    this.isMinimized = false,
+    this.showMiniPlayer = false,
     this.currentVideoTitle,
     this.currentVideoSubtitle,
     this.thumbnailUrl,
@@ -66,6 +72,8 @@ class VideoPlayerState {
     bool? repeatMode,
     List<String>? playlist,
     int? currentIndex,
+    bool? isMinimized,
+    bool? showMiniPlayer,
   }) {
     return VideoPlayerState(
       controller: controller ?? this.controller,
@@ -87,6 +95,8 @@ class VideoPlayerState {
       repeatMode: repeatMode ?? this.repeatMode,
       playlist: playlist ?? this.playlist,
       currentIndex: currentIndex ?? this.currentIndex,
+      isMinimized: isMinimized ?? this.isMinimized,
+      showMiniPlayer: showMiniPlayer ?? this.showMiniPlayer,
     );
   }
 

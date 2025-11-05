@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import '../managers/video_player_state_provider.dart';
+import '../../managers/music_manager.dart';
 
 /// Full-screen landscape video player with YouTube-style controls
 ///
@@ -41,6 +42,37 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   bool _showControls = true;
   Timer? _hideControlsTimer;
   bool _isInitialized = false;
+
+  // Safe check to see if a controller is initialized without throwing when
+  // the controller has been disposed concurrently.
+  bool controllerIsInitializedSafely(VideoPlayerController? c) {
+    try {
+      return c?.value.isInitialized ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double controllerAspectRatioSafely(VideoPlayerController? c) {
+    try {
+      final a = c?.value.aspectRatio ?? 0;
+      return (a == 0) ? 16 / 9 : a;
+    } catch (_) {
+      return 16 / 9;
+    }
+  }
+
+  Widget _safeBuildVideoPlayer(VideoPlayerController? controller) {
+    if (controller == null) return const SizedBox.shrink();
+    try {
+      return VideoPlayer(controller);
+    } catch (err, st) {
+      debugPrint(
+        '[LandscapeVideoPlayer] VideoPlayer construction failed: $err\n$st',
+      );
+      return const SizedBox.shrink();
+    }
+  }
 
   @override
   void initState() {
@@ -79,22 +111,58 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   }
 
   Future<void> _initializePlayer() async {
-    final videoNotifier = ref.read(videoPlayerProvider.notifier);
+    try {
+      await MusicManager.instance.stopAndDisposeAll(
+        reason: 'landscape-video-init',
+      );
+    } catch (e) {
+      debugPrint('[LandscapeVideoPlayer] Failed to stop music: $e');
+    }
 
+    final videoNotifier = ref.read(videoPlayerProvider.notifier);
+    final currentState = ref.read(videoPlayerProvider);
+
+    // If the provider already has the same video loaded and the controller
+    // is present and safe to use, reuse it instead of reinitializing which
+    // would dispose and recreate the controller (causing playback to restart).
+    final existingController = currentState.controller;
+    final hasSameVideo = currentState.currentVideoId == widget.videoId;
+
+    final canReuseController =
+        hasSameVideo &&
+        existingController != null &&
+        controllerIsInitializedSafely(existingController) &&
+        !videoNotifier.isControllerDisposed(existingController) &&
+        !videoNotifier.isControllerScheduledForDisposal(existingController);
+
+    if (canReuseController) {
+      // Attach to existing controller (no init required). Mark initialized
+      // so the UI stops showing loading indicators.
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+      // If the provider isn't playing, don't force-play here; leave it to
+      // provider state or user interaction to control playback.
+      return;
+    }
+
+    // Otherwise initialize a fresh controller via the notifier. Let the
+    // notifier handle autoplay (it tries to autoPlay by default).
     await videoNotifier.initializeVideo(
       videoUrl: widget.videoUrl,
       videoId: widget.videoId,
       title: widget.title,
       subtitle: widget.channelName,
       thumbnailUrl: widget.thumbnailUrl,
+      // Keep the provider's default autoPlay behavior.
     );
 
     if (mounted) {
       setState(() {
         _isInitialized = true;
       });
-      // Auto-play once initialized
-      videoNotifier.play();
     }
   }
 
@@ -148,14 +216,32 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
           children: [
             // Video player surface (center-aligned)
             Center(
-              child: _isInitialized && videoState.controller != null
-                  ? AspectRatio(
-                      aspectRatio: videoState.controller!.value.aspectRatio,
-                      child: VideoPlayer(videoState.controller!),
-                    )
-                  : const Center(
+              child: Builder(
+                builder: (context) {
+                  final controller = videoState.controller;
+                  final canShow =
+                      _isInitialized &&
+                      controller != null &&
+                      !ref
+                          .read(videoPlayerProvider.notifier)
+                          .isControllerDisposed(controller) &&
+                      !ref
+                          .read(videoPlayerProvider.notifier)
+                          .isControllerScheduledForDisposal(controller) &&
+                      controllerIsInitializedSafely(controller);
+
+                  if (!canShow) {
+                    return const Center(
                       child: CircularProgressIndicator(color: Colors.white),
-                    ),
+                    );
+                  }
+
+                  return AspectRatio(
+                    aspectRatio: controllerAspectRatioSafely(controller),
+                    child: _safeBuildVideoPlayer(controller),
+                  );
+                },
+              ),
             ),
 
             // Overlay controls
@@ -628,7 +714,11 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
               ),
               onTap: () {
                 // Use the controller's native setPlaybackSpeed method
-                videoState.controller?.setPlaybackSpeed(speed);
+                try {
+                  videoState.controller?.setPlaybackSpeed(speed);
+                } catch (_) {
+                  // ignore if controller disposed concurrently
+                }
                 Navigator.pop(context);
               },
             );

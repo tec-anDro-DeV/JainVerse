@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:math' as math;
 
 /// Shared playback controls widget for both music and video players
 ///
@@ -55,77 +56,91 @@ class MediaPlaybackControls extends StatelessWidget {
     final defaultIconColor = iconColor ?? Colors.white;
     final defaultAccentColor = accentColor ?? Theme.of(context).primaryColor;
 
+    // Use a Stack so the main controls (previous/play/next) remain perfectly centered
+    // while optional controls (shuffle/repeat) can sit on the right without shifting
+    // the centered group.
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      child: Row(
-        children: [
-          // Shuffle button (left)
-          if (showShuffle)
-            _buildControlButton(
-              icon: Icons.shuffle,
-              onPressed: onShuffle,
-              isActive: isShuffleEnabled ?? false,
-              activeColor: defaultAccentColor,
-              inactiveColor: defaultIconColor,
-              size: iconSize,
-            )
-          else
-            SizedBox(width: iconSize.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      child: SizedBox(
+        // ensure there's vertical space for the controls
+        height: math.max(playPauseIconSize.w, iconSize.w),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Centered main controls: previous, play/pause, next
+            Align(
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Skip previous button
+                  _buildControlButton(
+                    icon: Icons.skip_previous_rounded,
+                    onPressed: onSkipPrevious,
+                    color: defaultAccentColor,
+                    size: iconSize,
+                  ),
 
-          // Push the main controls to center
-          Spacer(),
+                  SizedBox(width: 24.w),
 
-          // Main controls: previous, play/pause, next (kept together and centered)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Skip previous button
-              _buildControlButton(
-                icon: Icons.skip_previous_rounded,
-                onPressed: onSkipPrevious,
-                color: defaultAccentColor,
-                size: iconSize,
+                  // Play/Pause button
+                  _buildPlayPauseButton(
+                    isPlaying: isPlaying,
+                    isLoading: isLoading,
+                    onPlay: onPlay,
+                    onPause: onPause,
+                    color: defaultIconColor,
+                    accentColor: defaultAccentColor,
+                  ),
+
+                  SizedBox(width: 24.w),
+
+                  // Skip next button
+                  _buildControlButton(
+                    icon: Icons.skip_next_rounded,
+                    onPressed: onSkipNext,
+                    color: defaultAccentColor,
+                    size: iconSize,
+                  ),
+                ],
               ),
+            ),
 
-              SizedBox(width: 24.w),
+            // Right-aligned optional controls (repeat then shuffle). Shuffle is kept
+            // on the far right so it doesn't affect the centered group.
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: EdgeInsets.only(right: 15.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showRepeat)
+                      _buildRepeatButton(
+                        onPressed: onRepeat,
+                        repeatMode: repeatMode ?? 'none',
+                        activeColor: defaultAccentColor,
+                        inactiveColor: defaultIconColor,
+                        size: iconSize,
+                      ),
 
-              // Play/Pause button
-              _buildPlayPauseButton(
-                isPlaying: isPlaying,
-                isLoading: isLoading,
-                onPlay: onPlay,
-                onPause: onPause,
-                color: defaultIconColor,
-                accentColor: defaultAccentColor,
+                    if (showRepeat && showShuffle) SizedBox(width: 8.w),
+
+                    if (showShuffle)
+                      _buildControlButton(
+                        icon: Icons.shuffle,
+                        onPressed: onShuffle,
+                        isActive: isShuffleEnabled ?? false,
+                        activeColor: defaultAccentColor,
+                        inactiveColor: defaultIconColor,
+                        size: iconSize,
+                      ),
+                  ],
+                ),
               ),
-
-              SizedBox(width: 24.w),
-
-              // Skip next button
-              _buildControlButton(
-                icon: Icons.skip_next_rounded,
-                onPressed: onSkipNext,
-                color: defaultAccentColor,
-                size: iconSize,
-              ),
-            ],
-          ),
-
-          // Push repeat to the far right
-          Spacer(),
-
-          // Repeat button (right)
-          if (showRepeat)
-            _buildRepeatButton(
-              onPressed: onRepeat,
-              repeatMode: repeatMode ?? 'none',
-              activeColor: defaultAccentColor,
-              inactiveColor: defaultIconColor,
-              size: iconSize,
-            )
-          else
-            SizedBox(width: iconSize.w),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

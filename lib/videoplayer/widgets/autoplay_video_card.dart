@@ -92,6 +92,27 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
     super.dispose();
   }
 
+  // Safe check to see if a controller is initialized without throwing when
+  // the controller has been disposed concurrently.
+  bool controllerIsInitializedSafely(VideoPlayerController? c) {
+    try {
+      return c?.value.isInitialized ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _safeBuildVideoPlayer(VideoPlayerController controller) {
+    try {
+      return VideoPlayer(controller);
+    } catch (err, st) {
+      debugPrint(
+        '[AutoplayVideoCard] VideoPlayer construction failed: $err\n$st',
+      );
+      return Container(color: Colors.black);
+    }
+  }
+
   void _attachController(VideoPlayerController? controller) {
     if (controller == null) return;
     // remove old if any
@@ -99,21 +120,29 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
     _controllerListener = () {
       if (!mounted) return;
       final c = controller;
-      if (c.value.isInitialized) {
-        final d = c.value.duration.inMilliseconds;
-        final p = c.value.position.inMilliseconds.clamp(0, d);
-        final newProgress = d == 0 ? 0.0 : (p / d);
-        if (!_isInteracting) {
-          // Schedule setState for after the current frame to avoid build-phase conflicts
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() => _progress = newProgress);
-            }
-          });
+      try {
+        if (c.value.isInitialized) {
+          final d = c.value.duration.inMilliseconds;
+          final p = c.value.position.inMilliseconds.clamp(0, d);
+          final newProgress = d == 0 ? 0.0 : (p / d);
+          if (!_isInteracting) {
+            // Schedule setState for after the current frame to avoid build-phase conflicts
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => _progress = newProgress);
+              }
+            });
+          }
         }
+      } catch (_) {
+        // Controller might have been disposed concurrently; ignore
       }
     };
-    controller.addListener(_controllerListener!);
+    try {
+      controller.addListener(_controllerListener!);
+    } catch (_) {
+      // Adding a listener can throw if controller was disposed concurrently
+    }
   }
 
   void _detachController(VideoPlayerController? controller) {
@@ -149,7 +178,9 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
   void _handleSeekAtGlobal(Offset globalPosition) {
     final barBox = _barKey.currentContext?.findRenderObject() as RenderBox?;
     final controller = widget.sharedController;
-    if (barBox == null || controller == null || !controller.value.isInitialized)
+    if (barBox == null ||
+        controller == null ||
+        !controllerIsInitializedSafely(controller))
       return;
     final local = barBox.globalToLocal(globalPosition);
     final rel = (local.dx / barBox.size.width).clamp(0.0, 1.0);
@@ -174,7 +205,7 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
 
   void _finishDragSeek() {
     final controller = widget.sharedController;
-    if (controller == null || !controller.value.isInitialized) {
+    if (controller == null || !controllerIsInitializedSafely(controller)) {
       setState(() => _isInteracting = false);
       return;
     }
@@ -185,18 +216,23 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
 
   void _seekToRelative(double rel) {
     final controller = widget.sharedController;
-    if (controller == null || !controller.value.isInitialized) return;
-    final duration = controller.value.duration;
-    if (duration == Duration.zero) return;
-    final millis = (duration.inMilliseconds * rel).round();
-    controller.seekTo(Duration(milliseconds: millis));
+    if (controller == null || !controllerIsInitializedSafely(controller))
+      return;
+    try {
+      final duration = controller.value.duration;
+      if (duration == Duration.zero) return;
+      final millis = (duration.inMilliseconds * rel).round();
+      controller.seekTo(Duration(milliseconds: millis));
+    } catch (_) {
+      // ignore if controller disposed concurrently
+    }
   }
 
   void _updatePlaybackState() {
     if (!mounted) return;
 
     final controller = widget.sharedController;
-    if (controller == null || !controller.value.isInitialized) {
+    if (controller == null || !controllerIsInitializedSafely(controller)) {
       setState(() => _isVideoVisible = false);
       return;
     }
@@ -207,10 +243,14 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
       if (!controller.value.isPlaying) {
         // Use post frame callback to avoid build conflicts
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted &&
-              controller.value.isInitialized &&
-              !controller.value.isPlaying) {
-            controller.play();
+          try {
+            if (mounted &&
+                controller.value.isInitialized &&
+                !controller.value.isPlaying) {
+              controller.play();
+            }
+          } catch (_) {
+            // ignore if controller disposed concurrently
           }
         });
       }
@@ -221,10 +261,14 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
       if (controller.value.isPlaying) {
         // Use post frame callback to avoid build conflicts
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted &&
-              controller.value.isInitialized &&
-              controller.value.isPlaying) {
-            controller.pause();
+          try {
+            if (mounted &&
+                controller.value.isInitialized &&
+                controller.value.isPlaying) {
+              controller.pause();
+            }
+          } catch (_) {
+            // ignore if controller disposed concurrently
           }
         });
       }
@@ -323,15 +367,32 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                       // Video player layer (instant replace when playing)
                       if (_isVideoVisible &&
                           widget.sharedController != null &&
-                          widget.sharedController!.value.isInitialized)
+                          controllerIsInitializedSafely(
+                            widget.sharedController,
+                          ))
                         Positioned.fill(
                           child: FittedBox(
                             fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: widget.sharedController!.value.size.width,
-                              height:
-                                  widget.sharedController!.value.size.height,
-                              child: VideoPlayer(widget.sharedController!),
+                            child: Builder(
+                              builder: (context) {
+                                final controller = widget.sharedController!;
+                                // Try to read size safely; fall back to 16:9 if unavailable
+                                Size size;
+                                try {
+                                  size = controller.value.size;
+                                  if (size.width == 0 || size.height == 0) {
+                                    size = const Size(16, 9);
+                                  }
+                                } catch (_) {
+                                  size = const Size(16, 9);
+                                }
+
+                                return SizedBox(
+                                  width: size.width,
+                                  height: size.height,
+                                  child: _safeBuildVideoPlayer(controller),
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -364,7 +425,9 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                       // Thin sticky seek bar at the very bottom of the video (no gap)
                       // Only enabled for the focused card (shouldPlay) and when controller is ready
                       if (widget.sharedController != null &&
-                          widget.sharedController!.value.isInitialized &&
+                          controllerIsInitializedSafely(
+                            widget.sharedController,
+                          ) &&
                           widget.shouldPlay)
                         Positioned(
                           left: 0,

@@ -16,80 +16,103 @@ class VideoVisualArea extends ConsumerWidget {
     final videoState = ref.watch(videoPlayerProvider);
     final videoNotifier = ref.read(videoPlayerProvider.notifier);
 
-    return Container(
-      width: double.infinity,
-      height: 400.h,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(16.w),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.w),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Video player or thumbnail
-            if (videoState.controller != null &&
-                videoState.controller!.value.isInitialized)
-              _buildVideoPlayer(videoState.controller!, videoNotifier)
-            else if (videoState.thumbnailUrl != null)
-              _buildThumbnail(videoState.thumbnailUrl!)
-            else
-              _buildPlaceholder(),
+    // Helper to safely check controller initialization without crashing
+    // when a controller has been disposed concurrently.
+    bool controllerIsInitializedSafely(VideoPlayerController? c) {
+      if (c == null) return false;
+      try {
+        return c.value.isInitialized;
+      } catch (_) {
+        // If the controller was disposed concurrently, accessing `value`
+        // can throw in debug mode. Treat as not initialized.
+        return false;
+      }
+    }
 
-            // Loading indicator
-            if (videoState.isLoading)
-              Container(
-                color: Colors.black54,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              ),
+    final controller = videoState.controller;
 
-            // Buffering indicator
-            if (videoState.isBuffering)
-              Container(
-                color: Colors.black26,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              ),
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16.w),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16.w),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Video player or thumbnail
+              // Only build the VideoPlayer if the controller appears initialized
+              // and the notifier does not consider it disposed/scheduled for
+              // disposal. This reduces races where a controller is disposed
+              // between our check and the framework mounting the VideoPlayer.
+              if (controller != null &&
+                  !videoNotifier.isControllerDisposed(controller) &&
+                  !videoNotifier.isControllerScheduledForDisposal(controller) &&
+                  controllerIsInitializedSafely(controller))
+                _buildVideoPlayer(controller, videoNotifier)
+              else if (videoState.thumbnailUrl != null)
+                _buildThumbnail(videoState.thumbnailUrl!)
+              else
+                _buildPlaceholder(),
 
-            // Play/pause overlay (shows on tap)
-            if (videoState.showControls && videoState.isReady)
-              _buildPlayPauseOverlay(context, videoState, videoNotifier),
-
-            // Fullscreen overlay button (top-right of the video)
-            if (videoState.showControls && onFullscreen != null)
-              Positioned(
-                top: 8.w,
-                right: 8.w,
-                child: Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    color: Colors.black45,
-                    shape: BoxShape.circle,
+              // Loading indicator
+              if (videoState.isLoading)
+                Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20.w),
-                      onTap: onFullscreen,
-                      child: Icon(
-                        Icons.fullscreen_rounded,
-                        size: 20.w,
-                        color: Colors.white,
+                ),
+
+              // Buffering indicator
+              if (videoState.isBuffering)
+                Container(
+                  color: Colors.black26,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                ),
+
+              // Play/pause overlay (shows on tap)
+              if (videoState.showControls && videoState.isReady)
+                _buildPlayPauseOverlay(context, videoState, videoNotifier),
+
+              // Fullscreen overlay button (top-right of the video)
+              if (videoState.showControls && onFullscreen != null)
+                Positioned(
+                  top: 8.w,
+                  right: 8.w,
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20.w),
+                        onTap: onFullscreen,
+                        child: Icon(
+                          Icons.fullscreen_rounded,
+                          size: 20.w,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-            // Error message
-            if (videoState.errorMessage != null)
-              _buildError(videoState.errorMessage!),
-          ],
+              // Error message
+              if (videoState.errorMessage != null)
+                _buildError(videoState.errorMessage!),
+            ],
+          ),
         ),
       ),
     );
@@ -106,8 +129,27 @@ class VideoVisualArea extends ConsumerWidget {
       onTap: () => videoNotifier.toggleControls(),
       child: Center(
         child: AspectRatio(
-          aspectRatio: controller.value.aspectRatio,
-          child: VideoPlayer(controller),
+          aspectRatio: (() {
+            try {
+              return controller.value.aspectRatio;
+            } catch (_) {
+              // If controller is disposed concurrently, fallback to 16:9
+              return 16 / 9;
+            }
+          })(),
+          child: Builder(
+            builder: (context) {
+              // Protect VideoPlayer constructor in case the controller was
+              // disposed between the parent check and widget creation.
+              try {
+                return VideoPlayer(controller);
+              } catch (_) {
+                // In case of race/disposal, show a placeholder instead of
+                // letting the app throw.
+                return _buildPlaceholder();
+              }
+            },
+          ),
         ),
       ),
     );
@@ -176,30 +218,34 @@ class VideoVisualArea extends ConsumerWidget {
       child: Center(
         child: Padding(
           padding: EdgeInsets.all(24.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline_rounded,
-                size: 60.w,
-                color: Colors.red[300],
-              ),
-              SizedBox(height: 16.h),
-              Text(
-                'Error Loading Video',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w600,
+          // Allow long error messages to scroll instead of causing a
+          // RenderFlex overflow when the visual area is constrained.
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 60.w,
+                  color: Colors.red[300],
                 ),
-              ),
-              SizedBox(height: 8.h),
-              Text(
-                errorMessage,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 14.sp),
-              ),
-            ],
+                SizedBox(height: 16.h),
+                Text(
+                  'Error Loading Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  errorMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 14.sp),
+                ),
+              ],
+            ),
           ),
         ),
       ),

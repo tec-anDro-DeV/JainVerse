@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../videoplayer/services/video_player_theme_service.dart';
 import '../managers/media_coordinator.dart';
+import '../managers/music_manager.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/screens/video_player_view.dart';
 
@@ -19,6 +20,13 @@ Future<void> launchVideoPlayer(
   List<String>? playlist,
   int? playlistIndex,
 }) async {
+  // Ensure any active music playback is fully stopped before launching video
+  try {
+    await MusicManager.instance.stopAndDisposeAll(
+      reason: 'video-player-launch',
+    );
+  } catch (_) {}
+
   // Get the ProviderContainer to access Riverpod providers
   final container = ProviderScope.containerOf(context);
 
@@ -114,6 +122,13 @@ Future<void> replaceWithVideoPlayer(
   List<String>? playlist,
   int? playlistIndex,
 }) async {
+  // Ensure any active music playback is fully stopped before launching video
+  try {
+    await MusicManager.instance.stopAndDisposeAll(
+      reason: 'video-player-replace',
+    );
+  } catch (_) {}
+
   // Get the ProviderContainer to access Riverpod providers
   final container = ProviderScope.containerOf(context);
 

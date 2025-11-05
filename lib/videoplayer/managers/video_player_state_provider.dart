@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,18 @@ import '../models/video_player_state.dart';
 class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   Timer? _positionUpdateTimer;
   Timer? _controlsHideTimer;
+
+  /// Keeps track of controllers that have already been fully disposed to avoid
+  /// double-dispose crashes triggered by overlapping cleanup routines.
+  final Set<VideoPlayerController> _disposedControllers =
+      LinkedHashSet<VideoPlayerController>.identity();
+
+  /// Prevents scheduling the same controller for disposal multiple times.
+  final Set<VideoPlayerController> _scheduledControllerDisposals =
+      LinkedHashSet<VideoPlayerController>.identity();
+
+  /// Ensures disposeVideo runs atomically even if called repeatedly in quick succession.
+  Completer<void>? _disposeCompleter;
 
   /// Tracks whether the current controller is active (initialized and not in cleanup)
   bool _isControllerActive = false;
@@ -51,6 +64,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         thumbnailUrl: thumbnailUrl,
         playlist: playlist,
         currentIndex: playlistIndex,
+        isMinimized: false,
+        showMiniPlayer: false,
       );
 
       // Dispose the previously attached controller (if any) without waiting for
@@ -225,11 +240,32 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   /// Schedule a delayed dispose for a controller. The actual dispose only
   /// happens if that controller is not currently attached to `state.controller`.
   void _scheduleDisposeController(VideoPlayerController controller) {
+    if (_disposedControllers.contains(controller)) {
+      debugPrint(
+        '[VideoPlayer] _scheduleDisposeController: skip, controller already disposed',
+      );
+      return;
+    }
+    if (_scheduledControllerDisposals.contains(controller)) {
+      debugPrint(
+        '[VideoPlayer] _scheduleDisposeController: skip, controller already scheduled',
+      );
+      return;
+    }
+
+    _scheduledControllerDisposals.add(controller);
     final VideoPlayerController toDispose = controller;
     debugPrint(
       '[VideoPlayer] _scheduleDisposeController: scheduled at ${DateTime.now().toIso8601String()} to run in 350ms',
     );
     Future.delayed(const Duration(milliseconds: 350), () async {
+      _scheduledControllerDisposals.remove(toDispose);
+      if (_disposedControllers.contains(toDispose)) {
+        debugPrint(
+          '[VideoPlayer] _scheduleDisposeController: skip dispose, controller already handled',
+        );
+        return;
+      }
       debugPrint(
         '[VideoPlayer] _scheduleDisposeController: running dispose at ${DateTime.now().toIso8601String()}',
       );
@@ -242,10 +278,15 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       }
       try {
         toDispose.removeListener(_videoPlayerListener);
+      } catch (_) {}
+      try {
         if (toDispose.value.isInitialized && toDispose.value.isPlaying) {
           await toDispose.pause();
         }
+      } catch (_) {}
+      try {
         await toDispose.dispose();
+        _disposedControllers.add(toDispose);
         debugPrint(
           '[VideoPlayer] _scheduleDisposeController: disposed controller at ${DateTime.now().toIso8601String()}',
         );
@@ -253,6 +294,21 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         debugPrint('[VideoPlayer] scheduled dispose error: $e');
       }
     });
+  }
+
+  /// Public helper for widgets to query whether a controller instance has
+  /// already been disposed by this notifier. This allows UI code to avoid
+  /// attempting to mount widgets (like `VideoPlayer`) with controllers that
+  /// are known to be disposed which would otherwise throw in debug builds.
+  bool isControllerDisposed(VideoPlayerController? c) {
+    return c != null && _disposedControllers.contains(c);
+  }
+
+  /// Public helper to query whether a controller instance is currently
+  /// scheduled for disposal. Widgets can use this to avoid mounting a
+  /// `VideoPlayer` for a controller that's about to be torn down.
+  bool isControllerScheduledForDisposal(VideoPlayerController? c) {
+    return c != null && _scheduledControllerDisposals.contains(c);
   }
 
   /// Video player listener for real-time updates
@@ -467,22 +523,150 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     _controlsHideTimer = null;
   }
 
+  /// Minimize video player to mini player
+  void minimizeToMiniPlayer() {
+    debugPrint('[VideoPlayer] Minimizing to mini player');
+    debugPrint(
+      '[VideoPlayer] Before - isMinimized: ${state.isMinimized}, showMiniPlayer: ${state.showMiniPlayer}',
+    );
+    state = state.copyWith(
+      isMinimized: true,
+      showMiniPlayer: true,
+      isFullScreen: false,
+    );
+    debugPrint(
+      '[VideoPlayer] After - isMinimized: ${state.isMinimized}, showMiniPlayer: ${state.showMiniPlayer}',
+    );
+    // Keep video playing during transition
+  }
+
+  /// Expand mini player to full screen
+  void expandToFullScreen() {
+    debugPrint('[VideoPlayer] Expanding to full screen');
+    state = state.copyWith(
+      isMinimized: false,
+      // Keep showMiniPlayer true temporarily so transition is smooth
+      // It will be cleared when full player is shown via clearMiniPlayerFlag()
+    );
+  }
+
+  /// Clear mini player flag (called when full player is fully shown)
+  void clearMiniPlayerFlag() {
+    debugPrint('[VideoPlayer] Clearing mini player flag');
+    state = state.copyWith(showMiniPlayer: false);
+  }
+
+  /// Close mini player and stop video
+  Future<void> closeMiniPlayer() async {
+    debugPrint('[VideoPlayer] Closing mini player');
+    state = state.copyWith(showMiniPlayer: false, isMinimized: false);
+
+    // Stop video after a brief delay to allow animation to complete
+    await Future.delayed(const Duration(milliseconds: 300));
+    await disposeVideo();
+  }
+
+  /// Force stop video playback immediately (used when another media source takes over)
+  Future<void> forceStopForExternalMediaSwitch() async {
+    final hasActiveVideo =
+        state.controller != null || state.currentVideoId != null;
+    if (!hasActiveVideo && !state.showMiniPlayer && !state.isMinimized) {
+      return;
+    }
+
+    debugPrint('[VideoPlayer] Force stopping due to external media switch');
+    state = state.copyWith(
+      showMiniPlayer: false,
+      isMinimized: false,
+      isFullScreen: false,
+    );
+
+    // Perform an aggressive disposal to ensure no lingering resources remain.
+    await disposeVideo();
+  }
+
   /// Dispose video player
   Future<void> disposeVideo() async {
-    await _cleanupExistingController();
+    if (_disposeCompleter != null) {
+      debugPrint('[VideoPlayer] disposeVideo: join in-flight dispose');
+      return _disposeCompleter!.future;
+    }
 
-    // Only clear the essential fields instead of resetting to a completely new state
-    // This avoids the "modifying provider during build" error
-    state = state.copyWith(
-      controller: null,
-      currentVideoId: null,
-      currentVideoTitle: null,
-      currentVideoSubtitle: null,
-      isPlaying: false,
-      isBuffering: false,
-      isLoading: false,
-      errorMessage: null,
-    );
+    final completer = Completer<void>();
+    _disposeCompleter = completer;
+
+    try {
+      // Mark controller inactive and cancel any timers first.
+      _isControllerActive = false;
+      _positionUpdateTimer?.cancel();
+      _positionUpdateTimer = null;
+      _controlsHideTimer?.cancel();
+      _controlsHideTimer = null;
+
+      // Capture current controller instance so we can dispose it safely after
+      // clearing state to avoid widgets referencing a disposed controller.
+      final VideoPlayerController? current = state.controller;
+
+      // Clear provider-held state synchronously so UI no longer sees any video data.
+      // Include playlist/currentIndex to ensure all video metadata is cleared.
+      state = state.copyWith(
+        controller: null,
+        currentVideoId: null,
+        currentVideoTitle: null,
+        currentVideoSubtitle: null,
+        thumbnailUrl: null,
+        isPlaying: false,
+        isBuffering: false,
+        isCompleted: false,
+        position: Duration.zero,
+        duration: Duration.zero,
+        volume: 1.0,
+        isMuted: false,
+        isLoading: false,
+        errorMessage: null,
+        showMiniPlayer: false,
+        isMinimized: false,
+        isFullScreen: false,
+        showControls: true,
+        repeatMode: false,
+        playlist: null,
+        currentIndex: null,
+      );
+
+      // If there is an existing controller instance, remove its listeners and
+      // synchronously attempt to pause and dispose it so native resources are
+      // released immediately instead of waiting for scheduled tasks.
+      if (current != null) {
+        try {
+          current.removeListener(_videoPlayerListener);
+        } catch (_) {}
+        try {
+          if (current.value.isInitialized && current.value.isPlaying) {
+            await current.pause();
+          }
+        } catch (_) {}
+        try {
+          await current.dispose();
+          _disposedControllers.add(current);
+          debugPrint(
+            '[VideoPlayer] disposeVideo: disposed controller immediately',
+          );
+        } catch (e) {
+          debugPrint(
+            '[VideoPlayer] disposeVideo: error disposing controller: $e',
+          );
+        }
+      }
+
+      // Reset init counter to avoid ignoring future initialize requests that
+      // might otherwise be considered stale.
+      _initRequestCounter = 0;
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+      _disposeCompleter = null;
+    }
   }
 }
 

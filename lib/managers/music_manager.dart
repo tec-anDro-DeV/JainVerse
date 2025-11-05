@@ -398,8 +398,9 @@ class MusicManager extends ChangeNotifier {
       _currentQueueOperation = Completer<void>();
 
       // GLOBAL DUPLICATE PREVENTION: Check for rapid-fire queue replacements
-      final timeSinceLastGlobal =
-          now.difference(_lastGlobalQueueReplacement).inMilliseconds;
+      final timeSinceLastGlobal = now
+          .difference(_lastGlobalQueueReplacement)
+          .inMilliseconds;
       _globalQueueReplacementCounter++;
 
       developer.log(
@@ -954,10 +955,10 @@ class MusicManager extends ChangeNotifier {
         try {
           // Check if current song is the same as the first song in the station
           // Compare by audio_id in extras rather than full MediaItem ID to avoid context parameter issues
-          final currentAudioId =
-              _currentMediaItem?.extras?['audio_id']?.toString();
-          final stationFirstAudioId =
-              mediaItems[0].extras?['audio_id']?.toString();
+          final currentAudioId = _currentMediaItem?.extras?['audio_id']
+              ?.toString();
+          final stationFirstAudioId = mediaItems[0].extras?['audio_id']
+              ?.toString();
 
           // Debug logging to see full extras content
           developer.log(
@@ -1143,11 +1144,10 @@ class MusicManager extends ChangeNotifier {
       final music = entry.value;
 
       // Create audio URL - music.audio already contains the full URL
-      final networkAudioUrl =
-          music.audio.startsWith('http')
-              ? music
-                  .audio // Already a complete URL
-              : '$kBaseUrl${music.audio.startsWith('/') ? music.audio.substring(1) : music.audio}'; // Construct if relative
+      final networkAudioUrl = music.audio.startsWith('http')
+          ? music
+                .audio // Already a complete URL
+          : '$kBaseUrl${music.audio.startsWith('/') ? music.audio.substring(1) : music.audio}'; // Construct if relative
 
       // Check for local audio file using AssetManager-like logic
       String actualAudioUrl = networkAudioUrl;
@@ -1268,21 +1268,19 @@ class MusicManager extends ChangeNotifier {
 
       final mediaItem = MediaItem(
         id: '$networkAudioUrl?ctx=$contextType&idx=$index',
-        title:
-            music.audio_title.isNotEmpty ? music.audio_title : 'Unknown Title',
-        artist:
-            music.artists_name.isNotEmpty
-                ? music.artists_name
-                : 'Unknown Artist',
-        album:
-            music.artists_name.isNotEmpty
-                ? music.artists_name
-                : 'Unknown Album',
+        title: music.audio_title.isNotEmpty
+            ? music.audio_title
+            : 'Unknown Title',
+        artist: music.artists_name.isNotEmpty
+            ? music.artists_name
+            : 'Unknown Artist',
+        album: music.artists_name.isNotEmpty
+            ? music.artists_name
+            : 'Unknown Album',
         duration: duration,
-        artUri:
-            imageUrl.isNotEmpty
-                ? Uri.parse(imageUrl)
-                : null, // Handle empty imageUrl gracefully
+        artUri: imageUrl.isNotEmpty
+            ? Uri.parse(imageUrl)
+            : null, // Handle empty imageUrl gracefully
         extras: {
           'audio_id': music.id.toString(),
           'actual_audio_url':
@@ -1338,6 +1336,58 @@ class MusicManager extends ChangeNotifier {
     if (_isDisposed) return;
     if (!await ensureAudioHandler()) return;
     await _audioHandler?.stop();
+  }
+
+  /// Force stop playback, clear the queue, and reset state (used when video takes over)
+  Future<void> stopAndDisposeAll({String reason = 'media-switch'}) async {
+    if (_isDisposed) return;
+
+    developer.log(
+      '[MusicManager] Force stopping playback (reason: $reason)',
+      name: 'MusicManager',
+    );
+
+    await _queueLock.synchronized(() async {
+      final hasHandler = await ensureAudioHandler();
+      if (!hasHandler) {
+        _stopAutoPlayMonitoring();
+        _resetLocalPlaybackState();
+        return;
+      }
+
+      try {
+        await _audioHandler!.stop();
+      } catch (e) {
+        developer.log(
+          '[MusicManager] Error stopping audio handler: $e',
+          name: 'MusicManager',
+        );
+      }
+
+      try {
+        await _audioHandler!.updateQueue(const <MediaItem>[]);
+      } catch (e) {
+        developer.log(
+          '[MusicManager] Error clearing audio handler queue: $e',
+          name: 'MusicManager',
+        );
+      }
+
+      try {
+        await _audioHandler!.setRepeatMode(AudioServiceRepeatMode.none);
+      } catch (_) {}
+
+      try {
+        await _audioHandler!.setShuffleMode(AudioServiceShuffleMode.none);
+      } catch (_) {}
+
+      _stopAutoPlayMonitoring();
+      _resetLocalPlaybackState(notifyListeners: false);
+      forceClearLocks();
+
+      // Refresh cached state from handler so observers receive the cleared values
+      await refreshState();
+    });
   }
 
   /// Skip to the next item in the queue.
@@ -2430,6 +2480,28 @@ class MusicManager extends ChangeNotifier {
         '[MusicManager] Error refreshing state: $e',
         name: 'MusicManager',
       );
+    }
+  }
+
+  /// Reset all locally cached playback state without touching the audio handler
+  void _resetLocalPlaybackState({bool notifyListeners = true}) {
+    _queue = [];
+    _originalQueue = [];
+    _playNextStack.clear();
+    _addToQueueStack.clear();
+    _originalMusicData = [];
+    _currentIndex = null;
+    _currentMediaItem = null;
+    _isPlaying = false;
+    _isLoading = false;
+    _position = Duration.zero;
+    _speed = 1.0;
+    _repeatMode = AudioServiceRepeatMode.none;
+    _shuffleEnabled = false;
+    clearProcessingAudioId();
+    _inflightOperations.clear();
+    if (notifyListeners) {
+      _safeNotifyListeners();
     }
   }
 

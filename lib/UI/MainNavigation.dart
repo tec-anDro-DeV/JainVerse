@@ -41,6 +41,12 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   // Offline mode services
   final OfflineModeService _offlineModeService = OfflineModeService();
 
+  // Debug logging guards to avoid spamming identical messages every rebuild.
+  String? _lastMusicManagerLog;
+  String? _lastCoordinatorSummary;
+  String? _lastVideoStateSummary;
+  String? _lastMiniPlayerDecision;
+
   // Navigation keys for each tab to maintain separate navigation stacks
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(), // Home
@@ -126,9 +132,14 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
             final stateManager = MusicPlayerStateManager();
 
             // Debug: Log current state when builder is called
-            debugPrint(
-              '[MainNavigation] ListenableBuilder rebuild - isFullPlayerVisible: ${stateManager.isFullPlayerVisible}, shouldHideNavigation: ${stateManager.shouldHideNavigation}, shouldHideMiniPlayer: ${stateManager.shouldHideMiniPlayer}',
-            );
+            final musicSummary =
+                '${stateManager.isFullPlayerVisible}|${stateManager.shouldHideNavigation}|${stateManager.shouldHideMiniPlayer}';
+            if (_lastMusicManagerLog != musicSummary) {
+              debugPrint(
+                '[MainNavigation] ListenableBuilder rebuild - isFullPlayerVisible: ${stateManager.isFullPlayerVisible}, shouldHideNavigation: ${stateManager.shouldHideNavigation}, shouldHideMiniPlayer: ${stateManager.shouldHideMiniPlayer}',
+              );
+              _lastMusicManagerLog = musicSummary;
+            }
 
             return WillPopScope(
               onWillPop: () async {
@@ -227,32 +238,73 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     final coordinatorState = ref.watch(mediaCoordinatorProvider);
 
     // Show the appropriate mini player based on current state
-    // Coordination is handled by ref.listen in initState
+    // Coordination is handled by ref.listen in build method
     return StreamBuilder<MediaItem?>(
       stream: audioHandler.mediaItem,
       builder: (context, snapshot) {
         final hasMusic = snapshot.hasData;
-        final hasVideo = videoState.currentVideoId != null;
+        final showVideoMini =
+            videoState.showMiniPlayer && videoState.isMinimized;
+
+        final coordinatorSummary = '$showVideoMini|$hasMusic|$coordinatorState';
+        if (_lastCoordinatorSummary != coordinatorSummary) {
+          debugPrint(
+            '[MainNavigation] _buildCoordinatedMiniPlayers - showVideoMini: $showVideoMini, hasMusic: $hasMusic, coordinatorState: $coordinatorState',
+          );
+          _lastCoordinatorSummary = coordinatorSummary;
+        }
+
+        final videoStateSummary =
+            '${videoState.showMiniPlayer}|${videoState.isMinimized}|${videoState.currentVideoId}';
+        if (_lastVideoStateSummary != videoStateSummary) {
+          debugPrint(
+            '[MainNavigation] videoState - showMiniPlayer: ${videoState.showMiniPlayer}, isMinimized: ${videoState.isMinimized}, currentVideoId: ${videoState.currentVideoId}',
+          );
+          _lastVideoStateSummary = videoStateSummary;
+        }
 
         // Respect explicit coordinator state when available
         if (coordinatorState == ActiveMediaPlayer.video) {
           // Coordinator says video should be visible
-          if (hasVideo) return const MiniVideoPlayer();
-          // fallthrough to other checks if no video present
+          if (showVideoMini) {
+            if (_lastMiniPlayerDecision != 'video-coordinator') {
+              debugPrint(
+                '[MainNavigation] Showing MiniVideoPlayer (coordinator)',
+              );
+              _lastMiniPlayerDecision = 'video-coordinator';
+            }
+            return const MiniVideoPlayer();
+          }
+          // fallthrough to other checks if no video mini player should show
         } else if (coordinatorState == ActiveMediaPlayer.music) {
           // Coordinator says music should be visible
-          if (hasMusic)
+          if (hasMusic) {
+            if (_lastMiniPlayerDecision != 'music-coordinator') {
+              _lastMiniPlayerDecision = 'music-coordinator';
+            }
             return MiniMusicPlayer(audioHandler).buildMiniPlayer(context);
+          }
           // fallthrough to other checks if no music present
         }
 
-        // Fallback priority: Video > Music
-        if (hasVideo) {
+        // Fallback priority: Video mini player > Music mini player
+        if (showVideoMini) {
+          if (_lastMiniPlayerDecision != 'video-fallback') {
+            debugPrint('[MainNavigation] Showing MiniVideoPlayer (fallback)');
+            _lastMiniPlayerDecision = 'video-fallback';
+          }
           return const MiniVideoPlayer();
         } else if (hasMusic) {
+          if (_lastMiniPlayerDecision != 'music-fallback') {
+            _lastMiniPlayerDecision = 'music-fallback';
+          }
           return MiniMusicPlayer(audioHandler).buildMiniPlayer(context);
         }
 
+        if (_lastMiniPlayerDecision != 'none') {
+          debugPrint('[MainNavigation] Showing nothing');
+          _lastMiniPlayerDecision = 'none';
+        }
         return const SizedBox.shrink();
       },
     );

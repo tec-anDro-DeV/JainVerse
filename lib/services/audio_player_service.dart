@@ -146,22 +146,23 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   /// Stream of the current effective sequence from just_audio
   Stream<List<IndexedAudioSource>> get _effectiveSequence =>
       Rx.combineLatest3<
-        List<IndexedAudioSource>?,
-        List<int>?,
-        bool,
-        List<IndexedAudioSource>?
-      >(
-        _player.sequenceStream,
-        _player.shuffleIndicesStream,
-        _player.shuffleModeEnabledStream,
-        (sequence, shuffleIndices, shuffleModeEnabled) {
-          if (sequence == null) return [];
-          if (!shuffleModeEnabled) return sequence;
-          if (shuffleIndices == null) return null;
-          if (shuffleIndices.length != sequence.length) return null;
-          return shuffleIndices.map((i) => sequence[i]).toList();
-        },
-      ).whereType<List<IndexedAudioSource>>();
+            List<IndexedAudioSource>?,
+            List<int>?,
+            bool,
+            List<IndexedAudioSource>?
+          >(
+            _player.sequenceStream,
+            _player.shuffleIndicesStream,
+            _player.shuffleModeEnabledStream,
+            (sequence, shuffleIndices, shuffleModeEnabled) {
+              if (sequence == null) return [];
+              if (!shuffleModeEnabled) return sequence;
+              if (shuffleIndices == null) return null;
+              if (shuffleIndices.length != sequence.length) return null;
+              return shuffleIndices.map((i) => sequence[i]).toList();
+            },
+          )
+          .whereType<List<IndexedAudioSource>>();
 
   /// Computes the effective queue index taking shuffle mode into account
   int? getQueueIndex(
@@ -1082,6 +1083,63 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     }
   }
 
+  /// Helper that retries playlist clear when just_audio throws a concurrent
+  /// modification / addStream StateError. This can happen when internal
+  /// plugin streams are mutating the playlist concurrently.
+  Future<void> _safeClearPlaylist({int maxAttempts = 4}) async {
+    int attempt = 0;
+    while (true) {
+      try {
+        await _playlist.clear().timeout(const Duration(seconds: 2));
+        return;
+      } catch (e) {
+        attempt++;
+        final msg = e.toString().toLowerCase();
+        // Detect the specific concurrent-addStream error message and retry
+        if (attempt < maxAttempts &&
+            (msg.contains('addstream') ||
+                msg.contains('you cannot add items'))) {
+          developer.log(
+            '[WARN][AudioPlayerHandlerImpl] _safeClearPlaylist: concurrent modification detected, retry #$attempt',
+            name: 'AudioPlayerHandlerImpl',
+          );
+          await Future.delayed(const Duration(milliseconds: 120));
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  /// Helper that retries playlist.addAll when just_audio throws a concurrent
+  /// modification / addStream StateError. Uses small backoff between attempts.
+  Future<void> _safeAddAllToPlaylist(
+    List<AudioSource> sources, {
+    int maxAttempts = 4,
+  }) async {
+    int attempt = 0;
+    while (true) {
+      try {
+        await _playlist.addAll(sources).timeout(const Duration(seconds: 4));
+        return;
+      } catch (e) {
+        attempt++;
+        final msg = e.toString().toLowerCase();
+        if (attempt < maxAttempts &&
+            (msg.contains('addstream') ||
+                msg.contains('you cannot add items'))) {
+          developer.log(
+            '[WARN][AudioPlayerHandlerImpl] _safeAddAllToPlaylist: concurrent modification detected, retry #$attempt',
+            name: 'AudioPlayerHandlerImpl',
+          );
+          await Future.delayed(const Duration(milliseconds: 120));
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
   @override
   Future<void> addQueueItem(MediaItem mediaItem) async {
     return _synchronizeQueueOperation(() async {
@@ -1153,8 +1211,8 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
           );
         }
 
-        // Clear the playlist completely
-        await _playlist.clear();
+        // Clear the playlist completely (use safe wrapper to handle concurrent plugin races)
+        await _safeClearPlaylist();
         developer.log(
           '[DEBUG][AudioPlayerHandlerImpl] Playlist cleared successfully',
           name: 'AudioPlayerHandlerImpl',
@@ -1247,9 +1305,9 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         ); // Reduced from 50ms
       }
 
-      // Clear the existing playlist completely
+      // Clear the existing playlist completely (use safe wrapper to handle concurrent plugin races)
       try {
-        await _playlist.clear().timeout(const Duration(seconds: 2));
+        await _safeClearPlaylist();
       } on TimeoutException {
         developer.log(
           '[WARN][AudioPlayerHandlerImpl] Playlist clear timed out',
@@ -1306,9 +1364,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       if (validSources.isNotEmpty) {
         // Add all new sources to the playlist with timeout
         try {
-          await _playlist
-              .addAll(validSources)
-              .timeout(const Duration(seconds: 4));
+          await _safeAddAllToPlaylist(validSources);
         } on TimeoutException {
           developer.log(
             '[WARN][AudioPlayerHandlerImpl] Adding sources to playlist timed out',
@@ -1490,10 +1546,9 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         // End of queue - handle repeat mode
         final repeatMode = playbackState.value.repeatMode;
         if (repeatMode == AudioServiceRepeatMode.all) {
-          final firstIndex =
-              _isShuffleEnabled && _shuffledIndices.isNotEmpty
-                  ? _shuffledIndices.first
-                  : 0;
+          final firstIndex = _isShuffleEnabled && _shuffledIndices.isNotEmpty
+              ? _shuffledIndices.first
+              : 0;
           await _player.seek(Duration.zero, index: firstIndex);
 
           // Track history for the song when wrapping around
@@ -1636,10 +1691,9 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         // Beginning of queue - handle repeat mode
         final repeatMode = playbackState.value.repeatMode;
         if (repeatMode == AudioServiceRepeatMode.all) {
-          final lastIndex =
-              _isShuffleEnabled && _shuffledIndices.isNotEmpty
-                  ? _shuffledIndices.last
-                  : queue.value.length - 1;
+          final lastIndex = _isShuffleEnabled && _shuffledIndices.isNotEmpty
+              ? _shuffledIndices.last
+              : queue.value.length - 1;
           await _player.seek(Duration.zero, index: lastIndex);
 
           // Track history for the song when wrapping around
@@ -1745,8 +1799,9 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       );
 
       // Calculate the effective index to seek to
-      final effectiveIndex =
-          _player.shuffleModeEnabled ? _player.shuffleIndices![index] : index;
+      final effectiveIndex = _player.shuffleModeEnabled
+          ? _player.shuffleIndices![index]
+          : index;
       developer.log(
         '[DEBUG][AudioPlayerHandlerImpl] 🎵 Effective index to seek to: $effectiveIndex (original: $index)',
         name: 'AudioPlayerHandlerImpl',
@@ -2397,14 +2452,13 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
             MediaAction.seekBackward,
           },
           androidCompactActionIndices: const [0, 1, 2],
-          processingState:
-              const {
-                ProcessingState.idle: AudioProcessingState.idle,
-                ProcessingState.loading: AudioProcessingState.loading,
-                ProcessingState.buffering: AudioProcessingState.buffering,
-                ProcessingState.ready: AudioProcessingState.ready,
-                ProcessingState.completed: AudioProcessingState.completed,
-              }[processingState]!,
+          processingState: const {
+            ProcessingState.idle: AudioProcessingState.idle,
+            ProcessingState.loading: AudioProcessingState.loading,
+            ProcessingState.buffering: AudioProcessingState.buffering,
+            ProcessingState.ready: AudioProcessingState.ready,
+            ProcessingState.completed: AudioProcessingState.completed,
+          }[processingState]!,
           playing: isPlaying,
           updatePosition: position,
           bufferedPosition: bufferedPosition,

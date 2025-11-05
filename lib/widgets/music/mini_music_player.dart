@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:audio_service/audio_service.dart';
@@ -107,6 +108,19 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   bool _isVisible = false;
   // Lightweight notifier to request small UI refreshes without full setState
   final ValueNotifier<int> _refreshNotifier = ValueNotifier<int>(0);
+  double _rawHorizontalDragOffset = 0.0;
+  double _horizontalDragOffset = 0.0;
+  double _dismissThreshold = 120.0;
+  AnimationController? _dragAnimationController;
+  Animation<double>? _dragAnimation;
+  bool _isDismissing = false;
+  double _screenWidth = 0.0;
+  bool _awaitingNewPlaybackAfterDismiss = false;
+  String? _lastDismissedMediaToken;
+  Timer? _showDelayTimer;
+  // Interactive seeking state for the progress bar
+  double? _interactiveSeekingMs;
+  bool _isInteractingWithProgress = false;
 
   @override
   void initState() {
@@ -143,16 +157,26 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     );
 
     // Slide animation (from bottom to top)
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0.0, 1.0), // Start from bottom (off-screen)
-      end: Offset.zero, // End at normal position
-    ).animate(
-      CurvedAnimation(parent: _slideAnimationController, curve: _slideInCurve),
-    );
+    _slideAnimation =
+        Tween<Offset>(
+          begin: const Offset(0.0, 1.0), // Start from bottom (off-screen)
+          end: Offset.zero, // End at normal position
+        ).animate(
+          CurvedAnimation(
+            parent: _slideAnimationController,
+            curve: _slideInCurve,
+          ),
+        );
 
     // Fade animation
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeAnimationController, curve: _fadeInCurve),
+    );
+
+    // Drag animation controller for swipe-to-dismiss interactions
+    _dragAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
     );
   }
 
@@ -180,6 +204,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     if (!_isVisible) {
       setState(() {
         _isVisible = true;
+        _horizontalDragOffset = 0.0;
+        _rawHorizontalDragOffset = 0.0;
+        _isDismissing = false;
       });
 
       // Stagger the animations for a more polished look
@@ -199,6 +226,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
   void _hideMiniPlayer() {
     if (_isVisible) {
+      _showDelayTimer?.cancel();
       // Reverse animations
       _fadeAnimationController.reverse();
 
@@ -208,6 +236,11 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
             if (mounted) {
               setState(() {
                 _isVisible = false;
+                _horizontalDragOffset = 0.0;
+                _rawHorizontalDragOffset = 0.0;
+                if (!_awaitingNewPlaybackAfterDismiss) {
+                  _lastDismissedMediaToken = null;
+                }
               });
             }
           });
@@ -220,7 +253,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   void dispose() {
     _slideAnimationController.dispose();
     _fadeAnimationController.dispose();
+    _dragAnimationController?.dispose();
     _refreshNotifier.dispose();
+    _showDelayTimer?.cancel();
     super.dispose();
   }
 
@@ -230,16 +265,60 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       stream: widget.audioHandler?.mediaItem,
       builder: (context, snapshot) {
         final mediaItem = snapshot.data;
-        final shouldShow =
+        bool shouldShow =
             mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
 
-        // Update visibility state
+        if (_awaitingNewPlaybackAfterDismiss) {
+          final bool isPlaying = widget.musicManager.isPlaying;
+          final bool hasMedia = mediaItem != null;
+          final String? currentToken = _mediaToken(mediaItem);
+          final bool matchesDismissedToken =
+              currentToken != null && currentToken == _lastDismissedMediaToken;
+
+          final bool restartedSameMedia =
+              matchesDismissedToken &&
+              widget.musicManager.position.inMilliseconds <= 1500;
+          final bool differentMedia =
+              hasMedia &&
+              currentToken != null &&
+              currentToken != _lastDismissedMediaToken;
+
+          final bool isNewPlayback =
+              isPlaying &&
+              hasMedia &&
+              (differentMedia ||
+                  restartedSameMedia ||
+                  _lastDismissedMediaToken == null);
+
+          if (isNewPlayback) {
+            _handleNewPlaybackDetected();
+            shouldShow = false;
+          } else {
+            shouldShow = false;
+          }
+        }
+
+        // Update visibility state. Use a short debounce when showing to avoid
+        // micro-flashes when UI toggles rapidly (e.g., stop -> immediate new play).
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Cancel any pending show timer when visibility decisions change
+          _showDelayTimer?.cancel();
+
           if (shouldShow && !_hasMediaItem) {
-            _showMiniPlayer();
+            // Debounce the show slightly so transient states don't flash the UI.
+            _showDelayTimer = Timer(const Duration(milliseconds: 150), () {
+              if (!mounted) return;
+              // If we had an explicit manual dismiss and we're still awaiting a
+              // new playback session, don't auto-show until _handleNewPlaybackDetected
+              if (_awaitingNewPlaybackAfterDismiss) return;
+              _showMiniPlayer();
+            });
           } else if (!shouldShow && _hasMediaItem) {
+            // If we need to hide, cancel pending show and hide immediately.
+            _showDelayTimer?.cancel();
             _hideMiniPlayer();
           }
+
           _hasMediaItem = shouldShow;
         });
 
@@ -259,8 +338,205 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     );
   }
 
+  void _onHorizontalDragStart(DragStartDetails details) {
+    if (_dragAnimationController?.isAnimating ?? false) {
+      _dragAnimationController!.stop();
+    }
+
+    _rawHorizontalDragOffset = 0.0;
+    _horizontalDragOffset = 0.0;
+    _isDismissing = false;
+  }
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    _rawHorizontalDragOffset += details.delta.dx;
+    final mapped = _mapDragWithResistance(_rawHorizontalDragOffset);
+
+    setState(() {
+      _horizontalDragOffset = mapped;
+    });
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    final rawAbs = _rawHorizontalDragOffset.abs();
+    final velocityAbs = details.velocity.pixelsPerSecond.dx.abs();
+
+    final resistanceWindow = _dismissThreshold * 0.4;
+
+    if (rawAbs < resistanceWindow && velocityAbs < 650) {
+      _animateHorizontalOffsetTo(0.0);
+      return;
+    }
+
+    final shouldDismiss = rawAbs >= _dismissThreshold || velocityAbs > 850;
+
+    if (shouldDismiss) {
+      final sign = _rawHorizontalDragOffset.sign == 0
+          ? 1.0
+          : _rawHorizontalDragOffset.sign;
+      final screenWidth = _screenWidth > 0 && _screenWidth.isFinite
+          ? _screenWidth
+          : (mounted ? MediaQuery.of(context).size.width : 0.0);
+      final target = sign * (screenWidth + 120.0);
+      _animateHorizontalOffsetTo(target);
+    } else {
+      _animateHorizontalOffsetTo(0.0);
+    }
+  }
+
+  void _handleNewPlaybackDetected() {
+    if (!_awaitingNewPlaybackAfterDismiss) return;
+
+    _awaitingNewPlaybackAfterDismiss = false;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _awaitingNewPlaybackAfterDismiss = false;
+        _lastDismissedMediaToken = null;
+        _hasMediaItem = false;
+        _isVisible = false;
+        _horizontalDragOffset = 0.0;
+        _rawHorizontalDragOffset = 0.0;
+      });
+    });
+  }
+
+  String? _mediaToken(MediaItem? item) {
+    if (item == null) return null;
+    if (item.id.isNotEmpty) return item.id;
+    if (item.title.isNotEmpty) return 'title:${item.title}';
+    return null;
+  }
+
+  double _mapDragWithResistance(double rawDx) {
+    final sign = rawDx.sign == 0 ? 1.0 : rawDx.sign;
+    final absRaw = rawDx.abs();
+
+    final resistanceWindow = _dismissThreshold * 0.4;
+
+    const firstFactor = 0.12;
+    const midFactor = 0.6;
+
+    if (absRaw <= resistanceWindow) {
+      return sign * absRaw * firstFactor;
+    }
+
+    if (absRaw <= _dismissThreshold) {
+      final firstDisplayed = resistanceWindow * firstFactor;
+      final extra = absRaw - resistanceWindow;
+      return sign * (firstDisplayed + extra * midFactor);
+    }
+
+    final firstDisplayed = resistanceWindow * firstFactor;
+    final midDisplayed = (_dismissThreshold - resistanceWindow) * midFactor;
+    final overflow = absRaw - _dismissThreshold;
+    return sign * (firstDisplayed + midDisplayed + overflow);
+  }
+
+  void _animateHorizontalOffsetTo(double target, {Duration? duration}) {
+    final controller = _dragAnimationController ??= AnimationController(
+      duration: duration ?? const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    if (controller.isAnimating) {
+      controller.stop();
+    }
+
+    controller.duration = duration ?? const Duration(milliseconds: 300);
+
+    _dragAnimation =
+        Tween<double>(begin: _horizontalDragOffset, end: target).animate(
+          CurvedAnimation(parent: controller, curve: Curves.easeOutCubic),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            _horizontalDragOffset = _dragAnimation!.value;
+          });
+        });
+
+    controller
+      ..reset()
+      ..forward().whenComplete(() async {
+        if (!mounted) {
+          return;
+        }
+
+        final sw = _screenWidth > 0 && _screenWidth.isFinite
+            ? _screenWidth
+            : MediaQuery.of(context).size.width;
+
+        if (!_isDismissing && target.abs() > sw) {
+          _isDismissing = true;
+          await _dismissMiniPlayer();
+        } else if (target == 0.0) {
+          _rawHorizontalDragOffset = 0.0;
+          _horizontalDragOffset = 0.0;
+        }
+      });
+  }
+
+  Future<void> _dismissMiniPlayer() async {
+    final dismissedMedia = widget.musicManager.getCurrentMediaItem();
+    String? dismissedToken;
+    if (dismissedMedia != null && dismissedMedia.id.isNotEmpty) {
+      dismissedToken = dismissedMedia.id;
+    } else if (MiniMusicPlayer.musicName.isNotEmpty) {
+      dismissedToken = 'title:${MiniMusicPlayer.musicName}';
+    }
+
+    if (mounted) {
+      setState(() {
+        _awaitingNewPlaybackAfterDismiss = true;
+        _lastDismissedMediaToken = dismissedToken;
+      });
+    } else {
+      _awaitingNewPlaybackAfterDismiss = true;
+      _lastDismissedMediaToken = dismissedToken;
+    }
+
+    _hideMiniPlayer();
+
+    try {
+      await widget.musicManager.stopAndDisposeAll(reason: 'mini-dismiss');
+    } catch (error, stackTrace) {
+      developer.log(
+        '[MiniMusicPlayer] Failed to stop audio during dismiss: $error',
+        name: 'MiniMusicPlayer',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    widget.musicManager.clearProcessingAudioId();
+    MiniMusicPlayer.musicName = '';
+    MiniMusicPlayer.artistName = '';
+    MiniMusicPlayer.musicImage = '';
+    MiniMusicPlayer.mainPosition = 0.0;
+    MiniMusicPlayer.maxDuration = 0.0;
+
+    if (mounted) {
+      setState(() {
+        _hasMediaItem = false;
+        _horizontalDragOffset = 0.0;
+        _rawHorizontalDragOffset = 0.0;
+      });
+    }
+
+    _isDismissing = false;
+  }
+
   Widget _buildMiniPlayerContent(BuildContext context) {
-    return Container(
+    final screenWidth = MediaQuery.of(context).size.width;
+    _screenWidth = screenWidth;
+    _dismissThreshold = (screenWidth * 0.25).clamp(100.0, screenWidth);
+    final opacity = (1.0 - (_horizontalDragOffset.abs() / screenWidth)).clamp(
+      0.0,
+      1.0,
+    );
+
+    final miniPlayerCard = Container(
       height: _MiniPlayerConfig.height,
       margin: EdgeInsets.only(
         left: _MiniPlayerConfig.marginHorizontal,
@@ -283,14 +559,13 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           // Provide cached data as initial state
           MiniMusicPlayer.musicName.isNotEmpty
               ? MediaItem(
-                id: 'cached',
-                title: MiniMusicPlayer.musicName,
-                artist: MiniMusicPlayer.artistName,
-                artUri:
-                    MiniMusicPlayer.musicImage.isNotEmpty
-                        ? Uri.parse(MiniMusicPlayer.musicImage)
-                        : null,
-              )
+                  id: 'cached',
+                  title: MiniMusicPlayer.musicName,
+                  artist: MiniMusicPlayer.artistName,
+                  artUri: MiniMusicPlayer.musicImage.isNotEmpty
+                      ? Uri.parse(MiniMusicPlayer.musicImage)
+                      : null,
+                )
               : null,
           Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
           isPlaying: widget.musicManager.isPlaying,
@@ -314,10 +589,8 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           }
 
           // Calculate progress with enhanced fallback logic
-          final (
-            currentPositionMs,
-            maxDurationMs,
-          ) = _calculateProgressWithFallback(currentMediaItem, currentPosition);
+          final (currentPositionMs, maxDurationMs) =
+              _calculateProgressWithFallback(currentMediaItem, currentPosition);
 
           // Update static properties for persistent state
           if (currentMediaItem != null) {
@@ -332,31 +605,41 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
           return ValueListenableBuilder<int>(
             valueListenable: _refreshNotifier,
-            builder:
-                (context, _, __) => Stack(
-                  children: [
-                    // If there is an optimistic processing audio id but no media item yet,
-                    // render a lightweight optimistic skeleton so user knows the tap worked.
-                    if (widget.musicManager.processingAudioId.value != null &&
-                        currentMediaItem == null)
-                      _buildOptimisticMiniPlayer(
-                        context,
-                        widget.musicManager.processingAudioId.value!,
-                      )
-                    else
-                      _buildMainContent(
-                        context,
-                        MediaState(
-                          currentMediaItem,
-                          currentPosition,
-                          isPlaying: isCurrentlyPlaying,
-                        ),
-                      ),
-                    _buildProgressBar(currentPositionMs, maxDurationMs),
-                  ],
-                ),
+            builder: (context, _, __) => Stack(
+              children: [
+                // If there is an optimistic processing audio id but no media item yet,
+                // render a lightweight optimistic skeleton so user knows the tap worked.
+                if (widget.musicManager.processingAudioId.value != null &&
+                    currentMediaItem == null)
+                  _buildOptimisticMiniPlayer(
+                    context,
+                    widget.musicManager.processingAudioId.value!,
+                  )
+                else
+                  _buildMainContent(
+                    context,
+                    MediaState(
+                      currentMediaItem,
+                      currentPosition,
+                      isPlaying: isCurrentlyPlaying,
+                    ),
+                  ),
+                _buildProgressBar(currentPositionMs, maxDurationMs),
+              ],
+            ),
           );
         },
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: _onHorizontalDragStart,
+      onHorizontalDragUpdate: _onHorizontalDragUpdate,
+      onHorizontalDragEnd: _onHorizontalDragEnd,
+      child: Transform.translate(
+        offset: Offset(_horizontalDragOffset, 0),
+        child: Opacity(opacity: opacity, child: miniPlayerCard),
       ),
     );
   }
@@ -436,69 +719,67 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   }
 
   /// Combines media item and position streams for UI updates with enhanced state persistence
-  Stream<MediaState> get _mediaStateStream => Rx.combineLatest4<
-        MediaItem?,
-        Duration,
-        bool,
-        PlaybackState,
-        MediaState
-      >(
-        // Enhanced media item stream that ensures state persistence
-        _buildEnhancedMediaItemStream(),
-        // Enhanced position stream that works for both playing and paused states
-        _buildEnhancedPositionStream(),
-        // Enhanced playing state stream
-        _buildEnhancedPlayingStateStream(),
-        // Include full playback state for comprehensive updates
-        widget.musicManager.audioHandler?.playbackState ??
-            Stream.value(PlaybackState()),
-        (mediaItem, position, isPlaying, playbackState) {
-          // Update static properties immediately for state persistence
-          if (mediaItem != null) {
-            MiniMusicPlayer.musicName = mediaItem.title;
-            MiniMusicPlayer.artistName = mediaItem.artist ?? '';
-            MiniMusicPlayer.musicImage = mediaItem.artUri?.toString() ?? '';
-            MiniMusicPlayer.mainPosition = position.inMilliseconds.toDouble();
-            if (mediaItem.duration != null) {
-              MiniMusicPlayer.maxDuration =
-                  mediaItem.duration!.inMilliseconds.toDouble();
-            }
-          }
+  Stream<MediaState> get _mediaStateStream =>
+      Rx.combineLatest4<MediaItem?, Duration, bool, PlaybackState, MediaState>(
+            // Enhanced media item stream that ensures state persistence
+            _buildEnhancedMediaItemStream(),
+            // Enhanced position stream that works for both playing and paused states
+            _buildEnhancedPositionStream(),
+            // Enhanced playing state stream
+            _buildEnhancedPlayingStateStream(),
+            // Include full playback state for comprehensive updates
+            widget.musicManager.audioHandler?.playbackState ??
+                Stream.value(PlaybackState()),
+            (mediaItem, position, isPlaying, playbackState) {
+              // Update static properties immediately for state persistence
+              if (mediaItem != null) {
+                MiniMusicPlayer.musicName = mediaItem.title;
+                MiniMusicPlayer.artistName = mediaItem.artist ?? '';
+                MiniMusicPlayer.musicImage = mediaItem.artUri?.toString() ?? '';
+                MiniMusicPlayer.mainPosition = position.inMilliseconds
+                    .toDouble();
+                if (mediaItem.duration != null) {
+                  MiniMusicPlayer.maxDuration = mediaItem
+                      .duration!
+                      .inMilliseconds
+                      .toDouble();
+                }
+              }
 
-          return MediaState(mediaItem, position, isPlaying: isPlaying);
-        },
-      )
-      .distinct(
-        (previous, next) =>
-            // More lenient comparison to ensure updates when paused
-            previous.mediaItem?.id == next.mediaItem?.id &&
-            (previous.position.inSeconds == next.position.inSeconds) &&
-            previous.isPlaying == next.isPlaying,
-      )
-      .handleError((error) {
-        // Handle stream errors gracefully
-        developer.log(
-          '[ERROR][MiniMusicPlayer] Media state stream error: $error',
-          name: 'MiniMusicPlayer',
-          error: error,
-        );
-        // Return a fallback state based on cached data
-        return MediaState(
-          MiniMusicPlayer.musicName.isNotEmpty
-              ? MediaItem(
-                id: 'cached',
-                title: MiniMusicPlayer.musicName,
-                artist: MiniMusicPlayer.artistName,
-                artUri:
-                    MiniMusicPlayer.musicImage.isNotEmpty
-                        ? Uri.parse(MiniMusicPlayer.musicImage)
-                        : null,
-              )
-              : null,
-          Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
-          isPlaying: false,
-        );
-      });
+              return MediaState(mediaItem, position, isPlaying: isPlaying);
+            },
+          )
+          .distinct(
+            (previous, next) =>
+                // Use millisecond resolution so UI (progress bar) updates smoothly
+                previous.mediaItem?.id == next.mediaItem?.id &&
+                (previous.position.inMilliseconds ==
+                    next.position.inMilliseconds) &&
+                previous.isPlaying == next.isPlaying,
+          )
+          .handleError((error) {
+            // Handle stream errors gracefully
+            developer.log(
+              '[ERROR][MiniMusicPlayer] Media state stream error: $error',
+              name: 'MiniMusicPlayer',
+              error: error,
+            );
+            // Return a fallback state based on cached data
+            return MediaState(
+              MiniMusicPlayer.musicName.isNotEmpty
+                  ? MediaItem(
+                      id: 'cached',
+                      title: MiniMusicPlayer.musicName,
+                      artist: MiniMusicPlayer.artistName,
+                      artUri: MiniMusicPlayer.musicImage.isNotEmpty
+                          ? Uri.parse(MiniMusicPlayer.musicImage)
+                          : null,
+                    )
+                  : null,
+              Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
+              isPlaying: false,
+            );
+          });
 
   /// Enhanced media item stream that ensures persistence across states
   Stream<MediaItem?> _buildEnhancedMediaItemStream() {
@@ -512,18 +793,16 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       // Emergency fallback: static cached data
       Stream.periodic(const Duration(milliseconds: 5000))
           .map(
-            (_) =>
-                MiniMusicPlayer.musicName.isNotEmpty
-                    ? MediaItem(
-                      id: 'cached',
-                      title: MiniMusicPlayer.musicName,
-                      artist: MiniMusicPlayer.artistName,
-                      artUri:
-                          MiniMusicPlayer.musicImage.isNotEmpty
-                              ? Uri.parse(MiniMusicPlayer.musicImage)
-                              : null,
-                    )
-                    : null,
+            (_) => MiniMusicPlayer.musicName.isNotEmpty
+                ? MediaItem(
+                    id: 'cached',
+                    title: MiniMusicPlayer.musicName,
+                    artist: MiniMusicPlayer.artistName,
+                    artUri: MiniMusicPlayer.musicImage.isNotEmpty
+                        ? Uri.parse(MiniMusicPlayer.musicImage)
+                        : null,
+                  )
+                : null,
           )
           .where((item) => item != null),
     ]).distinct((prev, next) => prev?.id == next?.id);
@@ -547,7 +826,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       Stream.periodic(const Duration(milliseconds: 2000)).map(
         (_) => Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
       ),
-    ]).distinct((prev, next) => prev.inSeconds == next.inSeconds);
+    ]).distinct((prev, next) => prev.inMilliseconds == next.inMilliseconds);
   }
 
   /// Enhanced playing state stream that ensures accurate state reporting
@@ -584,10 +863,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
     // Fallback: use cached values
     final posMs = position.inMilliseconds.toDouble();
-    final cachedMax =
-        MiniMusicPlayer.maxDuration > 0
-            ? MiniMusicPlayer.maxDuration
-            : posMs + 30000; // Default to 30s ahead if no duration
+    final cachedMax = MiniMusicPlayer.maxDuration > 0
+        ? MiniMusicPlayer.maxDuration
+        : posMs + 30000; // Default to 30s ahead if no duration
 
     MiniMusicPlayer.mainPosition = posMs <= cachedMax ? posMs : cachedMax;
 
@@ -601,8 +879,8 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       MiniMusicPlayer.musicName = mediaItem.title;
       MiniMusicPlayer.artistName = mediaItem.artist ?? '';
       MiniMusicPlayer.musicImage = mediaItem.artUri?.toString() ?? '';
-      MiniMusicPlayer.mainPosition =
-          mediaState.position.inMilliseconds.toDouble();
+      MiniMusicPlayer.mainPosition = mediaState.position.inMilliseconds
+          .toDouble();
     }
   }
 
@@ -612,27 +890,194 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       bottom: 0.5.w,
       left: 0,
       right: 0,
-      child: Container(
-        height: _MiniPlayerConfig.progressBarHeight,
-        margin: EdgeInsets.symmetric(horizontal: 8.w),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.all(
-            Radius.circular(_MiniPlayerConfig.borderRadius),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.all(
-            Radius.circular(_MiniPlayerConfig.borderRadius),
-          ),
-          child: LinearProgressIndicator(
-            value: maxValue > 0 ? (value / maxValue).clamp(0.0, 1.0) : 0.0,
-            backgroundColor: appColors().gray[100],
-            valueColor: AlwaysStoppedAnimation<Color>(
-              _MiniPlayerConfig.primaryColor,
-            ),
-            minHeight: _MiniPlayerConfig.progressBarHeight,
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+
+          // If user is actively dragging the progress, show the interactive value
+          final displayedMs =
+              _isInteractingWithProgress && _interactiveSeekingMs != null
+              ? _interactiveSeekingMs!.clamp(0.0, maxValue)
+              : value.clamp(0.0, maxValue);
+
+          final progressRatio = (maxValue > 0)
+              ? (displayedMs / maxValue).clamp(0.0, 1.0)
+              : 0.0;
+
+          // Account for the horizontal padding when positioning thumbs/dot.
+          final paddingH = _MiniPlayerConfig.paddingHorizontal;
+          final innerTrackWidth = (width - (2 * paddingH)).clamp(0.0, width);
+
+          void performSeekFromOffset(Offset localPos) {
+            final dx = localPos.dx.clamp(0.0, width);
+            final ratio = width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
+            final targetMs = (ratio * maxValue).round();
+            final target = Duration(milliseconds: targetMs);
+
+            // Prefer the MusicManager wrapper; fallback to audioHandler.
+            try {
+              widget.musicManager.seek(target);
+            } catch (e) {
+              try {
+                widget.musicManager.audioHandler?.seek(target);
+              } catch (_) {}
+            }
+
+            // Update immediate UI cache for responsiveness
+            MiniMusicPlayer.mainPosition = targetMs.toDouble();
+            _refreshNotifier.value = _refreshNotifier.value + 1;
+          }
+
+          return Stack(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTapDown: (details) {
+                  performSeekFromOffset(details.localPosition);
+                },
+                onHorizontalDragStart: (details) {
+                  setState(() {
+                    _isInteractingWithProgress = true;
+                    // initialize with the current value
+                    _interactiveSeekingMs = value;
+                  });
+                },
+                onHorizontalDragUpdate: (details) {
+                  final dx = details.localPosition.dx.clamp(0.0, width);
+                  final ratio = width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
+                  final seekMs = (ratio * maxValue).toDouble();
+                  setState(() {
+                    _interactiveSeekingMs = seekMs;
+                    MiniMusicPlayer.mainPosition = seekMs;
+                  });
+                  _refreshNotifier.value = _refreshNotifier.value + 1;
+                },
+                onHorizontalDragEnd: (details) {
+                  if (_interactiveSeekingMs != null) {
+                    final target = Duration(
+                      milliseconds: _interactiveSeekingMs!.round(),
+                    );
+                    try {
+                      widget.musicManager.seek(target);
+                    } catch (e) {
+                      widget.musicManager.audioHandler?.seek(target);
+                    }
+                  }
+                  setState(() {
+                    _isInteractingWithProgress = false;
+                    _interactiveSeekingMs = null;
+                  });
+                },
+                child: Container(
+                  height: _MiniPlayerConfig.progressBarHeight + 6.w,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _MiniPlayerConfig.paddingHorizontal,
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Stack(
+                    children: [
+                      // Background track
+                      Container(
+                        height: _MiniPlayerConfig.progressBarHeight,
+                        decoration: BoxDecoration(
+                          color: appColors().gray[100],
+                          borderRadius: BorderRadius.circular(4.w),
+                        ),
+                      ),
+                      // Active progress (uses inner track width)
+                      SizedBox(
+                        width: innerTrackWidth,
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progressRatio,
+                          child: Container(
+                            height: _MiniPlayerConfig.progressBarHeight,
+                            decoration: BoxDecoration(
+                              color: _MiniPlayerConfig.primaryColor,
+                              borderRadius: BorderRadius.circular(4.w),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Thumb indicator (positioned within the inner track)
+                      Positioned(
+                        left: ((innerTrackWidth * progressRatio) - (6.w / 2))
+                            .clamp(0.0, innerTrackWidth - 6.w),
+                        top: -((6.w - _MiniPlayerConfig.progressBarHeight) / 2),
+                        child: Container(
+                          width: 6.w,
+                          height: 6.w,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.18),
+                                blurRadius: 4.w,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Overlay dot similar to video mini player
+              Builder(
+                builder: (ctx) {
+                  final dotSize = 12.w;
+                  // filled width inside the padded track
+                  final filledWidth = innerTrackWidth * progressRatio;
+                  // left boundaries for the dot (respect padding)
+                  final minLeft = _MiniPlayerConfig.paddingHorizontal;
+                  final maxLeft =
+                      _MiniPlayerConfig.paddingHorizontal +
+                      innerTrackWidth -
+                      dotSize;
+                  final dotLeft = (minLeft + (filledWidth - dotSize / 2)).clamp(
+                    minLeft,
+                    maxLeft,
+                  );
+
+                  return Positioned(
+                    left: dotLeft,
+                    bottom:
+                        3.w +
+                        (_MiniPlayerConfig.progressBarHeight - dotSize) / 2,
+                    child: Container(
+                      width: dotSize,
+                      height: dotSize,
+                      decoration: BoxDecoration(
+                        color: _MiniPlayerConfig.primaryColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 2.w,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: dotSize * 0.58,
+                          height: dotSize * 0.58,
+                          decoration: BoxDecoration(
+                            color: _MiniPlayerConfig.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -645,10 +1090,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         onTap: () => _navigateToFullPlayer(context),
         borderRadius: BorderRadius.circular(_MiniPlayerConfig.borderRadius),
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: _MiniPlayerConfig.paddingHorizontal,
-            vertical: _MiniPlayerConfig.paddingVertical,
-          ),
+          padding: EdgeInsets.fromLTRB(10.w, 5.w, 10.w, 10.w),
           child: Row(
             children: [
               _buildAlbumArt(mediaState),
@@ -733,10 +1175,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
             Text(
               title,
               style: TextStyle(
-                fontSize:
-                    shouldUseCompactLayout
-                        ? AppSizes.fontMedium * 0.9
-                        : AppSizes.fontMedium,
+                fontSize: shouldUseCompactLayout
+                    ? AppSizes.fontMedium * 0.9
+                    : AppSizes.fontMedium,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
                 fontFamily: 'Poppins',
@@ -750,10 +1191,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
             Text(
               artist,
               style: TextStyle(
-                fontSize:
-                    shouldUseCompactLayout
-                        ? AppSizes.fontSmall * 0.9
-                        : AppSizes.fontSmall,
+                fontSize: shouldUseCompactLayout
+                    ? AppSizes.fontSmall * 0.9
+                    : AppSizes.fontSmall,
                 color: appColors().gray[700],
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w400,
@@ -781,8 +1221,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
             final managerIsPlaying = widget.musicManager.isPlaying;
 
             // Prefer stream data if available, fallback to manager
-            final isPlaying =
-                playbackSnapshot.hasData ? streamIsPlaying : managerIsPlaying;
+            final isPlaying = playbackSnapshot.hasData
+                ? streamIsPlaying
+                : managerIsPlaying;
 
             final streamProcessingState =
                 playbackSnapshot.data?.processingState;
@@ -804,19 +1245,18 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
                   ),
                   onTap: () => _handlePlayPause(isPlaying),
                   child: Center(
-                    child:
-                        isLoading
-                            ? SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  _MiniPlayerConfig.primaryColor,
-                                ),
+                    child: isLoading
+                        ? SizedBox(
+                            width: 20.w,
+                            height: 20.w,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.0,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _MiniPlayerConfig.primaryColor,
                               ),
-                            )
-                            : _buildPlayIcon(isPlaying),
+                            ),
+                          )
+                        : _buildPlayIcon(isPlaying),
                   ),
                 ),
               ),
@@ -921,29 +1361,28 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       currentIndexToUse = currentIndex >= 0 ? currentIndex : indixes;
     } else if (currentQueue.isNotEmpty) {
       // Fallback: create minimal DataMusic objects from MediaItems
-      currentMusicList =
-          currentQueue.map((mediaItem) {
-            return DataMusic(
-              int.tryParse(mediaItem.id) ?? 0, // id
-              mediaItem.artUri?.toString() ?? '', // image
-              mediaItem.id, // audio (URL)
-              '00:00', // audio_duration - default
-              mediaItem.title, // audio_title
-              '', // audio_slug
-              0, // audio_genre_id
-              '', // artist_id
-              mediaItem.artist ?? '', // artists_name
-              '', // audio_language
-              0, // listening_count
-              0, // is_featured
-              0, // is_trending
-              '', // created_at
-              0, // is_recommended
-              '0', // favourite
-              '', // download_price
-              '', // lyrics
-            );
-          }).toList();
+      currentMusicList = currentQueue.map((mediaItem) {
+        return DataMusic(
+          int.tryParse(mediaItem.id) ?? 0, // id
+          mediaItem.artUri?.toString() ?? '', // image
+          mediaItem.id, // audio (URL)
+          '00:00', // audio_duration - default
+          mediaItem.title, // audio_title
+          '', // audio_slug
+          0, // audio_genre_id
+          '', // artist_id
+          mediaItem.artist ?? '', // artists_name
+          '', // audio_language
+          0, // listening_count
+          0, // is_featured
+          0, // is_trending
+          '', // created_at
+          0, // is_recommended
+          '0', // favourite
+          '', // download_price
+          '', // lyrics
+        );
+      }).toList();
       currentIndexToUse = currentIndex >= 0 ? currentIndex : 0;
     }
 
@@ -964,27 +1403,26 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       PerformanceDebouncer.safePush(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => MusicPlayerUI(
-                widget.audioHandler!,
-                MiniMusicPlayer.musicImage.isNotEmpty
-                    ? MiniMusicPlayer.musicImage
-                    : 'assets/images/song_placeholder.png', // pathImage
-                "miniPlayer", // audioPath - source identifier
-                currentMusicList, // listData
-                '', // catImages - not needed for mini player navigation
-                currentIndexToUse, // index
-                false, // isOffline
-                "miniPlayer", // audioPathMain - source identifier
-                isOpn: true, // for proper modal behavior
-                ontap: () {
-                  // Simple back navigation - just pop the full screen
-                  Navigator.of(context).pop();
-                },
-                skipQueueSetup:
-                    true, // CRITICAL: Skip queue setup to prevent song restart
-                queueAlreadySetup: true, // Queue is already set up and playing
-              ),
+          builder: (context) => MusicPlayerUI(
+            widget.audioHandler!,
+            MiniMusicPlayer.musicImage.isNotEmpty
+                ? MiniMusicPlayer.musicImage
+                : 'assets/images/song_placeholder.png', // pathImage
+            "miniPlayer", // audioPath - source identifier
+            currentMusicList, // listData
+            '', // catImages - not needed for mini player navigation
+            currentIndexToUse, // index
+            false, // isOffline
+            "miniPlayer", // audioPathMain - source identifier
+            isOpn: true, // for proper modal behavior
+            ontap: () {
+              // Simple back navigation - just pop the full screen
+              Navigator.of(context).pop();
+            },
+            skipQueueSetup:
+                true, // CRITICAL: Skip queue setup to prevent song restart
+            queueAlreadySetup: true, // Queue is already set up and playing
+          ),
           // Make it a fullscreen modal
           fullscreenDialog: true,
           settings: const RouteSettings(name: '/mini_player_to_full'),
@@ -1013,20 +1451,19 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       PerformanceDebouncer.safePush(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => Music(
-                widget.audioHandler!,
-                idTag,
-                type,
-                currentMusicList,
-                "miniPlayer", // Source identifier
-                currentIndexToUse,
-                true, // isOpn = true for proper modal behavior
-                () {
-                  // Simple back navigation - just pop the full screen
-                  Navigator.of(context).pop();
-                },
-              ),
+          builder: (context) => Music(
+            widget.audioHandler!,
+            idTag,
+            type,
+            currentMusicList,
+            "miniPlayer", // Source identifier
+            currentIndexToUse,
+            true, // isOpn = true for proper modal behavior
+            () {
+              // Simple back navigation - just pop the full screen
+              Navigator.of(context).pop();
+            },
+          ),
           fullscreenDialog: true,
           settings: const RouteSettings(name: '/mini_player_to_full_fallback'),
         ),
