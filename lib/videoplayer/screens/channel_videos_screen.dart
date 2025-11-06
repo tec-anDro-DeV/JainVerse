@@ -5,11 +5,12 @@ import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/videoplayer/models/channel_video_list_view_model.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/services/channel_video_service.dart';
-import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/animated_subscribe_button.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
+import 'package:jainverse/videoplayer/managers/report_state_manager.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/main.dart';
@@ -52,6 +53,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
     // Listen to subscription and like/dislike state changes
     SubscriptionStateManager().addListener(_onSubscriptionChanged);
     LikeDislikeStateManager().addListener(_onLikeDislikeChanged);
+    ReportStateManager().addListener(_onReportChanged);
 
     _loadCurrentUserId();
     _vm.refresh(channelId: widget.channelId);
@@ -63,8 +65,24 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
       final sharedPref = SharedPref();
       final userData = await sharedPref.getUserData();
       if (mounted && userData != null) {
+        int? uid;
+        try {
+          // `getUserData()` returns a UserModel which contains a `data` object
+          // with the actual user id. Handle both UserModel and UserData shapes.
+          if (userData is Map && userData['id'] != null) {
+            uid = userData['id'] as int;
+          } else if (userData.runtimeType.toString().contains('UserModel')) {
+            // Access via dynamic to avoid import cycles
+            uid = (userData as dynamic).data.id as int?;
+          } else if (userData.runtimeType.toString().contains('UserData')) {
+            uid = (userData as dynamic).id as int?;
+          }
+        } catch (e) {
+          debugPrint('Error extracting user id from stored user data: $e');
+        }
+
         setState(() {
-          _currentUserId = userData.id;
+          _currentUserId = uid;
         });
       }
     } catch (e) {
@@ -99,6 +117,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
     // Remove subscription and like/dislike listeners
     SubscriptionStateManager().removeListener(_onSubscriptionChanged);
     LikeDislikeStateManager().removeListener(_onLikeDislikeChanged);
+    ReportStateManager().removeListener(_onReportChanged);
 
     super.dispose();
   }
@@ -184,8 +203,53 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   // Callback when like/dislike state changes globally
   void _onLikeDislikeChanged() {
     if (!mounted) return;
-    // Trigger rebuild to sync video items with new like/dislike states
-    setState(() {});
+
+    // Update the underlying ViewModel items so the in-memory list reflects
+    // the latest like/dislike states (optimistic updates originate from
+    // the video player or list and are stored in LikeDislikeStateManager).
+    final manager = LikeDislikeStateManager();
+    var changed = false;
+    for (var i = 0; i < _vm.items.length; i++) {
+      final item = _vm.items[i];
+      final global = manager.getLikeState(item.id);
+      if (global != null && global != item.like) {
+        // compute reasonable totalLikes delta when switching like states
+        final previousLike = item.like ?? 0;
+        var updatedLikes = item.totalLikes ?? 0;
+        if (previousLike == 1 && global != 1) {
+          updatedLikes = (updatedLikes - 1) < 0 ? 0 : (updatedLikes - 1);
+        } else if (previousLike != 1 && global == 1) {
+          updatedLikes = (updatedLikes + 1);
+        }
+
+        _vm.items[i] = item.copyWith(like: global, totalLikes: updatedLikes);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setState(() {});
+    } else {
+      // nothing to mutate, but still rebuild to reflect any UI-only syncs
+      setState(() {});
+    }
+  }
+
+  // Callback when report state changes globally
+  void _onReportChanged() {
+    if (!mounted) return;
+    final manager = ReportStateManager();
+    var changed = false;
+    for (var i = 0; i < _vm.items.length; i++) {
+      final item = _vm.items[i];
+      final isReported = manager.isReported(item.id);
+      final currentlyReported = (item.report ?? 0) == 1;
+      if (isReported && !currentlyReported) {
+        _vm.items[i] = item.copyWith(report: 1);
+        changed = true;
+      }
+    }
+    if (changed) setState(() {});
   }
 
   void _onScroll() {
@@ -299,9 +363,13 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
                             .syncWithGlobalState()
                             .syncLikeWithGlobalState();
                         final route = MaterialPageRoute(
-                          builder: (_) => CommonVideoPlayerScreen(
+                          builder: (_) => VideoPlayerView(
                             videoUrl: syncedItem.videoUrl,
-                            videoTitle: syncedItem.title,
+                            videoId: syncedItem.id.toString(),
+                            title: syncedItem.title,
+                            thumbnailUrl: syncedItem.thumbnailUrl,
+                            channelId: syncedItem.channelId,
+                            channelAvatarUrl: syncedItem.channelImageUrl,
                             videoItem: syncedItem,
                           ),
                         );

@@ -69,7 +69,7 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
   Widget build(BuildContext context) {
     final iconSize = widget.iconSize ?? 24.w;
     final activeColor = widget.activeColor ?? Colors.green.shade600;
-    final inactiveColor = widget.inactiveColor ?? Colors.grey.shade600;
+    final inactiveColor = widget.inactiveColor ?? Colors.white;
 
     final isLiked = widget.likeState == 1;
     final isDisliked = widget.likeState == 2;

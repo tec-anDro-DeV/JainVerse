@@ -111,30 +111,27 @@ class _AnimatedSubscribeButtonState extends State<AnimatedSubscribeButton>
                 curve: Curves.easeInOut,
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 decoration: BoxDecoration(
-                  color:
-                      widget.isSubscribed
-                          ? Colors.grey.shade300
-                          : Theme.of(context).primaryColor,
+                  color: widget.isSubscribed
+                      ? Colors.grey.shade300
+                      : Theme.of(context).primaryColor,
                   borderRadius: BorderRadius.circular(20.w),
                   border: Border.all(
-                    color:
-                        widget.isSubscribed
-                            ? Colors.grey.shade400
-                            : Theme.of(context).primaryColor,
-                    width: 1.5,
+                    color: widget.isSubscribed
+                        ? Colors.grey.shade400
+                        : Theme.of(context).primaryColor,
+                    width: 1.w,
                   ),
-                  boxShadow:
-                      widget.isSubscribed
-                          ? []
-                          : [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).primaryColor.withOpacity(0.3),
-                              blurRadius: 8.w,
-                              offset: Offset(0, 2.h),
-                            ),
-                          ],
+                  boxShadow: widget.isSubscribed
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.25),
+                            blurRadius: 6.w,
+                            offset: Offset(0, 1.5.h),
+                          ),
+                        ],
                 ),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
@@ -153,17 +150,16 @@ class _AnimatedSubscribeButtonState extends State<AnimatedSubscribeButton>
                   child: Padding(
                     key: ValueKey(widget.isSubscribed),
                     padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
+                      horizontal: 6.w,
+                      vertical: 3.h,
                     ),
                     child: Text(
                       widget.isSubscribed ? 'Subscribed' : 'Subscribe',
                       style: TextStyle(
-                        color:
-                            widget.isSubscribed
-                                ? Colors.grey.shade700
-                                : Colors.white,
-                        fontSize: 14.sp,
+                        color: widget.isSubscribed
+                            ? Colors.grey.shade700
+                            : Colors.white,
+                        fontSize: 13.sp,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -213,7 +209,7 @@ class _ParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()..style = PaintingStyle.fill;
-    final maxDistance = (size.width + size.height) / 3;
+    final maxDistance = (size.width + size.height) / 4;
 
     for (int i = 0; i < angles.length; i++) {
       final angle = angles[i];
@@ -225,7 +221,7 @@ class _ParticlePainter extends CustomPainter {
         center.dx + cos(angle) * distance,
         center.dy + sin(angle) * distance,
       );
-      final sizeFactor = (1.0 - progress) * (4 + (i % 3) * 2);
+      final sizeFactor = (1.0 - progress) * (3 + (i % 3) * 1.5);
       final opacity = (1.0 - progress).clamp(0.0, 1.0);
       paint.color = colors[i % colors.length].withOpacity(opacity);
       canvas.drawCircle(pos, sizeFactor, paint);

@@ -32,7 +32,7 @@ import '../widgets/music/recent_search_card.dart';
 import '../widgets/music/search_music_card.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/widgets/video_card.dart';
-import '../videoplayer/screens/common_video_player_screen.dart';
+import '../videoplayer/screens/video_player_view.dart';
 import 'AccountPage.dart';
 
 AudioPlayerHandler? _audioHandler;

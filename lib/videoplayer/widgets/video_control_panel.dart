@@ -9,8 +9,14 @@ import '../managers/video_player_state_provider.dart';
 class VideoControlPanel extends ConsumerWidget {
   final Color? textColor;
   final Color? accentColor;
+  final bool showTrackInfo;
 
-  const VideoControlPanel({super.key, this.textColor, this.accentColor});
+  const VideoControlPanel({
+    super.key,
+    this.textColor,
+    this.accentColor,
+    this.showTrackInfo = true,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,14 +28,15 @@ class VideoControlPanel extends ConsumerWidget {
 
     return Column(
       children: [
-        // Track info (video title and subtitle)
-        MediaTrackInfo(
-          title: videoState.currentVideoTitle ?? 'Unknown Video',
-          subtitle: videoState.currentVideoSubtitle ?? '',
-          titleColor: effectiveTextColor,
-          subtitleColor: effectiveTextColor.withOpacity(0.7),
-          textAlign: TextAlign.center,
-        ),
+        // Track info (video title and subtitle) - optionally hidden by caller
+        if (showTrackInfo)
+          MediaTrackInfo(
+            title: videoState.currentVideoTitle ?? 'Unknown Video',
+            subtitle: videoState.currentVideoSubtitle ?? '',
+            titleColor: effectiveTextColor,
+            subtitleColor: effectiveTextColor.withOpacity(0.7),
+            textAlign: TextAlign.center,
+          ),
 
         SizedBox(height: 24.h),
 
@@ -56,13 +63,30 @@ class VideoControlPanel extends ConsumerWidget {
           isLoading: videoState.isLoading,
           onPlay: videoNotifier.play,
           onPause: videoNotifier.pause,
-          onSkipPrevious: videoState.hasPrevious
-              ? () => videoNotifier.playPrevious()
+          // Change previous/next to seek -10s / +10s (clamped to 0..duration)
+          onSkipPrevious: videoState.isReady
+              ? () {
+                  final current = videoState.position;
+                  final seekTo = current - const Duration(seconds: 10);
+                  final clamped = seekTo < Duration.zero
+                      ? Duration.zero
+                      : seekTo;
+                  videoNotifier.seekTo(clamped);
+                }
               : null,
-          onSkipNext: videoState.hasNext
-              ? () => videoNotifier.playNext()
+          onSkipNext: videoState.isReady
+              ? () {
+                  final current = videoState.position;
+                  final duration = videoState.duration;
+                  final seekTo = current + const Duration(seconds: 10);
+                  final clamped = seekTo > duration ? duration : seekTo;
+                  videoNotifier.seekTo(clamped);
+                }
               : null,
           onShuffle: null, // Videos don't typically have shuffle
+          // Show 10s seek icons for previous/next
+          skipPreviousIcon: Icons.replay_10,
+          skipNextIcon: Icons.forward_10,
           onRepeat: videoNotifier.toggleRepeat,
           isShuffleEnabled: false,
           isRepeatEnabled: videoState.repeatMode,

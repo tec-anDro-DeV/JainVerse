@@ -7,7 +7,7 @@ import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
 import 'package:jainverse/videoplayer/widgets/autoplay_video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
-import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
@@ -348,9 +348,13 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
     // Navigate to full player
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CommonVideoPlayerScreen(
+        builder: (_) => VideoPlayerView(
           videoUrl: syncedItem.videoUrl,
-          videoTitle: syncedItem.title,
+          videoId: syncedItem.id.toString(),
+          title: syncedItem.title,
+          thumbnailUrl: syncedItem.thumbnailUrl,
+          channelId: syncedItem.channelId,
+          channelAvatarUrl: syncedItem.channelImageUrl,
           videoItem: syncedItem,
         ),
       ),

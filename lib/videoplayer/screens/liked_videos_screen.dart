@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/services/liked_videos_service.dart';
-import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -96,10 +96,9 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
         final hasMiniPlayer = snapshot.hasData;
 
         // Calculate bottom padding based on mini player and nav bar
-        final bottomPadding =
-            hasMiniPlayer
-                ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
-                : AppSizes.basePadding + 25.w;
+        final bottomPadding = hasMiniPlayer
+            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
+            : AppSizes.basePadding + 25.w;
 
         if (_isLoading) {
           return ListView.builder(
@@ -110,11 +109,10 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
               bottom: bottomPadding,
             ),
             itemCount: 6,
-            itemBuilder:
-                (context, index) => Padding(
-                  padding: EdgeInsets.only(bottom: 16.h),
-                  child: VideoCardSkeleton(),
-                ),
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(bottom: 16.h),
+              child: VideoCardSkeleton(),
+            ),
           );
         }
 
@@ -205,16 +203,20 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
                 showPopupMenu: true,
                 onTap: () {
                   // Sync video item with latest global state before navigation
-                  final syncedItem =
-                      video.syncWithGlobalState().syncLikeWithGlobalState();
+                  final syncedItem = video
+                      .syncWithGlobalState()
+                      .syncLikeWithGlobalState();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder:
-                          (_) => CommonVideoPlayerScreen(
-                            videoUrl: syncedItem.videoUrl,
-                            videoTitle: syncedItem.title,
-                            videoItem: syncedItem,
-                          ),
+                      builder: (_) => VideoPlayerView(
+                        videoUrl: syncedItem.videoUrl,
+                        videoId: syncedItem.id.toString(),
+                        title: syncedItem.title,
+                        thumbnailUrl: syncedItem.thumbnailUrl,
+                        channelId: syncedItem.channelId,
+                        channelAvatarUrl: syncedItem.channelImageUrl,
+                        videoItem: syncedItem,
+                      ),
                     ),
                   );
                 },

@@ -34,7 +34,7 @@ import '../widgets/common/search_bar.dart';
 import '../widgets/music/recent_search_card.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/widgets/video_card.dart';
-import '../videoplayer/screens/common_video_player_screen.dart';
+import '../videoplayer/screens/video_player_view.dart';
 import 'AccountPage.dart';
 import 'CreatePlaylist.dart';
 
@@ -907,9 +907,13 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => CommonVideoPlayerScreen(
+              builder: (_) => VideoPlayerView(
                 videoUrl: video.videoUrl,
-                videoTitle: video.title,
+                videoId: video.id.toString(),
+                title: video.title,
+                thumbnailUrl: video.thumbnailUrl,
+                channelId: video.channelId,
+                channelAvatarUrl: video.channelImageUrl,
                 videoItem: video,
               ),
             ),

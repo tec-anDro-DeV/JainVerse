@@ -44,6 +44,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     String? thumbnailUrl,
     List<String>? playlist,
     int? playlistIndex,
+    int? channelId,
+    String? channelAvatarUrl,
     // Try to auto-start playback after initialization. Set to false when you only want to preload.
     bool autoPlay = true,
     // internal retry counter for transient platform errors
@@ -62,6 +64,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         currentVideoTitle: title,
         currentVideoSubtitle: subtitle,
         thumbnailUrl: thumbnailUrl,
+        channelId: channelId,
+        channelAvatarUrl: channelAvatarUrl,
         playlist: playlist,
         currentIndex: playlistIndex,
         isMinimized: false,
@@ -126,6 +130,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         isLoading: false,
         duration: controller.value.duration,
         volume: controller.value.volume,
+        // ensure channel metadata remains present after init
+        channelId: channelId ?? state.channelId,
+        channelAvatarUrl: channelAvatarUrl ?? state.channelAvatarUrl,
       );
 
       // Start position update timer
@@ -615,6 +622,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         currentVideoTitle: null,
         currentVideoSubtitle: null,
         thumbnailUrl: null,
+        channelId: null,
+        channelAvatarUrl: null,
         isPlaying: false,
         isBuffering: false,
         isCompleted: false,

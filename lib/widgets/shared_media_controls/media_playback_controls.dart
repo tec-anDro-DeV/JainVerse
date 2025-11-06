@@ -25,6 +25,8 @@ class MediaPlaybackControls extends StatelessWidget {
   final String? repeatMode; // 'none', 'all', 'one'
   final Color? iconColor;
   final Color? accentColor;
+  final IconData? skipPreviousIcon;
+  final IconData? skipNextIcon;
   final bool showShuffle;
   final bool showRepeat;
   final double iconSize;
@@ -45,6 +47,8 @@ class MediaPlaybackControls extends StatelessWidget {
     this.repeatMode,
     this.iconColor,
     this.accentColor,
+    this.skipPreviousIcon,
+    this.skipNextIcon,
     this.showShuffle = true,
     this.showRepeat = true,
     this.iconSize = 36.0,
@@ -73,9 +77,9 @@ class MediaPlaybackControls extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Skip previous button
+                  // Skip previous button (icon can be overridden)
                   _buildControlButton(
-                    icon: Icons.skip_previous_rounded,
+                    icon: skipPreviousIcon ?? Icons.skip_previous_rounded,
                     onPressed: onSkipPrevious,
                     color: defaultAccentColor,
                     size: iconSize,
@@ -95,9 +99,9 @@ class MediaPlaybackControls extends StatelessWidget {
 
                   SizedBox(width: 24.w),
 
-                  // Skip next button
+                  // Skip next button (icon can be overridden)
                   _buildControlButton(
-                    icon: Icons.skip_next_rounded,
+                    icon: skipNextIcon ?? Icons.skip_next_rounded,
                     onPressed: onSkipNext,
                     color: defaultAccentColor,
                     size: iconSize,

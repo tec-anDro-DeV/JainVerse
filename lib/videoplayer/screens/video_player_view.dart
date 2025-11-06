@@ -9,8 +9,19 @@ import '../managers/video_player_state_provider.dart';
 import '../services/video_player_theme_service.dart';
 import '../widgets/video_visual_area.dart';
 import '../widgets/video_control_panel.dart';
+import '../widgets/video_title_channel_row.dart';
+import 'channel_videos_screen.dart';
 import '../../utils/music_player_state_manager.dart';
+import 'package:jainverse/services/tab_navigation_service.dart';
 import '../utils/landscape_video_launcher.dart';
+import '../managers/subscription_state_manager.dart';
+import '../managers/like_dislike_state_manager.dart';
+import '../managers/report_state_manager.dart';
+import '../services/like_dislike_service.dart';
+import '../widgets/animated_like_dislike_buttons.dart';
+import '../widgets/video_report_modal.dart';
+import '../models/video_item.dart';
+import '../services/subscription_service.dart';
 import '../../managers/music_manager.dart';
 
 /// Full-screen video player view
@@ -21,8 +32,14 @@ class VideoPlayerView extends ConsumerStatefulWidget {
   final String? title;
   final String? subtitle;
   final String? thumbnailUrl;
+  // Optional channel information to render channel row (avatar + subscribe)
+  final int? channelId;
+  final String? channelAvatarUrl;
+  final int? channelSubscriberCount;
+  final VideoItem? videoItem;
   final List<String>? playlist;
   final int? playlistIndex;
+  final bool? isOwn;
 
   const VideoPlayerView({
     super.key,
@@ -31,8 +48,13 @@ class VideoPlayerView extends ConsumerStatefulWidget {
     this.title,
     this.subtitle,
     this.thumbnailUrl,
+    this.channelId,
+    this.channelAvatarUrl,
+    this.channelSubscriberCount,
     this.playlist,
     this.playlistIndex,
+    this.isOwn,
+    this.videoItem,
   });
 
   @override
@@ -53,7 +75,16 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   double _dragDistance = 0.0;
   bool _isProgrammaticPop = false;
   bool _isMinimizeInProgress = false;
-  final double _dismissThreshold = 0.3; // 30% of screen height  @override
+  final double _dismissThreshold = 0.3; // 30% of screen height
+  // Subscription management
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  bool _isSubscribed = false;
+  bool _isSubscriptionInProgress = false;
+  // Like / Dislike / Report services
+  final LikeDislikeService _likeDislikeService = LikeDislikeService();
+  // Local like count used to display and optimistically update totalLikes
+  int? _localTotalLikes;
+
   void initState() {
     super.initState();
     // We don't attempt to capture the prior overlay style (not reliably
@@ -99,6 +130,12 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
         debugPrint('[VideoPlayerView] Error clearing mini player flag: $e');
       }
     });
+    // Initialize local counts from originating VideoItem when available
+    _localTotalLikes = widget.videoItem?.totalLikes;
+    // Subscription listener & initial value will be registered after we
+    // initialize the provider state (below) so we catch cases where the
+    // mini-player expansion didn't pass channel metadata in the widget
+    // constructor but the provider holds it.
     _loadTheme();
   }
 
@@ -168,6 +205,8 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
         title: widget.title,
         subtitle: widget.subtitle,
         thumbnailUrl: widget.thumbnailUrl,
+        channelId: widget.channelId,
+        channelAvatarUrl: widget.channelAvatarUrl,
         playlist: widget.playlist,
         playlistIndex: widget.playlistIndex,
       );
@@ -194,6 +233,29 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           _theme = theme;
           _updateSystemUI(theme);
         });
+        // After provider init we may have channel metadata in the provider
+        // (for example when expanding the mini-player). If widget didn't
+        // provide a channelId, use the provider value and register the
+        // global subscription listener so _isSubscribed is correct.
+        try {
+          final videoState = ref.read(videoPlayerProvider);
+          final cid = widget.channelId ?? videoState.channelId;
+          if (cid != null) {
+            final global = SubscriptionStateManager().getSubscriptionState(cid);
+            if (mounted) {
+              setState(() {
+                _isSubscribed = global ?? false;
+              });
+            }
+            SubscriptionStateManager().addListener(
+              _onGlobalSubscriptionChanged,
+            );
+          }
+        } catch (e) {
+          debugPrint(
+            '[VideoPlayerView] Error initializing subscription state: $e',
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -256,6 +318,11 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     // Restore global UI (navigation & mini player)
     MusicPlayerStateManager().hideFullPlayer();
+
+    // Remove subscription listener (ok to call even if not previously added)
+    try {
+      SubscriptionStateManager().removeListener(_onGlobalSubscriptionChanged);
+    } catch (_) {}
 
     debugPrint('[VideoPlayerView] dispose() complete');
 
@@ -370,6 +437,69 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     }
   }
 
+  /// Minimize to mini player with animation, then navigate to [destination].
+  ///
+  /// This coordinates the same visual minimize animation used by
+  /// `_minimizeToMiniPlayer` but, instead of popping the route, it replaces
+  /// the current full-screen player with the provided destination route so
+  /// the mini player and the app's main navigation remain visible beneath
+  /// the new screen.
+  Future<void> _minimizeAndNavigateTo(Widget destination) async {
+    debugPrint('[VideoPlayerView] _minimizeAndNavigateTo called');
+
+    if (_isMinimizeInProgress || _isProgrammaticPop) {
+      debugPrint('[VideoPlayerView] Minimize request ignored (in progress)');
+      return;
+    }
+
+    _isMinimizeInProgress = true;
+    final videoNotifier = ref.read(videoPlayerProvider.notifier);
+
+    // Set minimized state first so underlying UI (mini player) becomes
+    // available while we animate the full-screen route out.
+    videoNotifier.minimizeToMiniPlayer();
+
+    // Animate out the full-screen player visually
+    try {
+      await _dragAnimationController.forward(from: 0.0);
+    } catch (_) {
+      // Controller may be disposed during rapid transitions; ignore.
+    }
+
+    debugPrint('[VideoPlayerView] Animation complete, about to replace route');
+
+    if (!mounted) return;
+
+    // Mark programmatic navigation so any willPop handlers know this is
+    // intentional and avoid trying to minimize again.
+    _isProgrammaticPop = true;
+
+    // Pop this full-screen route first so the underlying app UI becomes
+    // visible (mini player/main nav). Wait for the pop to complete.
+    await Navigator.of(context).maybePop();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Try to push into the current tab's nested navigator so the new screen
+    // is shown inside the MainNavigation shell (keeping bottom nav & mini
+    // player visible). Fall back to the root navigator if the tab service
+    // isn't initialized.
+    try {
+      final pushed = TabNavigationService().pushOnCurrentTab(
+        MaterialPageRoute(builder: (_) => destination),
+      );
+
+      if (pushed == null) {
+        // Fallback to pushing on root navigator
+        final rootNav = Navigator.of(context, rootNavigator: true);
+        await rootNav.push(MaterialPageRoute(builder: (_) => destination));
+      }
+
+      debugPrint('[VideoPlayerView] Navigation complete (tab or root)');
+    } catch (e) {
+      debugPrint('[VideoPlayerView] Navigation error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final videoState = ref.watch(videoPlayerProvider);
@@ -392,16 +522,15 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     Widget content;
 
+    // Try to convert the current video id (provider may expose it as String)
+    final currentVideoIdString = videoState.currentVideoId ?? widget.videoId;
+    final int? currentVideoIdInt = int.tryParse(currentVideoIdString);
+
     // Auto-launch landscape player when device orientation becomes landscape.
-    // This relies on the app responding to system rotation (i.e. device
-    // auto-rotate is enabled). We schedule the launch after the current
-    // frame to avoid navigator calls during build.
     final currentOrientation = MediaQuery.of(context).orientation;
     if (_lastOrientation != currentOrientation) {
-      // Orientation changed
       if (currentOrientation == Orientation.landscape && !_rotationLaunched) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-          // Double-check mounted and guard flag
           if (!mounted) return;
           _rotationLaunched = true;
 
@@ -414,8 +543,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             thumbnailUrl: widget.thumbnailUrl,
           );
 
-          // When the landscape player is popped, reset the guard so future
-          // rotations can re-open it.
           if (mounted) {
             setState(() {
               _rotationLaunched = false;
@@ -423,7 +550,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           }
         });
       } else if (currentOrientation == Orientation.portrait) {
-        // Reset when returning to portrait
         _rotationLaunched = false;
       }
       _lastOrientation = currentOrientation;
@@ -439,23 +565,18 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           child: AnimatedBuilder(
             animation: _dragAnimation,
             builder: (context, child) {
-              // Calculate opacity based on drag distance
               final screenHeight = MediaQuery.of(context).size.height;
               final opacity =
                   1.0 - (_dragDistance / screenHeight).clamp(0.0, 1.0);
-
               return Transform.translate(
                 offset: Offset(0, _dragDistance),
                 child: Opacity(opacity: opacity, child: child),
               );
             },
             child: Scaffold(
-              // No AppBar here — paint the status bar area manually with a
-              // positioned container so we don't change the scaffold's layout.
               backgroundColor: theme.backgroundColor,
               body: Stack(
                 children: [
-                  // Status bar color painted behind the system bar (does not alter layout)
                   if (MediaQuery.of(context).padding.top > 0)
                     Positioned(
                       top: 0,
@@ -464,7 +585,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       height: MediaQuery.of(context).padding.top,
                       child: Container(color: statusBarColor),
                     ),
-                  // Background image
                   Positioned.fill(
                     child: Image.network(
                       thumbnail,
@@ -473,8 +593,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                           Container(color: theme.backgroundColor),
                     ),
                   ),
-
-                  // Heavy blur + subtle dark overlay to keep controls readable
                   Positioned.fill(
                     child: BackdropFilter(
                       filter: ui.ImageFilter.blur(sigmaX: 75, sigmaY: 75),
@@ -483,33 +601,25 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       ),
                     ),
                   ),
-
-                  // Foreground content
                   SafeArea(
                     top: true,
                     child: Column(
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () {
-                              videoNotifier.toggleControls();
-                            },
+                            onTap: () => videoNotifier.toggleControls(),
                             child: Column(
                               children: [
-                                // Top bar with back button and title
                                 _buildTopBar(context, videoState, theme),
-
-                                SizedBox(height: 16.h),
-
-                                // Scrollable content
+                                SizedBox(height: 14.h),
                                 Expanded(
                                   child: SingleChildScrollView(
                                     physics: const BouncingScrollPhysics(),
                                     child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        SizedBox(height: 24.h),
-
-                                        // Video visual area (passes fullscreen launch)
+                                        SizedBox(height: 12.h),
                                         VideoVisualArea(
                                           onFullscreen: () {
                                             LandscapeVideoLauncher.launch(
@@ -522,16 +632,121 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                                             );
                                           },
                                         ),
+                                        SizedBox(height: 12.h),
+                                        VideoTitleChannelRow(
+                                          title:
+                                              videoState.currentVideoTitle ??
+                                              widget.title ??
+                                              '',
+                                          channelName:
+                                              videoState.currentVideoSubtitle ??
+                                              widget.subtitle ??
+                                              '',
+                                          avatarUrl:
+                                              widget.channelAvatarUrl ??
+                                              videoState.channelAvatarUrl,
+                                          subscriberCount:
+                                              widget.channelSubscriberCount,
+                                          isSubscribed: _isSubscribed,
+                                          isSubscriptionInProgress:
+                                              _isSubscriptionInProgress,
+                                          onSubscribePressed:
+                                              _toggleSubscription,
+                                          showSubscribe:
+                                              !(widget.isOwn ?? false),
+                                          onChannelTap: () {
+                                            final cid =
+                                                widget.channelId ??
+                                                videoState.channelId;
+                                            if (cid != null) {
+                                              _minimizeAndNavigateTo(
+                                                ChannelVideosScreen(
+                                                  channelId: cid,
+                                                  channelName:
+                                                      videoState
+                                                          .currentVideoSubtitle ??
+                                                      widget.subtitle,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          theme: theme,
+                                        ),
 
-                                        SizedBox(height: 32.h),
+                                        // Insert Like/Dislike/Report below the title/channel row
+                                        SizedBox(height: 4.h),
+                                        if (currentVideoIdInt != null)
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 16.w,
+                                            ),
+                                            child: Builder(
+                                              builder: (context) {
+                                                final int vid =
+                                                    currentVideoIdInt;
+                                                final likeState =
+                                                    LikeDislikeStateManager()
+                                                        .getLikeState(vid) ??
+                                                    0;
+                                                final isReported =
+                                                    ReportStateManager()
+                                                        .isReported(vid);
 
-                                        // Control panel
+                                                return Row(
+                                                  children: [
+                                                    AnimatedLikeDislikeButtons(
+                                                      likeState: likeState,
+                                                      onLike: () =>
+                                                          _handleLikePressed(
+                                                            vid,
+                                                          ),
+                                                      onDislike: () =>
+                                                          _handleDislikePressed(
+                                                            vid,
+                                                          ),
+                                                      totalLikes:
+                                                          _localTotalLikes ??
+                                                          widget
+                                                              .videoItem
+                                                              ?.totalLikes,
+                                                      onReport: isReported
+                                                          ? null
+                                                          : () => _handleReportPressed(
+                                                              vid,
+                                                              videoState
+                                                                      .currentVideoTitle ??
+                                                                  widget
+                                                                      .title ??
+                                                                  '',
+                                                            ),
+                                                      showReportButton:
+                                                          !isReported,
+                                                    ),
+
+                                                    SizedBox(width: 12.w),
+                                                    if (isReported)
+                                                      Text(
+                                                        'Reported',
+                                                        style: TextStyle(
+                                                          color: theme.textColor
+                                                              .withOpacity(0.8),
+                                                          fontSize: 14.sp,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                          ),
+
+                                        SizedBox(height: 2.h),
                                         VideoControlPanel(
                                           textColor: theme.textColor,
                                           accentColor: theme.primaryColor,
+                                          showTrackInfo: false,
                                         ),
-
-                                        SizedBox(height: 24.h),
                                       ],
                                     ),
                                   ),
@@ -560,11 +775,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           child: AnimatedBuilder(
             animation: _dragAnimation,
             builder: (context, child) {
-              // Calculate opacity based on drag distance
               final screenHeight = MediaQuery.of(context).size.height;
               final opacity =
                   1.0 - (_dragDistance / screenHeight).clamp(0.0, 1.0);
-
               return Transform.translate(
                 offset: Offset(0, _dragDistance),
                 child: Opacity(opacity: opacity, child: child),
@@ -574,14 +787,11 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
               backgroundColor: theme.backgroundColor,
               body: Stack(
                 children: [
-                  // Background gradient layer
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(gradient: theme.gradient),
                     ),
                   ),
-
-                  // Status bar color painted behind the system bar (does not alter layout)
                   if (MediaQuery.of(context).padding.top > 0)
                     Positioned(
                       top: 0,
@@ -590,28 +800,21 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       height: MediaQuery.of(context).padding.top,
                       child: Container(color: statusBarColor),
                     ),
-
-                  // Main content
                   SafeArea(
                     top: true,
                     child: GestureDetector(
                       onTap: () => videoNotifier.toggleControls(),
                       child: Column(
                         children: [
-                          // Top bar with back button and title
                           _buildTopBar(context, videoState, theme),
-
                           SizedBox(height: 16.h),
-
-                          // Scrollable content
                           Expanded(
                             child: SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(height: 24.h),
-
-                                  // Video visual area (passes fullscreen launch)
                                   VideoVisualArea(
                                     onFullscreen: () {
                                       LandscapeVideoLauncher.launch(
@@ -624,15 +827,112 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                                       );
                                     },
                                   ),
+                                  SizedBox(height: 12.h),
+                                  VideoTitleChannelRow(
+                                    title:
+                                        videoState.currentVideoTitle ??
+                                        widget.title ??
+                                        '',
+                                    channelName:
+                                        videoState.currentVideoSubtitle ??
+                                        widget.subtitle ??
+                                        '',
+                                    avatarUrl:
+                                        widget.channelAvatarUrl ??
+                                        videoState.channelAvatarUrl,
+                                    subscriberCount:
+                                        widget.channelSubscriberCount,
+                                    isSubscribed: _isSubscribed,
+                                    isSubscriptionInProgress:
+                                        _isSubscriptionInProgress,
+                                    onSubscribePressed: _toggleSubscription,
+                                    showSubscribe: !(widget.isOwn ?? false),
+                                    onChannelTap: () {
+                                      final cid =
+                                          widget.channelId ??
+                                          videoState.channelId;
+                                      if (cid != null) {
+                                        _minimizeAndNavigateTo(
+                                          ChannelVideosScreen(
+                                            channelId: cid,
+                                            channelName:
+                                                videoState
+                                                    .currentVideoSubtitle ??
+                                                widget.subtitle,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    theme: theme,
+                                  ),
 
-                                  SizedBox(height: 32.h),
+                                  // Insert Like/Dislike/Report below the title/channel row
+                                  SizedBox(height: 8.h),
+                                  if (currentVideoIdInt != null)
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 16.w,
+                                      ),
+                                      child: Builder(
+                                        builder: (context) {
+                                          final int vid = currentVideoIdInt;
+                                          final likeState =
+                                              LikeDislikeStateManager()
+                                                  .getLikeState(vid) ??
+                                              0;
+                                          final isReported =
+                                              ReportStateManager().isReported(
+                                                vid,
+                                              );
 
-                                  // Control panel
+                                          return Row(
+                                            children: [
+                                              AnimatedLikeDislikeButtons(
+                                                likeState: likeState,
+                                                onLike: () =>
+                                                    _handleLikePressed(vid),
+                                                onDislike: () =>
+                                                    _handleDislikePressed(vid),
+                                                totalLikes:
+                                                    _localTotalLikes ??
+                                                    widget
+                                                        .videoItem
+                                                        ?.totalLikes,
+                                                onReport: isReported
+                                                    ? null
+                                                    : () => _handleReportPressed(
+                                                        vid,
+                                                        videoState
+                                                                .currentVideoTitle ??
+                                                            widget.title ??
+                                                            '',
+                                                      ),
+                                                showReportButton: !isReported,
+                                              ),
+
+                                              SizedBox(width: 12.w),
+                                              if (isReported)
+                                                Text(
+                                                  'Reported',
+                                                  style: TextStyle(
+                                                    color: theme.textColor
+                                                        .withOpacity(0.8),
+                                                    fontSize: 14.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                  SizedBox(height: 8.h),
                                   VideoControlPanel(
                                     textColor: theme.textColor,
                                     accentColor: theme.primaryColor,
+                                    showTrackInfo: false,
                                   ),
-
                                   SizedBox(height: 24.h),
                                 ],
                               ),
@@ -694,6 +994,211 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       ),
     );
   }
+
+  /// Handle global subscription state changes
+  void _onGlobalSubscriptionChanged() {
+    if (!mounted) return;
+    final cid = widget.channelId ?? ref.read(videoPlayerProvider).channelId;
+    if (cid == null) return;
+    final global = SubscriptionStateManager().getSubscriptionState(cid);
+    if (global != null && global != _isSubscribed) {
+      setState(() => _isSubscribed = global);
+    }
+  }
+
+  /// Optimistic like handler
+  Future<void> _handleLikePressed(int videoId) async {
+    final manager = LikeDislikeStateManager();
+    final previous = manager.getLikeState(videoId) ?? 0;
+    final newState = previous == 1 ? 0 : 1;
+
+    // Determine a reasonable base like count from the originating VideoItem
+    // or previously stored local count.
+    final base = widget.videoItem?.totalLikes ?? _localTotalLikes ?? 0;
+    int updatedLikes = base;
+
+    if (previous == 1 && newState != 1) {
+      updatedLikes = base - 1;
+      if (updatedLikes < 0) updatedLikes = 0;
+    } else if (previous != 1 && newState == 1) {
+      updatedLikes = base + 1;
+    }
+
+    // Optimistically update global state and local UI count so lists/screens
+    // update immediately.
+    manager.updateLikeState(videoId, newState);
+    if (mounted) {
+      setState(() {
+        _localTotalLikes = updatedLikes;
+      });
+    }
+
+    try {
+      final success = await _likeDislikeService.likeVideo(
+        videoId: videoId,
+        currentState: previous,
+      );
+
+      if (!success) {
+        // rollback both global state and local UI count
+        manager.updateLikeState(videoId, previous);
+        if (mounted) {
+          setState(() {
+            _localTotalLikes = base;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update like.')),
+          );
+        }
+      }
+    } catch (e) {
+      // rollback
+      manager.updateLikeState(videoId, previous);
+      if (mounted) {
+        setState(() {
+          _localTotalLikes = base;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to update like.')));
+      }
+    }
+  }
+
+  /// Optimistic dislike handler
+  Future<void> _handleDislikePressed(int videoId) async {
+    final manager = LikeDislikeStateManager();
+    final previous = manager.getLikeState(videoId) ?? 0;
+    final newState = previous == 2 ? 0 : 2;
+
+    final base = widget.videoItem?.totalLikes ?? _localTotalLikes ?? 0;
+    int updatedLikes = base;
+
+    // If we're moving away from a liked state, decrement the like count.
+    if (previous == 1 && newState != 1) {
+      updatedLikes = base - 1;
+      if (updatedLikes < 0) updatedLikes = 0;
+    }
+
+    // Optimistically update
+    manager.updateLikeState(videoId, newState);
+    if (mounted) {
+      setState(() {
+        _localTotalLikes = updatedLikes;
+      });
+    }
+
+    try {
+      final success = await _likeDislikeService.dislikeVideo(
+        videoId: videoId,
+        currentState: previous,
+      );
+
+      if (!success) {
+        // rollback
+        manager.updateLikeState(videoId, previous);
+        if (mounted) {
+          setState(() {
+            _localTotalLikes = base;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update dislike.')),
+          );
+        }
+      }
+    } catch (e) {
+      manager.updateLikeState(videoId, previous);
+      if (mounted) {
+        setState(() {
+          _localTotalLikes = base;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update dislike.')),
+        );
+      }
+    }
+  }
+
+  /// Show report modal and mark reported on success
+  void _handleReportPressed(int videoId, String videoTitle) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.w)),
+            child: Material(
+              color: Colors.white,
+              child: VideoReportModal(
+                videoId: videoId,
+                videoTitle: videoTitle,
+                onReported: () {
+                  // Mark reported in global state so lists update
+                  try {
+                    ReportStateManager().markReported(videoId);
+                  } catch (_) {}
+
+                  // Also ensure local UI updates
+                  if (mounted) setState(() {});
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleSubscription() async {
+    final cid = widget.channelId ?? ref.read(videoPlayerProvider).channelId;
+    if (cid == null) return;
+    if (_isSubscriptionInProgress) return;
+
+    final previous = _isSubscribed;
+    setState(() {
+      _isSubscribed = !_isSubscribed;
+      _isSubscriptionInProgress = true;
+    });
+
+    try {
+      final success = previous
+          ? await _subscriptionService.unsubscribeChannel(channelId: cid)
+          : await _subscriptionService.subscribeChannel(channelId: cid);
+
+      if (!success && mounted) {
+        // revert optimistic change
+        setState(() {
+          _isSubscribed = previous;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update subscription')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSubscribed = previous;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update subscription')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubscriptionInProgress = false;
+        });
+      }
+    }
+  }
+
+  // Title+channel UI extracted to VideoTitleChannelRow widget.
 
   void _showMoreOptions(BuildContext context, VideoPlayerTheme theme) {
     showModalBottomSheet(
@@ -808,12 +1313,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             _buildInfoRow(
               'Title',
               videoState.currentVideoTitle ?? 'Unknown',
-              theme,
-            ),
-            SizedBox(height: 12.h),
-            _buildInfoRow(
-              'Subtitle',
-              videoState.currentVideoSubtitle ?? 'N/A',
               theme,
             ),
             SizedBox(height: 12.h),

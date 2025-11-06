@@ -895,6 +895,11 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
           title: videoState.currentVideoTitle,
           subtitle: videoState.currentVideoSubtitle,
           thumbnailUrl: videoState.thumbnailUrl,
+          // Use channel metadata from provider when available so expanding
+          // the mini-player preserves avatar/subscribe info.
+          channelId: videoState.channelId,
+          channelAvatarUrl: videoState.channelAvatarUrl,
+          videoItem: null,
           playlist: videoState.playlist,
           playlistIndex: videoState.currentIndex,
         ),

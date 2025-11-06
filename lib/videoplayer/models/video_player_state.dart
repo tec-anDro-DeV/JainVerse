@@ -18,6 +18,9 @@ class VideoPlayerState {
   final String? currentVideoTitle;
   final String? currentVideoSubtitle;
   final String? thumbnailUrl;
+  // Channel metadata (used for showing avatar/subscribe in mini/full UI)
+  final int? channelId;
+  final String? channelAvatarUrl;
   final bool isLoading;
   final String? errorMessage;
   final bool repeatMode;
@@ -45,6 +48,8 @@ class VideoPlayerState {
     this.currentVideoTitle,
     this.currentVideoSubtitle,
     this.thumbnailUrl,
+    this.channelId,
+    this.channelAvatarUrl,
     this.isLoading = false,
     this.errorMessage,
     this.repeatMode = false,
@@ -67,6 +72,8 @@ class VideoPlayerState {
     String? currentVideoTitle,
     String? currentVideoSubtitle,
     String? thumbnailUrl,
+    int? channelId,
+    String? channelAvatarUrl,
     bool? isLoading,
     String? errorMessage,
     bool? repeatMode,
@@ -90,6 +97,8 @@ class VideoPlayerState {
       currentVideoTitle: currentVideoTitle ?? this.currentVideoTitle,
       currentVideoSubtitle: currentVideoSubtitle ?? this.currentVideoSubtitle,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      channelId: channelId ?? this.channelId,
+      channelAvatarUrl: channelAvatarUrl ?? this.channelAvatarUrl,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
       repeatMode: repeatMode ?? this.repeatMode,
@@ -139,6 +148,8 @@ class VideoPlayerState {
         other.currentVideoTitle == currentVideoTitle &&
         other.currentVideoSubtitle == currentVideoSubtitle &&
         other.thumbnailUrl == thumbnailUrl &&
+        other.channelId == channelId &&
+        other.channelAvatarUrl == channelAvatarUrl &&
         other.isLoading == isLoading &&
         other.errorMessage == errorMessage &&
         other.repeatMode == repeatMode &&

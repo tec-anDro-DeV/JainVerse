@@ -22,7 +22,7 @@ import 'package:jainverse/services/my_videos_service.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
-import 'package:jainverse/videoplayer/screens/common_video_player_screen.dart';
+import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:jainverse/utils/image_compressor.dart';
 import 'package:jainverse/utils/crash_prevention_helper.dart';
 import 'package:jainverse/utils/image_optimizer.dart';
@@ -1275,11 +1275,14 @@ class _UserChannelState extends State<UserChannel>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CommonVideoPlayerScreen(
+        builder: (context) => VideoPlayerView(
           videoUrl: video.videoUrl,
-          videoTitle: video.title,
+          videoId: video.id.toString(),
+          title: video.title,
+          thumbnailUrl: video.thumbnailUrl,
+          channelId: video.channelId,
+          channelAvatarUrl: video.channelImageUrl,
           videoItem: video,
-          restrictToChannel: true,
         ),
       ),
     );
