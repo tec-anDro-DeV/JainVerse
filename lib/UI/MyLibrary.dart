@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -16,6 +15,7 @@ import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
@@ -724,15 +724,16 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         print('[ERROR] No songs found for this category');
       }
     } catch (e) {
+      // Log and fallback to navigation if music manager fails
       print('[ERROR] Failed to load and play songs: $e');
 
-      // Fallback to navigation if music manager fails
+      if (!mounted) return;
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) =>
-                  Music(_audioHandler, id, 'Songs', [], "", 0, false, ''),
+          builder: (context) =>
+              Music(_audioHandler, id, 'Songs', [], "", 0, false, ''),
         ),
       );
     }
@@ -740,15 +741,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    var route = ModalRoute.of(context);
-    if (kDebugMode) {
-      //print(ModalRoute.of(context)?.settings.name);
-    }
-    if (route!.settings.arguments != null) {
-      isSelected = ModalRoute.of(context)!.settings.arguments.toString();
-      setState(() {});
-    }
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
@@ -815,11 +807,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     return StreamBuilder<MediaItem?>(
       stream: _audioHandler!.mediaItem,
       builder: (context, snapshot) {
-        final hasMiniPlayer = snapshot.hasData;
-        final bottomPadding =
-            hasMiniPlayer
-                ? AppSizes.basePadding + AppSizes.miniPlayerPadding
-                : AppSizes.basePadding;
+        // Centralized bottom padding. The library screen previously added
+        // an extra 70.w; preserve that additional spacing by passing extra.
+        final bottomPadding = AppPadding.bottom(context, extra: 70.w);
         // Detect tablet / iPad sized devices to reduce over-large spacing
         final bool isTabletLocal =
             MediaQuery.of(context).size.shortestSide >= 600;
@@ -980,15 +970,14 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
   Widget _buildMusicCategories(ModelCatSubcatMusic data) {
     // Filter to show only Popular Songs and Featured Songs
-    List<DataCat> targetCategories =
-        data.data
-            .where(
-              (cat) =>
-                  (cat.cat_name.contains("Popular Songs") ||
-                      cat.cat_name.contains("Featured Songs")) &&
-                  cat.sub_category.isNotEmpty,
-            )
-            .toList();
+    List<DataCat> targetCategories = data.data
+        .where(
+          (cat) =>
+              (cat.cat_name.contains("Popular Songs") ||
+                  cat.cat_name.contains("Featured Songs")) &&
+              cat.sub_category.isNotEmpty,
+        )
+        .toList();
 
     // Sort to ensure Popular Songs comes before Featured Songs
     targetCategories.sort((a, b) {
@@ -1051,9 +1040,8 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) =>
-                        AllCategoryByName(_audioHandler, category.cat_name),
+                builder: (context) =>
+                    AllCategoryByName(_audioHandler, category.cat_name),
               ),
             );
           },
@@ -1167,17 +1155,15 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         category.sub_category[idx].image;
     final subCategory = category.sub_category[idx];
     final name = subCategory.name;
-    final artistName =
-        subCategory.artist != null
-            ? subCategory.artist!.map((a) => a.name).join(', ')
-            : '';
+    final artistName = subCategory.artist != null
+        ? subCategory.artist!.map((a) => a.name).join(', ')
+        : '';
 
     onTap() => _handleMusicItemTap(category, idx, context, "Popular Songs");
 
     return PopularSongCard(
-      songId:
-          subCategory.id
-              .toString(), // Pass songId for global favorites management
+      songId: subCategory.id
+          .toString(), // Pass songId for global favorites management
       imagePath: imagePath,
       songName: name,
       artistName: artistName,
@@ -1186,48 +1172,39 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       height: 160.w, // Reduced height for more compact cards
       isCompact: isSingle,
       // Remove static isFavorite - let PopularSongCard use global provider
-      onPlay:
-          () => _musicActionHandler.handlePlaySong(
-            subCategory.id.toString(),
-            name,
-          ),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            name,
-            "song",
-            subCategory.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            name,
-            "song",
-            itemId: subCategory.id.toString(),
-            slug: subCategory.slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            subCategory.id.toString(),
-            name,
-            favoriteIds: _favoriteIds,
-          ),
+      onPlay: () =>
+          _musicActionHandler.handlePlaySong(subCategory.id.toString(), name),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        name,
+        "song",
+        subCategory.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        name,
+        "song",
+        itemId: subCategory.id.toString(),
+        slug: subCategory.slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        subCategory.id.toString(),
+        name,
+        favoriteIds: _favoriteIds,
+      ),
     );
   }
 
@@ -1244,66 +1221,55 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         category.sub_category[idx].image;
     final subCategory = category.sub_category[idx];
     final name = subCategory.name;
-    final artistName =
-        subCategory.artist != null
-            ? subCategory.artist!.map((a) => a.name).join(', ')
-            : '';
+    final artistName = subCategory.artist != null
+        ? subCategory.artist!.map((a) => a.name).join(', ')
+        : '';
 
     onTap() => _handleMusicItemTap(category, idx, context, categoryName);
 
     // Return SongCard for most categories
     return SongCard(
-      songId:
-          subCategory.id
-              .toString(), // Pass songId for global favorites management
+      songId: subCategory.id
+          .toString(), // Pass songId for global favorites management
       imagePath: imagePath,
       songName: name,
       artistName: artistName,
       onTap: onTap,
       sharedPreThemeData: sharedPreThemeData,
       // Remove static isFavorite - let SongCard use global provider
-      onPlay:
-          () => _musicActionHandler.handlePlaySong(
-            subCategory.id.toString(),
-            name,
-          ),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            name,
-            "song",
-            subCategory.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            subCategory.id.toString(),
-            name,
-            artistName,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            name,
-            "song",
-            itemId: subCategory.id.toString(),
-            slug: subCategory.slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            subCategory.id.toString(),
-            name,
-            favoriteIds: _favoriteIds,
-          ),
+      onPlay: () =>
+          _musicActionHandler.handlePlaySong(subCategory.id.toString(), name),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        name,
+        "song",
+        subCategory.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        subCategory.id.toString(),
+        name,
+        artistName,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        name,
+        "song",
+        itemId: subCategory.id.toString(),
+        slug: subCategory.slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        subCategory.id.toString(),
+        name,
+        favoriteIds: _favoriteIds,
+      ),
     );
   }
 
@@ -1317,10 +1283,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         onTap: () => _handleItemTap(item.title),
         child: Container(
           // Reduce padding on larger devices to avoid excessive spacing
-          padding:
-              MediaQuery.of(context).size.shortestSide >= 600
-                  ? const EdgeInsets.symmetric(vertical: 6, horizontal: 8)
-                  : const EdgeInsets.all(8),
+          padding: MediaQuery.of(context).size.shortestSide >= 600
+              ? const EdgeInsets.symmetric(vertical: 6, horizontal: 8)
+              : const EdgeInsets.all(8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
@@ -1330,10 +1295,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
             ),
           ),
           child: SizedBox(
-            height:
-                MediaQuery.of(context).size.shortestSide >= 600
-                    ? 44
-                    : 48, // slightly smaller on tablet
+            height: MediaQuery.of(context).size.shortestSide >= 600
+                ? 44
+                : 48, // slightly smaller on tablet
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1433,10 +1397,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           margin: EdgeInsets.only(left: 7.w),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount:
-                _cachedHistoryData!.data.length > 10
-                    ? 10
-                    : _cachedHistoryData!.data.length,
+            itemCount: _cachedHistoryData!.data.length > 10
+                ? 10
+                : _cachedHistoryData!.data.length,
             itemBuilder: (context, index) {
               final historyItem = _cachedHistoryData!.data[index];
               return HistoryCard(
@@ -1448,51 +1411,43 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                 artistName: historyItem.artists_name,
                 sharedPreThemeData: sharedPreThemeData,
                 onTap: () => _handleHistoryItemTap(historyItem, index),
-                songId:
-                    historyItem.id
-                        .toString(), // Pass songId instead of isFavorite
-                onPlay:
-                    () => _musicActionHandler.handlePlaySong(
-                      historyItem.id.toString(),
-                      historyItem.audio_title,
-                    ),
-                onPlayNext:
-                    () => _musicActionHandler.handlePlayNext(
-                      historyItem.id.toString(),
-                      historyItem.audio_title,
-                      historyItem.artists_name,
-                    ),
-                onAddToQueue:
-                    () => _musicActionHandler.handleAddToQueue(
-                      historyItem.id.toString(),
-                      historyItem.audio_title,
-                      historyItem.artists_name,
-                    ),
-                onDownload:
-                    () => _musicActionHandler.handleDownload(
-                      historyItem.audio_title,
-                      "song",
-                      historyItem.id.toString(),
-                    ),
-                onAddToPlaylist:
-                    () => _musicActionHandler.handleAddToPlaylist(
-                      historyItem.id.toString(),
-                      historyItem.audio_title,
-                      historyItem.artists_name,
-                    ),
-                onShare:
-                    () => _musicActionHandler.handleShare(
-                      historyItem.audio_title,
-                      "song",
-                      itemId: historyItem.id.toString(),
-                      slug: historyItem.audio_slug,
-                    ),
-                onFavorite:
-                    () => _musicActionHandler.handleFavoriteToggle(
-                      historyItem.id.toString(),
-                      historyItem.audio_title,
-                      favoriteIds: _favoriteIds,
-                    ),
+                songId: historyItem.id
+                    .toString(), // Pass songId instead of isFavorite
+                onPlay: () => _musicActionHandler.handlePlaySong(
+                  historyItem.id.toString(),
+                  historyItem.audio_title,
+                ),
+                onPlayNext: () => _musicActionHandler.handlePlayNext(
+                  historyItem.id.toString(),
+                  historyItem.audio_title,
+                  historyItem.artists_name,
+                ),
+                onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+                  historyItem.id.toString(),
+                  historyItem.audio_title,
+                  historyItem.artists_name,
+                ),
+                onDownload: () => _musicActionHandler.handleDownload(
+                  historyItem.audio_title,
+                  "song",
+                  historyItem.id.toString(),
+                ),
+                onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+                  historyItem.id.toString(),
+                  historyItem.audio_title,
+                  historyItem.artists_name,
+                ),
+                onShare: () => _musicActionHandler.handleShare(
+                  historyItem.audio_title,
+                  "song",
+                  itemId: historyItem.id.toString(),
+                  slug: historyItem.audio_slug,
+                ),
+                onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+                  historyItem.id.toString(),
+                  historyItem.audio_title,
+                  favoriteIds: _favoriteIds,
+                ),
               );
             },
           ),
@@ -1528,17 +1483,16 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => Music(
-                _audioHandler,
-                historyItem.id.toString(),
-                'Songs',
-                _cachedHistoryData!.data,
-                _historyAudioPath,
-                index,
-                false,
-                '',
-              ),
+          builder: (context) => Music(
+            _audioHandler,
+            historyItem.id.toString(),
+            'Songs',
+            _cachedHistoryData!.data,
+            _historyAudioPath,
+            index,
+            false,
+            '',
+          ),
         ),
       );
     }

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/payment_service.dart';
@@ -63,15 +64,13 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // Start animation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,15 +92,15 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
           if (_selectedPlan == 'Monthly' && monthly.isNotEmpty) {
             _selectedPlanId =
                 (monthly[0]['product_id'] != null &&
-                        monthly[0]['product_id'].toString().isNotEmpty)
-                    ? monthly[0]['product_id'].toString()
-                    : monthly[0]['id']?.toString();
+                    monthly[0]['product_id'].toString().isNotEmpty)
+                ? monthly[0]['product_id'].toString()
+                : monthly[0]['id']?.toString();
           } else if (_selectedPlan == 'Yearly' && yearly.isNotEmpty) {
             _selectedPlanId =
                 (yearly[0]['product_id'] != null &&
-                        yearly[0]['product_id'].toString().isNotEmpty)
-                    ? yearly[0]['product_id'].toString()
-                    : yearly[0]['id']?.toString();
+                    yearly[0]['product_id'].toString().isNotEmpty)
+                ? yearly[0]['product_id'].toString()
+                : yearly[0]['id']?.toString();
           }
         });
       }
@@ -277,7 +276,7 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                                     24.w,
                                     0,
                                     24.w,
-                                    AppSizes.basePadding,
+                                    AppPadding.bottom(context),
                                   ),
                                   child: Column(
                                     children: [
@@ -295,14 +294,12 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                         StreamBuilder<MediaItem?>(
                           stream: _audioHandler?.mediaItem,
                           builder: (context, snapshot) {
-                            // Calculate proper bottom padding accounting for mini player and navigation
-                            final hasMiniPlayer = snapshot.hasData;
-                            final bottomPadding =
-                                hasMiniPlayer
-                                    ? AppSizes.basePadding +
-                                        AppSizes.miniPlayerPadding +
-                                        50.w
-                                    : AppSizes.basePadding + 50.w;
+                            // Centralized bottom padding which accounts for
+                            // safe area, nav bar and any visible mini-player.
+                            final bottomPadding = AppPadding.bottom(
+                              context,
+                              extra: 50.w,
+                            );
                             return Container(
                               padding: EdgeInsets.fromLTRB(
                                 24.w,
@@ -326,12 +323,12 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                                 child: ElevatedButton(
                                   onPressed:
                                       _selectedPlanId != null &&
-                                              !_paymentInProgress
-                                          ? () {
-                                            // Handle continue action
-                                            _handleContinue();
-                                          }
-                                          : null,
+                                          !_paymentInProgress
+                                      ? () {
+                                          // Handle continue action
+                                          _handleContinue();
+                                        }
+                                      : null,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor:
                                         appColors().primaryColorApp,
@@ -347,44 +344,43 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                                     ),
                                     elevation: 0,
                                   ),
-                                  child:
-                                      _paymentInProgress
-                                          ? Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child: CircularProgressIndicator(
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                        Color
-                                                      >(Colors.white),
-                                                  strokeWidth: 2,
-                                                ),
+                                  child: _paymentInProgress
+                                      ? Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                                strokeWidth: 2,
                                               ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'Processing...',
-                                                style: TextStyle(
-                                                  fontSize: AppSizes.fontLarge,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontFamily: 'Poppins',
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                          : Text(
-                                            _selectedPlanId != null
-                                                ? 'Continue'
-                                                : 'Select a Plan',
-                                            style: TextStyle(
-                                              fontSize: AppSizes.fontLarge,
-                                              fontWeight: FontWeight.w600,
-                                              fontFamily: 'Poppins',
                                             ),
+                                            SizedBox(width: 10),
+                                            Text(
+                                              'Processing...',
+                                              style: TextStyle(
+                                                fontSize: AppSizes.fontLarge,
+                                                fontWeight: FontWeight.w600,
+                                                fontFamily: 'Poppins',
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Text(
+                                          _selectedPlanId != null
+                                              ? 'Continue'
+                                              : 'Select a Plan',
+                                          style: TextStyle(
+                                            fontSize: AppSizes.fontLarge,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: 'Poppins',
                                           ),
+                                        ),
                                 ),
                               ),
                             );
@@ -439,10 +435,9 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
   Widget _buildPlanCard(Map<String, dynamic> plan) {
     // Prefer product_id (store product identifier) for iOS IAP. Fallback to id string.
     final dynamic rawProductId = plan['product_id'];
-    final planId =
-        rawProductId != null && rawProductId.toString().isNotEmpty
-            ? rawProductId.toString()
-            : plan['id']?.toString() ?? '';
+    final planId = rawProductId != null && rawProductId.toString().isNotEmpty
+        ? rawProductId.toString()
+        : plan['id']?.toString() ?? '';
     final isSelected = _selectedPlanId == planId;
 
     return GestureDetector(
@@ -459,16 +454,16 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
           color: Colors.white,
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
-            color:
-                isSelected ? appColors().primaryColorApp : Colors.grey.shade300,
+            color: isSelected
+                ? appColors().primaryColorApp
+                : Colors.grey.shade300,
             width: isSelected ? 2.w : 1.w,
           ),
           boxShadow: [
             BoxShadow(
-              color:
-                  isSelected
-                      ? appColors().primaryColorApp.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.05),
+              color: isSelected
+                  ? appColors().primaryColorApp.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 12 : 8,
               offset: const Offset(0, 2),
               spreadRadius: isSelected ? 1 : 0,
@@ -495,10 +490,9 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                           style: TextStyle(
                             fontSize: AppSizes.fontLarge + 2.sp,
                             fontWeight: FontWeight.w700,
-                            color:
-                                isSelected
-                                    ? appColors().primaryColorApp
-                                    : Colors.black87,
+                            color: isSelected
+                                ? appColors().primaryColorApp
+                                : Colors.black87,
                             fontFamily: 'Poppins',
                           ),
                           child: Text(plan['name']),
@@ -520,14 +514,12 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                           AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 300),
                             style: TextStyle(
-                              fontSize:
-                                  AppSizes
-                                      .fontExtraLarge, // Smaller than the number
+                              fontSize: AppSizes
+                                  .fontExtraLarge, // Smaller than the number
                               fontWeight: FontWeight.w600,
-                              color:
-                                  isSelected
-                                      ? appColors().primaryColorApp
-                                      : Colors.black87,
+                              color: isSelected
+                                  ? appColors().primaryColorApp
+                                  : Colors.black87,
                               fontFamily: 'Poppins',
                             ),
                             child: Text('\$'),
@@ -538,10 +530,9 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                             style: TextStyle(
                               fontSize: AppSizes.fontH1,
                               fontWeight: FontWeight.w800,
-                              color:
-                                  isSelected
-                                      ? appColors().primaryColorApp
-                                      : Colors.black87,
+                              color: isSelected
+                                  ? appColors().primaryColorApp
+                                  : Colors.black87,
                               fontFamily: 'Poppins',
                             ),
                             child: Text(
@@ -582,10 +573,9 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                                 child: Icon(
                                   Icons.check_circle,
                                   size: 20.w,
-                                  color:
-                                      isSelected
-                                          ? appColors().primaryColorApp
-                                          : appColors().primaryColorApp,
+                                  color: isSelected
+                                      ? appColors().primaryColorApp
+                                      : appColors().primaryColorApp,
                                 ),
                               ),
 
@@ -622,10 +612,9 @@ class _SubscriptionPlansState extends State<SubscriptionPlans>
                             child: Icon(
                               Icons.check_circle,
                               size: 20.w,
-                              color:
-                                  isSelected
-                                      ? appColors().primaryColorApp
-                                      : appColors().primaryColorApp,
+                              color: isSelected
+                                  ? appColors().primaryColorApp
+                                  : appColors().primaryColorApp,
                             ),
                           ),
 
@@ -903,15 +892,13 @@ class _PlanTabBarState extends State<PlanTabBar>
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color:
-                              widget.selectedPlan == 'Monthly'
-                                  ? Colors.white
-                                  : appColors().black,
+                          color: widget.selectedPlan == 'Monthly'
+                              ? Colors.white
+                              : appColors().black,
                           fontSize: AppSizes.fontNormal,
-                          fontWeight:
-                              widget.selectedPlan == 'Monthly'
-                                  ? FontWeight.w800
-                                  : FontWeight.w400,
+                          fontWeight: widget.selectedPlan == 'Monthly'
+                              ? FontWeight.w800
+                              : FontWeight.w400,
                           fontFamily: 'Poppins',
                         ),
                         child: const Text('Monthly'),
@@ -935,15 +922,13 @@ class _PlanTabBarState extends State<PlanTabBar>
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color:
-                              widget.selectedPlan == 'Yearly'
-                                  ? Colors.white
-                                  : appColors().black,
+                          color: widget.selectedPlan == 'Yearly'
+                              ? Colors.white
+                              : appColors().black,
                           fontSize: AppSizes.fontNormal,
-                          fontWeight:
-                              widget.selectedPlan == 'Yearly'
-                                  ? FontWeight.w800
-                                  : FontWeight.w400,
+                          fontWeight: widget.selectedPlan == 'Yearly'
+                              ? FontWeight.w800
+                              : FontWeight.w400,
                           fontFamily: 'Poppins',
                         ),
                         child: const Text('Yearly'),

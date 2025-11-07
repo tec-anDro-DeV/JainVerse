@@ -10,6 +10,7 @@ import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/PurchaseHistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -79,51 +80,45 @@ class purchase_state extends State {
         filteredPlanHistory = List.from(planPurchaseHistory);
         filteredAudioHistory = List.from(audioPurchaseHistory);
       } else {
-        filteredPlanHistory =
-            planPurchaseHistory.where((plan) {
-              try {
-                final Map<String, dynamic> planData = json.decode(
-                  plan.plan_data,
-                );
-                final Map<String, dynamic> paymentData =
-                    json.decode(plan.payment_data)[0];
-                return plan.order_id.toLowerCase().contains(
-                      query.toLowerCase(),
-                    ) ||
-                    planData["plan_name"].toString().toLowerCase().contains(
-                      query.toLowerCase(),
-                    ) ||
-                    paymentData["payment_gateway"]
-                        .toString()
-                        .toLowerCase()
-                        .contains(query.toLowerCase());
-              } catch (e) {
-                return false;
-              }
-            }).toList();
+        filteredPlanHistory = planPurchaseHistory.where((plan) {
+          try {
+            final Map<String, dynamic> planData = json.decode(plan.plan_data);
+            final Map<String, dynamic> paymentData = json.decode(
+              plan.payment_data,
+            )[0];
+            return plan.order_id.toLowerCase().contains(query.toLowerCase()) ||
+                planData["plan_name"].toString().toLowerCase().contains(
+                  query.toLowerCase(),
+                ) ||
+                paymentData["payment_gateway"]
+                    .toString()
+                    .toLowerCase()
+                    .contains(query.toLowerCase());
+          } catch (e) {
+            return false;
+          }
+        }).toList();
 
-        filteredAudioHistory =
-            audioPurchaseHistory.where((audio) {
-              try {
-                final Map<String, dynamic> audioData = json.decode(
-                  audio.audio_data,
-                );
-                final Map<String, dynamic> paymentData =
-                    json.decode(audio.payment_data)[0];
-                return audio.order_id.toLowerCase().contains(
-                      query.toLowerCase(),
-                    ) ||
-                    audioData["audio_title"].toString().toLowerCase().contains(
-                      query.toLowerCase(),
-                    ) ||
-                    paymentData["payment_gateway"]
-                        .toString()
-                        .toLowerCase()
-                        .contains(query.toLowerCase());
-              } catch (e) {
-                return false;
-              }
-            }).toList();
+        filteredAudioHistory = audioPurchaseHistory.where((audio) {
+          try {
+            final Map<String, dynamic> audioData = json.decode(
+              audio.audio_data,
+            );
+            final Map<String, dynamic> paymentData = json.decode(
+              audio.payment_data,
+            )[0];
+            return audio.order_id.toLowerCase().contains(query.toLowerCase()) ||
+                audioData["audio_title"].toString().toLowerCase().contains(
+                  query.toLowerCase(),
+                ) ||
+                paymentData["payment_gateway"]
+                    .toString()
+                    .toLowerCase()
+                    .contains(query.toLowerCase());
+          } catch (e) {
+            return false;
+          }
+        }).toList();
       }
     });
   }
@@ -484,11 +479,7 @@ class purchase_state extends State {
                 child: StreamBuilder<MediaItem?>(
                   stream: _audioHandler?.mediaItem,
                   builder: (context, snapshot) {
-                    final hasMiniPlayer = snapshot.hasData;
-                    final bottomPadding =
-                        hasMiniPlayer
-                            ? AppSizes.basePadding + AppSizes.miniPlayerPadding
-                            : AppSizes.basePadding;
+                    final bottomPadding = AppPadding.bottom(context);
 
                     if (isLoading) {
                       return Center(

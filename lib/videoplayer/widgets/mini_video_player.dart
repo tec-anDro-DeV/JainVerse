@@ -6,6 +6,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:video_player/video_player.dart';
 import '../managers/video_player_state_provider.dart';
 import '../screens/video_player_view.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
 
 /// Configuration constants for the mini video player
 class _MiniVideoPlayerConfig {
@@ -143,6 +144,13 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
 
       // Add haptic feedback
       HapticFeedback.lightImpact();
+      // Inform global overlay manager so layout/padding can update
+      try {
+        MediaOverlayManager.instance.showMiniPlayer(
+          height: _MiniVideoPlayerConfig.height,
+          type: MediaOverlayType.videoMini,
+        );
+      } catch (_) {}
     }
   }
 
@@ -161,6 +169,10 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
           });
         }
       });
+      // Inform overlay manager that the mini player is hidden
+      try {
+        MediaOverlayManager.instance.hideMiniPlayer();
+      } catch (_) {}
     }
   }
 

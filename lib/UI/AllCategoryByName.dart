@@ -12,6 +12,7 @@ import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
@@ -510,12 +511,9 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
             stream: _audioHandler!.playbackState,
             builder: (context, playbackSnapshot) {
               final hasMiniPlayer = mediaSnapshot.hasData;
-              final bottomPadding =
-                  hasMiniPlayer
-                      ? AppSizes.basePadding +
-                          AppSizes.miniPlayerPadding +
-                          100.w
-                      : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+              final bottomPadding = hasMiniPlayer
+                  ? AppPadding.bottom(context, extra: 100.w)
+                  : AppPadding.bottom(context);
 
               return CustomScrollView(
                 controller: _scrollController,
@@ -563,12 +561,11 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
                         vertical: AppSizes.paddingM,
                       ),
                       child: Center(
-                        child:
-                            _isPaginating
-                                ? _buildPaginationLoading()
-                                : (_error
-                                    ? _buildPaginationError()
-                                    : const SizedBox.shrink()),
+                        child: _isPaginating
+                            ? _buildPaginationLoading()
+                            : (_error
+                                  ? _buildPaginationError()
+                                  : const SizedBox.shrink()),
                       ),
                     ),
                   ),
@@ -638,12 +635,9 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
 
     // Reserve a fixed vertical space for title, subtitle and action icons inside the card.
     // Songs have an additional artist line so give them extra reserved space.
-    final double reservedVerticalForText =
-        _isSongType(apiType)
-            ? (isTabletLocal
-                ? 64.0
-                : 54.0) // songs: more room for title + artist
-            : (isTabletLocal ? 40.0 : 36.0); // other types: slightly less
+    final double reservedVerticalForText = _isSongType(apiType)
+        ? (isTabletLocal ? 64.0 : 54.0) // songs: more room for title + artist
+        : (isTabletLocal ? 40.0 : 36.0); // other types: slightly less
 
     if (_isSongType(apiType)) {
       // Songs: 3 columns on phone, 4 on tablet
@@ -672,8 +666,9 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
     if (childAspectRatio > 1.0) childAspectRatio = 1.0;
 
     // Reduce spacing slightly on tablets to make rows more compact
-    final double spacing =
-        isTabletLocal ? (AppSizes.paddingXS * 0.4) : AppSizes.paddingXS;
+    final double spacing = isTabletLocal
+        ? (AppSizes.paddingXS * 0.4)
+        : AppSizes.paddingXS;
 
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -715,8 +710,9 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
     String artistName;
 
     if (apiType == "Featured Playlists") {
-      displayName =
-          post.playlist_name.isNotEmpty ? post.playlist_name : post.name;
+      displayName = post.playlist_name.isNotEmpty
+          ? post.playlist_name
+          : post.name;
       if (post.artists != null && post.artists!.isNotEmpty) {
         if (post.artists!.length == 1) {
           artistName =
@@ -808,170 +804,156 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
           ),
         );
       },
-      child:
-          _isGridView
-              ? MediaGridCard(
-                key: ValueKey('grid_${post.id}'),
-                imagePath: imageUrl,
-                songTitle: displayName,
-                artistName: artistName,
-                // Pass content-type flag so MediaGridCard can adjust layout for songs
-                isSong: apiType.contains("Songs"),
-                onTap: () => _handleItemNavigation(post),
-                sharedPreThemeData: sharedPreThemeData,
-                musicManager: musicManager,
-                songId: post.id.toString(), // Pass songId instead of isFavorite
-                isCurrent: isCurrentItem,
-                isPlaying: isPlayingNow,
-                onPlay:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handlePlaySong(
-                          post.id.toString(),
-                          displayName,
-                        )
-                        : null,
-                onPlayNext:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handlePlayNext(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                          imagePath: imageUrl,
-                        )
-                        : null,
-                onAddToQueue:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleAddToQueue(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                          imagePath: imageUrl,
-                        )
-                        : null,
-                onDownload:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleDownload(
-                          displayName,
-                          "song",
-                          post.id.toString(),
-                        )
-                        : null,
-                onAddToPlaylist:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleAddToPlaylist(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                        )
-                        : null,
-                onShare:
-                    (apiType.contains("Songs") ||
-                            apiType.contains("Albums") ||
-                            apiType.contains("Playlists"))
-                        ? () => _musicActionHandler.handleShare(
-                          displayName,
-                          apiType.contains("Songs")
-                              ? "song"
-                              : apiType.contains("Albums")
-                              ? "album"
-                              : "playlist",
-                          itemId: post.id.toString(),
-                          slug: post.slug,
-                        )
-                        : null,
-                onFavorite:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleFavoriteToggle(
-                          post.id.toString(),
-                          displayName,
-                          favoriteIds: _favoriteIds,
-                        )
-                        : null,
-                // Only enable the visualizer for song types
-                showVisualizer: apiType.contains("Songs"),
-              )
-              : MediaListCard(
-                key: ValueKey('list_${post.id}'),
-                songId:
-                    post.id
-                        .toString(), // Pass songId for global favorites management
-                imagePath: imageUrl,
-                songTitle: displayName,
-                artistName: artistName,
-                onTap: () => _handleItemNavigation(post),
-                sharedPreThemeData: sharedPreThemeData,
-                musicManager: musicManager,
-                // Remove static isFavorite - let MediaListCard use global provider
-                isCurrent: isCurrentItem,
-                isPlaying: isPlayingNow,
-                onPlay:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handlePlaySong(
-                          post.id.toString(),
-                          displayName,
-                        )
-                        : null,
-                onPlayNext:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handlePlayNext(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                          imagePath: imageUrl,
-                        )
-                        : null,
-                onAddToQueue:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleAddToQueue(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                          imagePath: imageUrl,
-                        )
-                        : null,
-                onDownload:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleDownload(
-                          displayName,
-                          "song",
-                          post.id.toString(),
-                        )
-                        : null,
-                onAddToPlaylist:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleAddToPlaylist(
-                          post.id.toString(),
-                          displayName,
-                          artistName,
-                        )
-                        : null,
-                onShare:
-                    (apiType.contains("Songs") ||
-                            apiType.contains("Albums") ||
-                            apiType.contains("Playlists"))
-                        ? () => _musicActionHandler.handleShare(
-                          displayName,
-                          apiType.contains("Songs")
-                              ? "song"
-                              : apiType.contains("Albums")
-                              ? "album"
-                              : "playlist",
-                          itemId: post.id.toString(),
-                          slug: post.slug,
-                        )
-                        : null,
-                onFavorite:
-                    apiType.contains("Songs")
-                        ? () => _musicActionHandler.handleFavoriteToggle(
-                          post.id.toString(),
-                          displayName,
-                          favoriteIds: _favoriteIds,
-                        )
-                        : null,
-                showDot: showDot,
-                // Only enable the visualizer for song types
-                showVisualizer: apiType.contains("Songs"),
-              ),
+      child: _isGridView
+          ? MediaGridCard(
+              key: ValueKey('grid_${post.id}'),
+              imagePath: imageUrl,
+              songTitle: displayName,
+              artistName: artistName,
+              // Pass content-type flag so MediaGridCard can adjust layout for songs
+              isSong: apiType.contains("Songs"),
+              onTap: () => _handleItemNavigation(post),
+              sharedPreThemeData: sharedPreThemeData,
+              musicManager: musicManager,
+              songId: post.id.toString(), // Pass songId instead of isFavorite
+              isCurrent: isCurrentItem,
+              isPlaying: isPlayingNow,
+              onPlay: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handlePlaySong(
+                      post.id.toString(),
+                      displayName,
+                    )
+                  : null,
+              onPlayNext: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handlePlayNext(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                      imagePath: imageUrl,
+                    )
+                  : null,
+              onAddToQueue: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleAddToQueue(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                      imagePath: imageUrl,
+                    )
+                  : null,
+              onDownload: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleDownload(
+                      displayName,
+                      "song",
+                      post.id.toString(),
+                    )
+                  : null,
+              onAddToPlaylist: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleAddToPlaylist(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                    )
+                  : null,
+              onShare:
+                  (apiType.contains("Songs") ||
+                      apiType.contains("Albums") ||
+                      apiType.contains("Playlists"))
+                  ? () => _musicActionHandler.handleShare(
+                      displayName,
+                      apiType.contains("Songs")
+                          ? "song"
+                          : apiType.contains("Albums")
+                          ? "album"
+                          : "playlist",
+                      itemId: post.id.toString(),
+                      slug: post.slug,
+                    )
+                  : null,
+              onFavorite: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleFavoriteToggle(
+                      post.id.toString(),
+                      displayName,
+                      favoriteIds: _favoriteIds,
+                    )
+                  : null,
+              // Only enable the visualizer for song types
+              showVisualizer: apiType.contains("Songs"),
+            )
+          : MediaListCard(
+              key: ValueKey('list_${post.id}'),
+              songId: post.id
+                  .toString(), // Pass songId for global favorites management
+              imagePath: imageUrl,
+              songTitle: displayName,
+              artistName: artistName,
+              onTap: () => _handleItemNavigation(post),
+              sharedPreThemeData: sharedPreThemeData,
+              musicManager: musicManager,
+              // Remove static isFavorite - let MediaListCard use global provider
+              isCurrent: isCurrentItem,
+              isPlaying: isPlayingNow,
+              onPlay: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handlePlaySong(
+                      post.id.toString(),
+                      displayName,
+                    )
+                  : null,
+              onPlayNext: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handlePlayNext(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                      imagePath: imageUrl,
+                    )
+                  : null,
+              onAddToQueue: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleAddToQueue(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                      imagePath: imageUrl,
+                    )
+                  : null,
+              onDownload: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleDownload(
+                      displayName,
+                      "song",
+                      post.id.toString(),
+                    )
+                  : null,
+              onAddToPlaylist: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleAddToPlaylist(
+                      post.id.toString(),
+                      displayName,
+                      artistName,
+                    )
+                  : null,
+              onShare:
+                  (apiType.contains("Songs") ||
+                      apiType.contains("Albums") ||
+                      apiType.contains("Playlists"))
+                  ? () => _musicActionHandler.handleShare(
+                      displayName,
+                      apiType.contains("Songs")
+                          ? "song"
+                          : apiType.contains("Albums")
+                          ? "album"
+                          : "playlist",
+                      itemId: post.id.toString(),
+                      slug: post.slug,
+                    )
+                  : null,
+              onFavorite: apiType.contains("Songs")
+                  ? () => _musicActionHandler.handleFavoriteToggle(
+                      post.id.toString(),
+                      displayName,
+                      favoriteIds: _favoriteIds,
+                    )
+                  : null,
+              showDot: showDot,
+              // Only enable the visualizer for song types
+              showVisualizer: apiType.contains("Songs"),
+            ),
     );
   }
 
@@ -1310,8 +1292,8 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
         apiType == "Featured Playlists") {
       final playlistName =
           apiType == "Featured Playlists" && post.playlist_name.isNotEmpty
-              ? post.playlist_name
-              : post.name;
+          ? post.playlist_name
+          : post.name;
 
       if (kDebugMode) {
         print(
@@ -1322,9 +1304,8 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) =>
-                  MusicList(_audioHandler, "${post.id}", apiType, playlistName),
+          builder: (context) =>
+              MusicList(_audioHandler, "${post.id}", apiType, playlistName),
         ),
       ).then((value) {
         debugPrint(value);
@@ -1336,13 +1317,12 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (_) => ArtistDetailScreen(
-                audioHandler: _audioHandler,
-                idTag: artistId.toString(),
-                typ: 'Artists',
-                catName: artistName,
-              ),
+          builder: (_) => ArtistDetailScreen(
+            audioHandler: _audioHandler,
+            idTag: artistId.toString(),
+            typ: 'Artists',
+            catName: artistName,
+          ),
           settings: const RouteSettings(name: '/track_info_to_artist_songs'),
         ),
       ).then((value) {
@@ -1401,20 +1381,20 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
           print('[ERROR] No content found for this $apiType');
 
           // Fallback to traditional navigation if no content
+          if (!mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder:
-                  (context) => Music(
-                    _audioHandler,
-                    "${post.id}",
-                    apiType,
-                    const [],
-                    "",
-                    0,
-                    false,
-                    '',
-                  ),
+              builder: (context) => Music(
+                _audioHandler,
+                "${post.id}",
+                apiType,
+                const [],
+                "",
+                0,
+                false,
+                '',
+              ),
             ),
           ).then((value) {
             debugPrint(value);
@@ -1425,20 +1405,20 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
         print('[ERROR] Failed to load and play content: $e');
 
         // Fallback to traditional navigation on error
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => Music(
-                  _audioHandler,
-                  "${post.id}",
-                  apiType,
-                  const [],
-                  "",
-                  0,
-                  false,
-                  '',
-                ),
+            builder: (context) => Music(
+              _audioHandler,
+              "${post.id}",
+              apiType,
+              const [],
+              "",
+              0,
+              false,
+              '',
+            ),
           ),
         ).then((value) {
           debugPrint(value);

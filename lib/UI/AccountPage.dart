@@ -15,6 +15,7 @@ import 'package:jainverse/Presenter/ArtistVerificationPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/AppInfo.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/models/channel_model.dart';
@@ -706,8 +707,8 @@ class MyState extends State<AccountPage>
         // Calculate proper bottom padding accounting for mini player and navigation
         final hasMiniPlayer = snapshot.hasData;
         final bottomPadding = hasMiniPlayer
-            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-            : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+            ? AppPadding.bottom(context, extra: 100.w)
+            : AppPadding.bottom(context);
 
         return RefreshIndicator(
           onRefresh: () async {

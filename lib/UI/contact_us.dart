@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
@@ -96,12 +97,7 @@ class _ContactUsState extends State<ContactUs> {
                     stream: _audioHandler?.mediaItem,
                     builder: (context, snapshot) {
                       // Calculate proper bottom padding accounting for mini player and navigation
-                      final hasMiniPlayer = snapshot.hasData;
-                      final bottomPadding =
-                          hasMiniPlayer
-                              ? AppSizes.basePadding +
-                                  AppSizes.miniPlayerPadding
-                              : AppSizes.basePadding;
+                      final bottomPadding = AppPadding.bottom(context);
 
                       return SingleChildScrollView(
                         child: Padding(

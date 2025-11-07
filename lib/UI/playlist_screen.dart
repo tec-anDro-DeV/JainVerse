@@ -9,6 +9,7 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/managers/music_manager.dart';
@@ -102,14 +103,12 @@ class _PlaylistScreenState extends State<PlaylistScreen>
         setState(() {
           _playlists = response.data;
           // API now returns relative paths; combine with AppConstant.ImageUrl which includes the public/ base
-          _imagePath =
-              response.imagePath.isNotEmpty
-                  ? '${AppConstant.ImageUrl}${response.imagePath}'
-                  : '';
-          _audioPath =
-              response.audioPath.isNotEmpty
-                  ? '${AppConstant.ImageUrl}${response.audioPath}'
-                  : '';
+          _imagePath = response.imagePath.isNotEmpty
+              ? '${AppConstant.ImageUrl}${response.imagePath}'
+              : '';
+          _audioPath = response.audioPath.isNotEmpty
+              ? '${AppConstant.ImageUrl}${response.audioPath}'
+              : '';
           _isLoading = false;
           _lastRefreshTime = DateTime.now();
         });
@@ -308,10 +307,12 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                   final messenger = ScaffoldMessenger.of(
                                     context,
                                   );
-                                  final pathImage =
-                                      _imagePath.isNotEmpty ? _imagePath : '';
-                                  final audioPath =
-                                      _audioPath.isNotEmpty ? _audioPath : '';
+                                  final pathImage = _imagePath.isNotEmpty
+                                      ? _imagePath
+                                      : '';
+                                  final audioPath = _audioPath.isNotEmpty
+                                      ? _audioPath
+                                      : '';
 
                                   try {
                                     await MusicManager().replaceQueue(
@@ -369,10 +370,12 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                   );
                                   shuffled.shuffle(math.Random());
 
-                                  final pathImage =
-                                      _imagePath.isNotEmpty ? _imagePath : '';
-                                  final audioPath =
-                                      _audioPath.isNotEmpty ? _audioPath : '';
+                                  final pathImage = _imagePath.isNotEmpty
+                                      ? _imagePath
+                                      : '';
+                                  final audioPath = _audioPath.isNotEmpty
+                                      ? _audioPath
+                                      : '';
 
                                   try {
                                     await MusicManager().replaceQueue(
@@ -503,44 +506,43 @@ class _PlaylistScreenState extends State<PlaylistScreen>
   void _showDeleteConfirmation(DataCat playlist) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: appColors().colorBackground,
-            title: Text(
-              'Delete Playlist',
-              style: TextStyle(
-                color: appColors().primaryColorApp,
-                fontSize: AppSizes.fontNormal,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            content: Text(
-              'Are you sure you want to delete "${playlist.playlist_name}"? This action cannot be undone.',
-              style: TextStyle(
-                color: appColors().black,
-                fontSize: AppSizes.fontSmall,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: appColors().primaryColorApp),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _deletePlaylist(playlist);
-                },
-                child: Text(
-                  'Delete',
-                  style: TextStyle(color: appColors().primaryColorApp),
-                ),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: appColors().colorBackground,
+        title: Text(
+          'Delete Playlist',
+          style: TextStyle(
+            color: appColors().primaryColorApp,
+            fontSize: AppSizes.fontNormal,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${playlist.playlist_name}"? This action cannot be undone.',
+          style: TextStyle(
+            color: appColors().black,
+            fontSize: AppSizes.fontSmall,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: appColors().primaryColorApp),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deletePlaylist(playlist);
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: appColors().primaryColorApp),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -551,122 +553,121 @@ class _PlaylistScreenState extends State<PlaylistScreen>
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: appColors().colorBackground,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14.w),
-            ),
-            title: Text(
-              'Rename Playlist',
-              style: TextStyle(
-                color: appColors().primaryColorApp,
-                fontSize: AppSizes.fontH2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Enter a new name for this playlist',
-                  style: TextStyle(
-                    color: appColors().colorText.withOpacity(0.9),
-                    fontSize: AppSizes.fontNormal - 1.sp,
-                  ),
-                ),
-                SizedBox(height: AppSizes.paddingS),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  cursorColor: appColors().primaryColorApp,
-                  style: TextStyle(color: appColors().colorText),
-                  decoration: InputDecoration(
-                    hintText: 'Playlist name',
-                    filled: true,
-                    fillColor: appColors().white.withOpacity(0.02),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.w),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: appColors().primaryColorApp),
-                ),
-              ),
-              // Use ElevatedButton to emphasize the primary action and ensure
-              // consistent primary color usage across the app.
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: appColors().primaryColorApp,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.w),
-                  ),
-                ),
-                onPressed: () async {
-                  final newName = controller.text.trim();
-                  if (newName.isEmpty) {
-                    // Capture messenger before async gap to avoid using BuildContext
-                    // after awaits.
-                    final messenger = ScaffoldMessenger.of(context);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Playlist name cannot be empty'),
-                        backgroundColor: appColors().primaryColorApp,
-                      ),
-                    );
-                    return;
-                  }
-
-                  // Capture navigator and messenger now so we don't reference
-                  // the BuildContext across async gaps.
-                  final navigator = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-
-                  navigator.pop();
-
-                  if (!mounted) return;
-                  setState(() => _isLoading = true);
-
-                  final service = PlaylistService();
-                  final success = await service.updatePlaylist(
-                    playlist.id.toString(),
-                    newName,
-                  );
-
-                  if (!mounted) return;
-                  setState(() => _isLoading = false);
-
-                  if (success) {
-                    if (mounted) await _loadPlaylists();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Playlist renamed'),
-                        backgroundColor: appColors().primaryColorApp,
-                      ),
-                    );
-                  } else {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to rename playlist'),
-                        backgroundColor: appColors().primaryColorApp,
-                      ),
-                    );
-                  }
-                },
-                child: Text('Rename'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: appColors().colorBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14.w),
+        ),
+        title: Text(
+          'Rename Playlist',
+          style: TextStyle(
+            color: appColors().primaryColorApp,
+            fontSize: AppSizes.fontH2,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter a new name for this playlist',
+              style: TextStyle(
+                color: appColors().colorText.withOpacity(0.9),
+                fontSize: AppSizes.fontNormal - 1.sp,
+              ),
+            ),
+            SizedBox(height: AppSizes.paddingS),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              cursorColor: appColors().primaryColorApp,
+              style: TextStyle(color: appColors().colorText),
+              decoration: InputDecoration(
+                hintText: 'Playlist name',
+                filled: true,
+                fillColor: appColors().white.withOpacity(0.02),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8.w),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: appColors().primaryColorApp),
+            ),
+          ),
+          // Use ElevatedButton to emphasize the primary action and ensure
+          // consistent primary color usage across the app.
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: appColors().primaryColorApp,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.w),
+              ),
+            ),
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isEmpty) {
+                // Capture messenger before async gap to avoid using BuildContext
+                // after awaits.
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Playlist name cannot be empty'),
+                    backgroundColor: appColors().primaryColorApp,
+                  ),
+                );
+                return;
+              }
+
+              // Capture navigator and messenger now so we don't reference
+              // the BuildContext across async gaps.
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+
+              navigator.pop();
+
+              if (!mounted) return;
+              setState(() => _isLoading = true);
+
+              final service = PlaylistService();
+              final success = await service.updatePlaylist(
+                playlist.id.toString(),
+                newName,
+              );
+
+              if (!mounted) return;
+              setState(() => _isLoading = false);
+
+              if (success) {
+                if (mounted) await _loadPlaylists();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Playlist renamed'),
+                    backgroundColor: appColors().primaryColorApp,
+                  ),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to rename playlist'),
+                    backgroundColor: appColors().primaryColorApp,
+                  ),
+                );
+              }
+            },
+            child: Text('Rename'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -754,13 +755,12 @@ class _PlaylistScreenState extends State<PlaylistScreen>
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => MusicList(
-              const MyApp().called(),
-              playlistId,
-              'User Playlist',
-              playlistName,
-            ),
+        builder: (context) => MusicList(
+          const MyApp().called(),
+          playlistId,
+          'User Playlist',
+          playlistName,
+        ),
       ),
     );
 
@@ -783,13 +783,7 @@ class _PlaylistScreenState extends State<PlaylistScreen>
           StreamBuilder<MediaItem?>(
             stream: const MyApp().called().mediaItem,
             builder: (context, snapshot) {
-              final hasMiniPlayer = snapshot.hasData;
-              final bottomPadding =
-                  hasMiniPlayer
-                      ? AppSizes.basePadding +
-                          AppSizes.miniPlayerPadding +
-                          100.w
-                      : AppSizes.basePadding + 100.w;
+              final bottomPadding = AppPadding.bottom(context, extra: 100.w);
 
               return GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -826,8 +820,8 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                     showProfileIcon: false,
                                     backgroundColor: Colors.white,
                                     scrollAware: false,
-                                    onBackPressed:
-                                        () => Navigator.of(context).pop(),
+                                    onBackPressed: () =>
+                                        Navigator.of(context).pop(),
                                     trailingWidget: Padding(
                                       padding: EdgeInsets.only(right: 12.w),
                                       child: SizedBox(
@@ -851,11 +845,10 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                                     onPlaylistCreated: () {
                                                       // legacy callback
                                                     },
-                                                    onPlaylistCreatedWithName: (
-                                                      String name,
-                                                    ) {
-                                                      // optional: could show a toast
-                                                    },
+                                                    onPlaylistCreatedWithName:
+                                                        (String name) {
+                                                          // optional: could show a toast
+                                                        },
                                                   );
 
                                               if (result == true) {
@@ -955,8 +948,9 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                               // Compute a childAspectRatio so card height matches the
                               // existing visual size (250.w). This keeps layout similar
                               // to the previous SliverList when using one column.
-                              final double screenWidth =
-                                  MediaQuery.of(context).size.width;
+                              final double screenWidth = MediaQuery.of(
+                                context,
+                              ).size.width;
                               final double totalHorizontalPadding =
                                   AppSizes.paddingM * 2;
                               final double crossAxisSpacing =
@@ -984,10 +978,9 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                       crossAxisCount: columns,
                                       crossAxisSpacing: AppSizes.paddingM,
                                       mainAxisSpacing: AppSizes.paddingM,
-                                      childAspectRatio:
-                                          childAspectRatio > 0
-                                              ? childAspectRatio
-                                              : 1.0,
+                                      childAspectRatio: childAspectRatio > 0
+                                          ? childAspectRatio
+                                          : 1.0,
                                     ),
                               );
                             },
@@ -1196,11 +1189,10 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                               GestureDetector(
                                 // Use onTapDown to capture the global tap position so we can
                                 // show a floating menu right beside the icon.
-                                onTapDown:
-                                    (details) => _showPlaylistOptions(
-                                      playlist,
-                                      details.globalPosition,
-                                    ),
+                                onTapDown: (details) => _showPlaylistOptions(
+                                  playlist,
+                                  details.globalPosition,
+                                ),
                                 child: Container(
                                   padding: EdgeInsets.all(AppSizes.paddingXS),
                                   child: Icon(
@@ -1222,69 +1214,69 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                         // Songs grid or empty-state message pinned to the bottom-center of the card
                         playlist.song_list.isEmpty
                             ? Expanded(
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(height: AppSizes.paddingXS),
-                                    Text(
-                                      'No Songs in this Playlist',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: AppSizes.fontSmall + 1.sp,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(height: AppSizes.paddingXS),
+                                      Text(
+                                        'No Songs in this Playlist',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: AppSizes.fontSmall + 1.sp,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Row(
+                                // Ensure thumbnails align on the same horizontal line
+                                // even when some titles take 2 lines. We always render
+                                // exactly 5 slots so items don't expand to fill the
+                                // entire row when there are fewer songs.
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: List.generate(5, (i) {
+                                  // Determine total count (audio_count if provided else song_list length)
+                                  final int totalCount =
+                                      playlist.audio_count > 0
+                                      ? playlist.audio_count
+                                      : playlist.song_list.length;
+
+                                  // If there are more than 5 songs, we want to display
+                                  // first 4 normally and the 5th as a glassmorphic "more" card.
+                                  final bool moreThanFive = totalCount > 5;
+
+                                  // For index 4 when there are more than 5 songs, we still
+                                  // show the 5th song's image (if available) but present
+                                  // the special overlay. remainingCount should reflect
+                                  // how many extra songs exist beyond the 4 shown.
+                                  final int remaining = moreThanFive
+                                      ? (totalCount - 4)
+                                      : (totalCount - 5);
+
+                                  final DataMusic? song =
+                                      i < playlist.song_list.length
+                                      ? playlist.song_list[i]
+                                      : null;
+
+                                  return Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: AppSizes.paddingXS,
+                                      ),
+                                      child: _buildSongThumbnail(
+                                        song,
+                                        playlist,
+                                        index: i,
+                                        remainingCount: remaining > 0
+                                            ? remaining
+                                            : 0,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                }),
                               ),
-                            )
-                            : Row(
-                              // Ensure thumbnails align on the same horizontal line
-                              // even when some titles take 2 lines. We always render
-                              // exactly 5 slots so items don't expand to fill the
-                              // entire row when there are fewer songs.
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: List.generate(5, (i) {
-                                // Determine total count (audio_count if provided else song_list length)
-                                final int totalCount =
-                                    playlist.audio_count > 0
-                                        ? playlist.audio_count
-                                        : playlist.song_list.length;
-
-                                // If there are more than 5 songs, we want to display
-                                // first 4 normally and the 5th as a glassmorphic "more" card.
-                                final bool moreThanFive = totalCount > 5;
-
-                                // For index 4 when there are more than 5 songs, we still
-                                // show the 5th song's image (if available) but present
-                                // the special overlay. remainingCount should reflect
-                                // how many extra songs exist beyond the 4 shown.
-                                final int remaining =
-                                    moreThanFive
-                                        ? (totalCount - 4)
-                                        : (totalCount - 5);
-
-                                final DataMusic? song =
-                                    i < playlist.song_list.length
-                                        ? playlist.song_list[i]
-                                        : null;
-
-                                return Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: AppSizes.paddingXS,
-                                    ),
-                                    child: _buildSongThumbnail(
-                                      song,
-                                      playlist,
-                                      index: i,
-                                      remainingCount:
-                                          remaining > 0 ? remaining : 0,
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
                       ],
                     ),
                   ),
@@ -1385,28 +1377,28 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                     // Image or placeholder
                     s.image.isNotEmpty
                         ? Image.network(
-                          _imagePath.isNotEmpty
-                              ? '$_imagePath${s.image}'
-                              : '${AppConstant.ImageUrl}images/audio/thumb/${s.image}',
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (context, error, stackTrace) => Container(
-                                color: appColors().gray[200],
-                                child: Icon(
-                                  Icons.music_note,
-                                  color: appColors().primaryColorApp,
-                                  size: 24.w,
+                            _imagePath.isNotEmpty
+                                ? '$_imagePath${s.image}'
+                                : '${AppConstant.ImageUrl}images/audio/thumb/${s.image}',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: appColors().gray[200],
+                                  child: Icon(
+                                    Icons.music_note,
+                                    color: appColors().primaryColorApp,
+                                    size: 24.w,
+                                  ),
                                 ),
-                              ),
-                        )
+                          )
                         : Container(
-                          color: appColors().gray[300],
-                          child: Icon(
-                            Icons.music_note,
-                            color: appColors().primaryColorApp,
-                            size: 24.w,
+                            color: appColors().gray[300],
+                            child: Icon(
+                              Icons.music_note,
+                              color: appColors().primaryColorApp,
+                              size: 24.w,
+                            ),
                           ),
-                        ),
                     // Special glassmorphic overlay for the 5th slot when there are more songs than shown
                     if (index == 4 && remainingCount > 0)
                       // Make the overlay ignore pointer events so taps fall

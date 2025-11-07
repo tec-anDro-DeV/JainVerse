@@ -13,6 +13,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
@@ -133,27 +134,26 @@ class StateClass extends State<MusicList> {
       // If favorites haven't loaded yet, check the song's favorite field directly
       final song = list.firstWhere(
         (s) => s.id.toString() == songId,
-        orElse:
-            () => DataMusic(
-              0,
-              '',
-              '',
-              '',
-              '',
-              '',
-              0,
-              '',
-              '',
-              '',
-              0,
-              0,
-              0,
-              '',
-              0,
-              '',
-              '',
-              '',
-            ),
+        orElse: () => DataMusic(
+          0,
+          '',
+          '',
+          '',
+          '',
+          '',
+          0,
+          '',
+          '',
+          '',
+          0,
+          0,
+          0,
+          '',
+          0,
+          '',
+          '',
+          '',
+        ),
       );
       return song.favourite == "1";
     }
@@ -173,8 +173,9 @@ class StateClass extends State<MusicList> {
     parentData = mList.parent; // Store parent data
     // Initialize a single fallback image URL if not set
     if (_fallbackImageUrl == null) {
-      final songsWithImages =
-          list.where((song) => song.image.isNotEmpty).toList();
+      final songsWithImages = list
+          .where((song) => song.image.isNotEmpty)
+          .toList();
       if (songsWithImages.isNotEmpty) {
         final randomSong =
             songsWithImages[math.Random().nextInt(songsWithImages.length)];
@@ -436,15 +437,15 @@ class StateClass extends State<MusicList> {
           color: Colors.white.withOpacity(0.95),
           boxShadow:
               _scrollController.hasClients &&
-                      _scrollController.offset > _topScrollThreshold
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8.0,
-                      offset: const Offset(0, 0),
-                    ),
-                  ]
-                  : null,
+                  _scrollController.offset > _topScrollThreshold
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 0),
+                  ),
+                ]
+              : null,
         ),
         child: SafeArea(
           bottom: false,
@@ -476,10 +477,9 @@ class StateClass extends State<MusicList> {
         stream: _audioHandler?.mediaItem,
         builder: (context, snapshot) {
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+          final bottomPadding = hasMiniPlayer
+              ? AppPadding.bottom(context, extra: 100.w)
+              : AppPadding.bottom(context);
 
           return CustomScrollView(
             controller: _scrollController,
@@ -758,10 +758,9 @@ class StateClass extends State<MusicList> {
                           width: 8.w,
                           height: 8.w,
                           decoration: BoxDecoration(
-                            color:
-                                showDot
-                                    ? appColors().primaryColorApp
-                                    : Colors.transparent,
+                            color: showDot
+                                ? appColors().primaryColorApp
+                                : Colors.transparent,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -780,20 +779,15 @@ class StateClass extends State<MusicList> {
                           child: AutoManagedVisualizerOverlay(
                             show: isCurrentItem, // Only show when current
                             musicManager: musicManager,
-                            child:
-                                imageUrl.isNotEmpty
-                                    ? Image.network(
-                                      imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
-                                        return _buildPlaceholderImage();
-                                      },
-                                    )
-                                    : _buildPlaceholderImage(),
+                            child: imageUrl.isNotEmpty
+                                ? Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return _buildPlaceholderImage();
+                                    },
+                                  )
+                                : _buildPlaceholderImage(),
                           ),
                         ),
                       ),
@@ -866,35 +860,32 @@ class StateClass extends State<MusicList> {
 
     return MusicMenuDataFactory.createSongMenuData(
       title: song.audio_title,
-      artist:
-          song.artists_name.isNotEmpty ? song.artists_name : 'Unknown Artist',
+      artist: song.artists_name.isNotEmpty
+          ? song.artists_name
+          : 'Unknown Artist',
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       onPlay: () => _playMusic(index),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            song.audio_title,
-            "song",
-            song.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            song.audio_title,
-            "song",
-            itemId: song.id.toString(),
-            slug: song.audio_slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            song.id.toString(),
-            song.audio_title,
-            favoriteIds: _favoriteIds,
-          ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        song.audio_title,
+        "song",
+        song.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        song.audio_title,
+        "song",
+        itemId: song.id.toString(),
+        slug: song.audio_slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        song.id.toString(),
+        song.audio_title,
+        favoriteIds: _favoriteIds,
+      ),
       isFavorite: _isSongFavorited(song.id.toString()),
     );
   }
@@ -1013,8 +1004,9 @@ class StateClass extends State<MusicList> {
     if (list.isEmpty) return;
 
     final musicManager = MusicManager();
-    final startIndex =
-        shuffle ? (list.length * math.Random().nextDouble()).floor() : 0;
+    final startIndex = shuffle
+        ? (list.length * math.Random().nextDouble()).floor()
+        : 0;
     // Optimistically mark pending audio to avoid flash
     _pendingAudioId = list[startIndex].id.toString();
     if (mounted) setState(() {});

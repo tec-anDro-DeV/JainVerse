@@ -15,10 +15,10 @@ import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AdHelper.dart';
-import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
@@ -31,8 +31,7 @@ import '../widgets/common/search_bar.dart';
 import '../widgets/music/recent_search_card.dart';
 import '../widgets/music/search_music_card.dart';
 import '../videoplayer/models/video_item.dart';
-import '../videoplayer/widgets/video_card.dart';
-import '../videoplayer/screens/video_player_view.dart';
+// removed unused imports to avoid analyzer warnings
 import 'AccountPage.dart';
 
 AudioPlayerHandler? _audioHandler;
@@ -75,8 +74,7 @@ class _SearchPageState extends State<SearchPage> {
   List<Map<String, dynamic>> recentSearches = [];
   bool _showingRecentSearches = true; // Start with recent searches
 
-  // Tab management for Music/Video/All
-  String _selectedTab = 'All'; // 'All', 'Music', 'Video'
+  // Tab management for Music/Video/All (reserved for future use)
   List<VideoItem> videoList = [];
   final Dio _dio = Dio();
   final PagingController<int, VideoItem> _videoPagingController =
@@ -101,22 +99,28 @@ class _SearchPageState extends State<SearchPage> {
     session['page'] = "2";
     _audioHandler = const MyApp().called();
 
-    // Initialize data first
-    _initializeData().then((_) {
-      // Load recent searches
-      _loadRecentSearches().then((_) {
-        // Handle search parameter after initialization
-        if (widget.searchParam.isNotEmpty) {
-          txtSearch.text = widget.searchParam;
-          setState(() {
-            _showingRecentSearches = false;
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            searchAPI();
-          });
-        }
+    // Initialize data first (run async initialization separately to allow
+    // mounted checks after awaits)
+    _initAsync();
+  }
+
+  Future<void> _initAsync() async {
+    await _initializeData();
+    await _loadRecentSearches();
+
+    if (!mounted) return;
+
+    // Handle search parameter after initialization
+    if (widget.searchParam.isNotEmpty) {
+      txtSearch.text = widget.searchParam;
+      setState(() {
+        _showingRecentSearches = false;
       });
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        searchAPI();
+      });
+    }
   }
 
   @override
@@ -533,9 +537,7 @@ class _SearchPageState extends State<SearchPage> {
                   AppSizes.contentHorizontalPadding,
                   AppSizes.contentTopPadding,
                   AppSizes.contentHorizontalPadding,
-                  hasMiniPlayer
-                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding
-                      : AppSizes.basePadding,
+                  AppPadding.bottom(context),
                 ),
                 sliver: _buildContentSliver(hasMiniPlayer),
               ),
@@ -549,56 +551,54 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildContentSliver(bool hasMiniPlayer) {
     if (_showingRecentSearches) {
       return _buildRecentSearchesSliver(hasMiniPlayer);
-    } else {
-      return _buildSearchResultsSliver(hasMiniPlayer);
     }
+    return _buildSearchResultsSliver(hasMiniPlayer);
   }
 
   Widget _buildRecentSearchesSliver(bool hasMiniPlayer) {
     if (recentSearches.isEmpty) {
-      return SliverFillRemaining(child: _buildNoRecentSearchesWidget());
+      return SliverToBoxAdapter(child: _buildNoRecentSearchesWidget());
     }
 
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Searches',
-                style: TextStyle(
-                  fontSize: AppSizes.fontLarge,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  fontFamily: 'Poppins',
-                ),
-              ),
-              if (recentSearches.isNotEmpty)
-                TextButton(
-                  onPressed: () async {
-                    await CacheManager.clearRecentSearches();
-                    await _loadRecentSearches();
-                  },
-                  child: Text(
-                    'Clear All',
-                    style: TextStyle(
-                      color: appColors().primaryColorApp,
-                      fontSize: AppSizes.fontNormal,
-                    ),
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSizes.paddingS),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Searches',
+                  style: TextStyle(
+                    fontSize: AppSizes.fontLarge,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                    fontFamily: 'Poppins',
                   ),
                 ),
-            ],
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) =>
-                _buildRecentSearchItem(recentSearches[index], index),
-            childCount: recentSearches.length,
-          ),
-        ),
-      ],
+                if (recentSearches.isNotEmpty)
+                  TextButton(
+                    onPressed: () async {
+                      await CacheManager.clearRecentSearches();
+                      await _loadRecentSearches();
+                    },
+                    child: Text(
+                      'Clear All',
+                      style: TextStyle(
+                        color: appColors().primaryColorApp,
+                        fontSize: AppSizes.fontNormal,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }
+
+        final item = recentSearches[index - 1];
+        return _buildRecentSearchItem(item, index - 1);
+      }, childCount: recentSearches.length + 1),
     );
   }
 

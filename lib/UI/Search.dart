@@ -16,6 +16,7 @@ import 'package:jainverse/Presenter/HistoryPresenter.dart'; // Add this import
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 // import 'package:jainverse/utils/AdHelper.dart';
@@ -755,9 +756,10 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                   AppSizes.paddingM,
                   AppSizes.paddingS,
                   AppSizes.paddingM,
-                  AppSizes.basePadding +
-                      AppSizes.miniPlayerPadding +
-                      210.w, // Additional padding for this specific screen
+                  AppPadding.bottom(
+                    context,
+                    extra: 210.w,
+                  ), // centralized bottom padding
                 ),
                 sliver: _buildContentSliver(),
               ),

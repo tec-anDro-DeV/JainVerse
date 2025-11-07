@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/videoplayer/models/report_option.dart';
 import 'package:jainverse/videoplayer/services/video_report_service.dart';
 import 'package:jainverse/main.dart';
@@ -142,13 +142,10 @@ class _VideoReportModalState extends State<VideoReportModal> {
     return StreamBuilder<MediaItem?>(
       stream: const MyApp().called().mediaItem,
       builder: (context, snapshot) {
-        // Check if mini player is visible (music is playing)
-        final hasMiniPlayer = snapshot.hasData;
-
-        // Calculate bottom padding based on mini player and nav bar
-        final bottomPadding = hasMiniPlayer
-            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 40.w
-            : AppSizes.basePadding + 40.w;
+        // Calculate bottom padding using centralized AppPadding helper.
+        // This accounts for the nav bar and any visible mini-player (audio/video).
+        // We request an additional 40.w specific to this modal.
+        final bottomPadding = AppPadding.bottom(context, extra: 40.w);
 
         return Container(
           decoration: BoxDecoration(

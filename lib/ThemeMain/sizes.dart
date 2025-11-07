@@ -76,7 +76,14 @@ class AppSizes {
   static double contentHorizontalPadding = 12.w;
   static double contentRightPadding = 0.w;
   static double basePadding = 70.w;
-  static double miniPlayerPadding = 70.w;
+
+  // Heights for mini players. Use these when reporting overlay heights so
+  // padding can be computed centrally. Rules:
+  // - Only main nav -> basePadding (70.w)
+  // - Music mini player -> basePadding + audioMiniPlayerHeight (70 + 90)
+  // - Video mini player -> basePadding + videoMiniPlayerHeight (70 + 120)
+  static double audioMiniPlayerHeight = 90.w;
+  static double videoMiniPlayerHeight = 100.w;
 
   // Loader sizes
   static double loaderSizeSmall = 60.w;

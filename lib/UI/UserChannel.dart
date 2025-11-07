@@ -7,7 +7,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
 import 'package:jainverse/widgets/user_channel/banner_section.dart';
 import 'package:jainverse/widgets/user_channel/info_card.dart';
@@ -801,9 +802,19 @@ class _UserChannelState extends State<UserChannel>
         builder: (context, snapshot) {
           // Calculate proper bottom padding accounting for mini player and navigation
           final hasMiniPlayer = snapshot.hasData;
+
+          // Sync overlay manager with audio stream so other widgets can react.
+          if (hasMiniPlayer) {
+            MediaOverlayManager.instance.showMiniPlayer(
+              type: MediaOverlayType.audioMini,
+            );
+          } else {
+            MediaOverlayManager.instance.hideMiniPlayer();
+          }
+
           final bottomPadding = hasMiniPlayer
-              ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-              : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+              ? AppPadding.bottom(context, extra: 100.w)
+              : AppPadding.bottom(context);
 
           return SlideTransition(
             position: _slideAnimation,

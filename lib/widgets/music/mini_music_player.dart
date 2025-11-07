@@ -11,6 +11,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/enhanced_audio_visualizer.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
 import 'package:jainverse/utils/performance_debouncer.dart';
 import 'package:jainverse/widgets/common/smart_image_widget.dart';
 // ...existing code...
@@ -221,6 +222,13 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
       // Add haptic feedback for better UX
       HapticFeedback.lightImpact();
+      // Inform global overlay manager so layout/padding can update
+      try {
+        MediaOverlayManager.instance.showMiniPlayer(
+          height: _MiniPlayerConfig.height,
+          type: MediaOverlayType.audioMini,
+        );
+      } catch (_) {}
     }
   }
 
@@ -246,6 +254,10 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           });
         }
       });
+      // Inform overlay manager that the mini player is hidden
+      try {
+        MediaOverlayManager.instance.hideMiniPlayer();
+      } catch (_) {}
     }
   }
 
@@ -1400,6 +1412,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       debugPrint(
         '[MiniMusicPlayer] Calling PerformanceDebouncer.safePush for mini_player_to_full',
       );
+      if (!mounted) return;
       PerformanceDebouncer.safePush(
         context,
         MaterialPageRoute(

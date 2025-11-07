@@ -12,6 +12,7 @@ import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
@@ -348,15 +349,15 @@ class StateClass extends State<Favorite> {
           color: Colors.white.withOpacity(0.95),
           boxShadow:
               _scrollController.hasClients &&
-                      _scrollController.offset > _topScrollThreshold
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8.0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                  : null,
+                  _scrollController.offset > _topScrollThreshold
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: SafeArea(
           bottom: false,
@@ -401,10 +402,10 @@ class StateClass extends State<Favorite> {
         stream: _audioHandler!.mediaItem,
         builder: (context, snapshot) {
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 90.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding + 50.w;
+          final bottomPadding = AppPadding.bottom(
+            context,
+            extra: hasMiniPlayer ? 90.w : 50.w,
+          );
 
           return CustomScrollView(
             controller: _scrollController,
@@ -503,8 +504,8 @@ class StateClass extends State<Favorite> {
               searchQuery.isNotEmpty
                   ? Icons.search_off
                   : (from.contains('fav')
-                      ? Icons.favorite_border
-                      : Icons.history),
+                        ? Icons.favorite_border
+                        : Icons.history),
               size: 60.w,
               color: appColors().primaryColorApp.withOpacity(0.6),
             ),
@@ -514,8 +515,8 @@ class StateClass extends State<Favorite> {
             searchQuery.isNotEmpty
                 ? 'No results found'
                 : (from.contains('fav')
-                    ? 'No favorites yet'
-                    : 'No listening history'),
+                      ? 'No favorites yet'
+                      : 'No listening history'),
             style: TextStyle(
               fontSize: AppSizes.fontLarge,
               fontWeight: FontWeight.w600,
@@ -528,8 +529,8 @@ class StateClass extends State<Favorite> {
             searchQuery.isNotEmpty
                 ? 'Try adjusting your search terms'
                 : (from.contains('fav')
-                    ? 'Start adding songs to your favorites\nand they\'ll appear here'
-                    : 'Songs you\'ve played will\nappear in your history'),
+                      ? 'Start adding songs to your favorites\nand they\'ll appear here'
+                      : 'Songs you\'ve played will\nappear in your history'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: AppSizes.fontMedium,
@@ -635,13 +636,10 @@ class StateClass extends State<Favorite> {
       if (query.isEmpty) {
         filteredList = List.from(list);
       } else {
-        filteredList =
-            list.where((song) {
-              return song.audio_title.toLowerCase().contains(
-                    query.toLowerCase(),
-                  ) ||
-                  song.artists_name.toLowerCase().contains(query.toLowerCase());
-            }).toList();
+        filteredList = list.where((song) {
+          return song.audio_title.toLowerCase().contains(query.toLowerCase()) ||
+              song.artists_name.toLowerCase().contains(query.toLowerCase());
+        }).toList();
       }
       // Keep the controller in sync if cleared externally
       if (_searchController.text != query) {
@@ -697,54 +695,49 @@ class StateClass extends State<Favorite> {
 
     return MusicMenuDataFactory.createSongMenuData(
       title: song.audio_title,
-      artist:
-          song.artists_name.isNotEmpty ? song.artists_name : 'Unknown Artist',
+      artist: song.artists_name.isNotEmpty
+          ? song.artists_name
+          : 'Unknown Artist',
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       onPlay: () => _handleSongTap(index),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-            audioPath: audioPath,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-            audioPath: audioPath,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            song.audio_title,
-            "song",
-            song.id.toString(),
-            imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-            audioPath: audioPath,
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            song.audio_title,
-            "song",
-            itemId: song.id.toString(),
-            slug: song.audio_slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            song.id.toString(),
-            song.audio_title,
-            favoriteIds: _favoriteIds,
-          ),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+        audioPath: audioPath,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+        audioPath: audioPath,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        song.audio_title,
+        "song",
+        song.id.toString(),
+        imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+        audioPath: audioPath,
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        song.audio_title,
+        "song",
+        itemId: song.id.toString(),
+        slug: song.audio_slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        song.id.toString(),
+        song.audio_title,
+        favoriteIds: _favoriteIds,
+      ),
       isFavorite: _isSongFavorited(
         song.id.toString(),
         favoritesHook: favoritesHook,
@@ -794,10 +787,11 @@ class StateClass extends State<Favorite> {
                       Builder(
                         builder: (context) {
                           final musicManager = MusicManager();
-                          final currentItem =
-                              musicManager.getCurrentMediaItem();
-                          final currentAudioId =
-                              currentItem?.extras?['audio_id']?.toString();
+                          final currentItem = musicManager
+                              .getCurrentMediaItem();
+                          final currentAudioId = currentItem
+                              ?.extras?['audio_id']
+                              ?.toString();
                           final isCurrentItem =
                               currentAudioId == song.id.toString();
 
@@ -823,13 +817,12 @@ class StateClass extends State<Favorite> {
                             width: 56.w,
                             height: 56.w,
                             child: SmartAlbumArtWithVisualizer(
-                              image:
-                                  imageUrl.isNotEmpty
-                                      ? NetworkImage(imageUrl)
-                                      : const AssetImage(
-                                            'assets/images/default_art.png',
-                                          )
-                                          as ImageProvider,
+                              image: imageUrl.isNotEmpty
+                                  ? NetworkImage(imageUrl)
+                                  : const AssetImage(
+                                          'assets/images/default_art.png',
+                                        )
+                                        as ImageProvider,
                               isCurrent: isCurrentItem,
                               musicManager: musicManager,
                               size: 56.w,
@@ -882,48 +875,41 @@ class StateClass extends State<Favorite> {
                       // Action button: heart for Favorites screen, delete for History screen
                       from.contains('fav')
                           ? GestureDetector(
-                            onTap: () => _toggleFavorite(song, filteredIndex),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              transitionBuilder:
-                                  (child, anim) => ScaleTransition(
-                                    scale: anim,
-                                    child: child,
-                                  ),
-                              child: Icon(
-                                song.favourite == "1"
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                key: ValueKey(song.favourite),
-                                color:
-                                    song.favourite == "1"
-                                        ? appColors().primaryColorApp
-                                        : const Color(0xFF666666),
-                                size: 24.w,
+                              onTap: () => _toggleFavorite(song, filteredIndex),
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                transitionBuilder: (child, anim) =>
+                                    ScaleTransition(scale: anim, child: child),
+                                child: Icon(
+                                  song.favourite == "1"
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  key: ValueKey(song.favourite),
+                                  color: song.favourite == "1"
+                                      ? appColors().primaryColorApp
+                                      : const Color(0xFF666666),
+                                  size: 24.w,
+                                ),
                               ),
-                            ),
-                          )
+                            )
                           : GestureDetector(
-                            onTap: () async {
-                              // Remove this song from history
-                              await addRemoveHisAPI(song.id.toString());
-                              // Optionally show a brief UI update: refresh handled by addRemoveHisAPI
-                            },
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              transitionBuilder:
-                                  (child, anim) => ScaleTransition(
-                                    scale: anim,
-                                    child: child,
-                                  ),
-                              child: Icon(
-                                Icons.delete_outline,
-                                key: ValueKey('delete_${song.id}'),
-                                color: appColors().primaryColorApp,
-                                size: 24.w,
+                              onTap: () async {
+                                // Remove this song from history
+                                await addRemoveHisAPI(song.id.toString());
+                                // Optionally show a brief UI update: refresh handled by addRemoveHisAPI
+                              },
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                transitionBuilder: (child, anim) =>
+                                    ScaleTransition(scale: anim, child: child),
+                                child: Icon(
+                                  Icons.delete_outline,
+                                  key: ValueKey('delete_${song.id}'),
+                                  color: appColors().primaryColorApp,
+                                  size: 24.w,
+                                ),
                               ),
                             ),
-                          ),
                     ],
                   ),
                 ),
@@ -1065,15 +1051,13 @@ class StateClass extends State<Favorite> {
         }
 
         final mediaItem = MediaItem(
-          id:
-              '${targetSong.audio}?fav_history=${DateTime.now().millisecondsSinceEpoch}',
+          id: '${targetSong.audio}?fav_history=${DateTime.now().millisecondsSinceEpoch}',
           title: targetSong.audio_title,
           artist: targetSong.artists_name,
           duration: duration,
-          artUri:
-              (targetSong.image.isNotEmpty)
-                  ? Uri.parse(_composeImageUrl(targetSong.image))
-                  : null,
+          artUri: (targetSong.image.isNotEmpty)
+              ? Uri.parse(_composeImageUrl(targetSong.image))
+              : null,
           extras: {
             'audio_id': targetSong.id.toString(),
             'actual_audio_url': targetSong.audio,
@@ -1131,20 +1115,19 @@ class StateClass extends State<Favorite> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder:
-                (context) => Music(
-                  _audioHandler,
-                  "favorite_error", // idGet (source identifier)
-                  "error_fallback", // typeGet (path type)
-                  list, // listMain
-                  audioPath, // audioPath
-                  index, // index
-                  false, // isOpn - regular behavior
-                  () {
-                    // ontap callback for navigation
-                    Navigator.of(context).pop();
-                  },
-                ),
+            builder: (context) => Music(
+              _audioHandler,
+              "favorite_error", // idGet (source identifier)
+              "error_fallback", // typeGet (path type)
+              list, // listMain
+              audioPath, // audioPath
+              index, // index
+              false, // isOpn - regular behavior
+              () {
+                // ontap callback for navigation
+                Navigator.of(context).pop();
+              },
+            ),
           ),
         );
       }

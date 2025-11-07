@@ -23,7 +23,7 @@ import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/services/watch_history_service.dart';
 import 'package:jainverse/videoplayer/widgets/video_report_modal.dart';
 import 'package:jainverse/main.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:audio_service/audio_service.dart';
 
 class CommonVideoPlayerScreen extends StatefulWidget {
@@ -531,19 +531,17 @@ class _CommonVideoPlayerScreenState extends State<CommonVideoPlayerScreen> {
                 Expanded(
                   child: StreamBuilder<MediaItem?>(
                     stream: const MyApp().called().mediaItem,
-                    builder: (context, snapshot) {
-                      // Check if mini player is visible (music is playing)
-                      // and also ensure page-specific hiding is respected.
-                      final hasMiniPlayer =
-                          snapshot.hasData &&
-                          !MusicPlayerStateManager().shouldHideMiniPlayer;
+                    builder: (context, _) {
+                      // Stream provides current media item; mini-player visibility
+                      // is handled inside AppPadding.bottom so we don't need a
+                      // local hasMiniPlayer flag here.
 
-                      // Calculate bottom padding based on mini player and nav bar
-                      final bottomPadding = hasMiniPlayer
-                          ? AppSizes.basePadding +
-                                AppSizes.miniPlayerPadding +
-                                20.w
-                          : AppSizes.basePadding + 20.w;
+                      // Centralized bottom padding which accounts for
+                      // safe area, nav bar and any visible mini-player.
+                      final bottomPadding = AppPadding.bottom(
+                        context,
+                        extra: 20.w,
+                      );
 
                       return SingleChildScrollView(
                         padding: EdgeInsets.only(bottom: bottomPadding),

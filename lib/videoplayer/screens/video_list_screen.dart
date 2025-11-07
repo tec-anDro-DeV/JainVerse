@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
@@ -400,9 +400,6 @@ class _VideoListBodyState extends State<VideoListBody>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Must call super for AutomaticKeepAliveClientMixin
-    // Add bottom padding so list content isn't hidden behind the
-    // app's bottom navigation or the mini player. We reuse AppSizes
-    // to keep sizing consistent across the app.
     return RefreshIndicator(
       onRefresh: _refresh,
       // Use a CustomScrollView so padding becomes part of the scrollable area
@@ -431,7 +428,7 @@ class _VideoListBodyState extends State<VideoListBody>
               12.w,
               8.h,
               12.w,
-              (AppSizes.basePadding + AppSizes.miniPlayerPadding + 8.w),
+              (AppPadding.bottom(context)),
             ),
             sliver: _viewModel.hasError && _viewModel.items.isEmpty
                 ? SliverFillRemaining(

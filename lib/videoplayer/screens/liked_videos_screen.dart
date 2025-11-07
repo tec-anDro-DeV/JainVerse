@@ -6,7 +6,8 @@ import 'package:jainverse/videoplayer/services/liked_videos_service.dart';
 import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+// sizes.dart not required here; AppPadding provides bottom spacing
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 
 class LikedVideosScreen extends StatefulWidget {
@@ -92,13 +93,9 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
     return StreamBuilder<MediaItem?>(
       stream: audioHandler.mediaItem,
       builder: (context, snapshot) {
-        // Check if mini player is visible (music is playing)
-        final hasMiniPlayer = snapshot.hasData;
-
-        // Calculate bottom padding based on mini player and nav bar
-        final bottomPadding = hasMiniPlayer
-            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
-            : AppSizes.basePadding + 25.w;
+        // Use centralized bottom padding helper which considers mini players
+        // and system safe areas. We add an extra 25.w for this screen.
+        final bottomPadding = AppPadding.bottom(context, extra: 25.w);
 
         if (_isLoading) {
           return ListView.builder(

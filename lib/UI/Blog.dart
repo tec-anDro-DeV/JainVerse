@@ -8,6 +8,7 @@ import 'package:jainverse/Model/BlogModel.dart';
 import 'package:jainverse/Presenter/BlogPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -162,13 +163,10 @@ class _BlogState extends State<Blog> {
                 child: StreamBuilder<MediaItem?>(
                   stream: _audioHandler?.mediaItem,
                   builder: (context, snapshot) {
-                    final hasMiniPlayer = snapshot.hasData;
-                    final bottomPadding =
-                        hasMiniPlayer
-                            ? (AppSizes.basePadding) +
-                                AppSizes.miniPlayerPadding +
-                                50.w
-                            : AppSizes.basePadding + 50.w;
+                    final bottomPadding = AppPadding.bottom(
+                      context,
+                      extra: 50.w,
+                    );
 
                     return Column(
                       children: [
@@ -201,96 +199,85 @@ class _BlogState extends State<Blog> {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.all(4.w),
         child: Row(
-          children:
-              categories.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final BlogCategory category = entry.value;
-                final bool isSelected = selectedCategoryIndex == index;
-                final int count = categorizedBlogs[category.id]?.length ?? 0;
+          children: categories.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final BlogCategory category = entry.value;
+            final bool isSelected = selectedCategoryIndex == index;
+            final int count = categorizedBlogs[category.id]?.length ?? 0;
 
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedCategoryIndex = index;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    margin: EdgeInsets.only(right: 8.w),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 18.w,
-                      vertical: 10.w,
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedCategoryIndex = index;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                margin: EdgeInsets.only(right: 8.w),
+                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 10.w),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? appColors().primaryColorApp
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(24.r),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: appColors().primaryColorApp.withOpacity(0.2),
+                            blurRadius: 8.r,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      category.title,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : appColors().gray[600],
+                        fontSize: AppSizes.fontNormal,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? appColors().primaryColorApp
-                              : Colors.transparent,
-                      borderRadius: BorderRadius.circular(24.r),
-                      boxShadow:
-                          isSelected
-                              ? [
-                                BoxShadow(
-                                  color: appColors().primaryColorApp
-                                      .withOpacity(0.2),
-                                  blurRadius: 8.r,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                              : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          category.title,
+                    if (count > 0) ...[
+                      SizedBox(width: 8.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 1.w,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withOpacity(0.2)
+                              : appColors().primaryColorApp.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Text(
+                          count.toString(),
                           style: TextStyle(
-                            color:
-                                isSelected
-                                    ? Colors.white
-                                    : appColors().gray[600],
-                            fontSize: AppSizes.fontNormal,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : appColors().primaryColorApp,
+                            fontSize: AppSizes.badgeFontSize + 2.sp,
+                            fontWeight: FontWeight.w600,
                             fontFamily: 'Poppins',
                           ),
                         ),
-                        if (count > 0) ...[
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8.w,
-                              vertical: 1.w,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  isSelected
-                                      ? Colors.white.withOpacity(0.2)
-                                      : appColors().primaryColorApp.withOpacity(
-                                        0.1,
-                                      ),
-                              borderRadius: BorderRadius.circular(12.r),
-                            ),
-                            child: Text(
-                              count.toString(),
-                              style: TextStyle(
-                                color:
-                                    isSelected
-                                        ? Colors.white
-                                        : appColors().primaryColorApp,
-                                fontSize: AppSizes.badgeFontSize + 2.sp,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'Poppins',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -476,10 +463,9 @@ class _BlogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String imageUrl =
-        blog.image.isNotEmpty
-            ? '${AppConstant.ImageUrl}images/blogs/${blog.image}'
-            : '';
+    final String imageUrl = blog.image.isNotEmpty
+        ? '${AppConstant.ImageUrl}images/blogs/${blog.image}'
+        : '';
     debugPrint(
       'Building BlogCard for id=${blog.id} title="${blog.title}" imageUrl=$imageUrl',
     );
@@ -556,12 +542,12 @@ class _BlogCard extends StatelessWidget {
                                       color: appColors().primaryColorApp,
                                       value:
                                           loadingProgress.expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                              : null,
+                                              null
+                                          ? loadingProgress
+                                                    .cumulativeBytesLoaded /
+                                                loadingProgress
+                                                    .expectedTotalBytes!
+                                          : null,
                                     ),
                                     SizedBox(height: 8.w),
                                     Text(
@@ -593,11 +579,9 @@ class _BlogCard extends StatelessWidget {
                                   color: appColors().primaryColorApp,
                                   value:
                                       loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress
-                                                  .cumulativeBytesLoaded /
-                                              loadingProgress
-                                                  .expectedTotalBytes!
-                                          : null,
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
                                 ),
                                 SizedBox(height: 8.w),
                                 Text(
@@ -748,10 +732,9 @@ class _BlogDetailModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String detailImageUrl =
-        blog.image.isNotEmpty
-            ? '${AppConstant.ImageUrl}images/blogs/${blog.image}'
-            : '';
+    final String detailImageUrl = blog.image.isNotEmpty
+        ? '${AppConstant.ImageUrl}images/blogs/${blog.image}'
+        : '';
     debugPrint(
       'Opening BlogDetailModal for id=${blog.id} title="${blog.title}" imageUrl=$detailImageUrl',
     );
@@ -759,11 +742,7 @@ class _BlogDetailModal extends StatelessWidget {
       // detect mini player presence and pass bottom padding into modal
       stream: const MyApp().called().mediaItem,
       builder: (context, snapshot) {
-        final hasMiniPlayer = snapshot.hasData;
-        final bottomPadding =
-            hasMiniPlayer
-                ? (AppSizes.basePadding) + AppSizes.miniPlayerPadding + 80.w
-                : AppSizes.basePadding + 80.w;
+        final bottomPadding = AppPadding.bottom(context, extra: 80.w);
 
         return DraggableScrollableSheet(
           initialChildSize: 0.98,
@@ -878,11 +857,7 @@ class _BlogDetailModal extends StatelessWidget {
                                     return Image.network(
                                       primary,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
+                                      errorBuilder: (context, error, stackTrace) {
                                         debugPrint(
                                           'Detail image load error for blog id=${blog.id}: $error',
                                         );
@@ -896,11 +871,7 @@ class _BlogDetailModal extends StatelessWidget {
                                         return Image.network(
                                           fallback,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error2,
-                                            stackTrace2,
-                                          ) {
+                                          errorBuilder: (context, error2, stackTrace2) {
                                             debugPrint(
                                               'Fallback detail image load error for blog id=${blog.id}: $error2',
                                             );
@@ -916,11 +887,7 @@ class _BlogDetailModal extends StatelessWidget {
                                               ),
                                             );
                                           },
-                                          loadingBuilder: (
-                                            context,
-                                            child,
-                                            loadingProgress,
-                                          ) {
+                                          loadingBuilder: (context, child, loadingProgress) {
                                             if (loadingProgress == null)
                                               return child;
                                             return Container(
@@ -931,18 +898,17 @@ class _BlogDetailModal extends StatelessWidget {
                                                       MainAxisSize.min,
                                                   children: [
                                                     CircularProgressIndicator(
-                                                      color:
-                                                          appColors()
-                                                              .primaryColorApp,
+                                                      color: appColors()
+                                                          .primaryColorApp,
                                                       value:
                                                           loadingProgress
-                                                                      .expectedTotalBytes !=
-                                                                  null
-                                                              ? loadingProgress
-                                                                      .cumulativeBytesLoaded /
-                                                                  loadingProgress
-                                                                      .expectedTotalBytes!
-                                                              : null,
+                                                                  .expectedTotalBytes !=
+                                                              null
+                                                          ? loadingProgress
+                                                                    .cumulativeBytesLoaded /
+                                                                loadingProgress
+                                                                    .expectedTotalBytes!
+                                                          : null,
                                                     ),
                                                     SizedBox(height: 8.w),
                                                     Text(
@@ -952,9 +918,8 @@ class _BlogDetailModal extends StatelessWidget {
                                                           ? '${(loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! * 100).toStringAsFixed(0)}%'
                                                           : 'Loading...',
                                                       style: TextStyle(
-                                                        color:
-                                                            appColors()
-                                                                .gray[500],
+                                                        color: appColors()
+                                                            .gray[500],
                                                         fontSize:
                                                             AppSizes.fontSmall,
                                                         fontFamily: 'Poppins',
@@ -967,11 +932,7 @@ class _BlogDetailModal extends StatelessWidget {
                                           },
                                         );
                                       },
-                                      loadingBuilder: (
-                                        context,
-                                        child,
-                                        loadingProgress,
-                                      ) {
+                                      loadingBuilder: (context, child, loadingProgress) {
                                         if (loadingProgress == null)
                                           return child;
                                         debugPrint(
@@ -984,18 +945,17 @@ class _BlogDetailModal extends StatelessWidget {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 CircularProgressIndicator(
-                                                  color:
-                                                      appColors()
-                                                          .primaryColorApp,
+                                                  color: appColors()
+                                                      .primaryColorApp,
                                                   value:
                                                       loadingProgress
-                                                                  .expectedTotalBytes !=
-                                                              null
-                                                          ? loadingProgress
-                                                                  .cumulativeBytesLoaded /
-                                                              loadingProgress
-                                                                  .expectedTotalBytes!
-                                                          : null,
+                                                              .expectedTotalBytes !=
+                                                          null
+                                                      ? loadingProgress
+                                                                .cumulativeBytesLoaded /
+                                                            loadingProgress
+                                                                .expectedTotalBytes!
+                                                      : null,
                                                 ),
                                                 SizedBox(height: 8.w),
                                                 Text(

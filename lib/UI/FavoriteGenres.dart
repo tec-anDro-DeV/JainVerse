@@ -16,6 +16,7 @@ import 'package:jainverse/Presenter/MusicGenrePresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -131,78 +132,77 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
     if (fromLogin.contains("fromLogin")) {
       return (await showDialog(
             context: context,
-            builder:
-                (context) => AlertDialog(
-                  elevation: 5,
-                  backgroundColor: appColors().colorBackEditText,
-                  title: Text(
-                    'Do you want to exit the application?',
-                    style: TextStyle(color: appColors().white),
+            builder: (context) => AlertDialog(
+              elevation: 5,
+              backgroundColor: appColors().colorBackEditText,
+              title: Text(
+                'Do you want to exit the application?',
+                style: TextStyle(color: appColors().white),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(context, false), // passing false
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+                    padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Text(
+                      Resources.of(context).strings.no,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14.0,
+                        color: appColors().white,
+                      ),
+                    ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed:
-                          () => Navigator.pop(context, false), // passing false
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-                        padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          Resources.of(context).strings.no,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14.0,
-                            color: appColors().white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        if (Platform.isAndroid) {
-                          SystemNavigator.pop();
-                        } else {
-                          exit(0);
-                        }
-                      }, // passing true
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-                        padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          Resources.of(context).strings.yes,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14.0,
-                            color: appColors().white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
+                TextButton(
+                  onPressed: () {
+                    if (Platform.isAndroid) {
+                      SystemNavigator.pop();
+                    } else {
+                      exit(0);
+                    }
+                  }, // passing true
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+                    padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Text(
+                      Resources.of(context).strings.yes,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14.0,
+                        color: appColors().white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           )) ??
           false;
     } else {
@@ -240,15 +240,13 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // Start animation after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -314,13 +312,13 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                   children: [
                     fromDrawer.contains('fromDrawer')
                         ? IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            size: 24.w,
-                            color: appColors().black,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        )
+                            icon: Icon(
+                              Icons.arrow_back,
+                              size: 24.w,
+                              color: appColors().black,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          )
                         : SizedBox(width: 48.w),
                     Text(
                       'Your Favorite Genres',
@@ -384,10 +382,9 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                           SizedBox(height: 16.w),
                           Expanded(
                             child: FutureBuilder<ModelMusicGenre>(
-                              future:
-                                  futureCall
-                                      ? (myFuture.whenComplete(() {}))
-                                      : null,
+                              future: futureCall
+                                  ? (myFuture.whenComplete(() {}))
+                                  : null,
                               builder: (context, projectSnap) {
                                 if (kDebugMode) {
                                   print('----- Going right 1');
@@ -481,7 +478,9 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
 
                                               return GridView.builder(
                                                 padding: EdgeInsets.only(
-                                                  bottom: AppSizes.basePadding,
+                                                  bottom: AppPadding.bottom(
+                                                    context,
+                                                  ),
                                                 ),
                                                 scrollDirection: Axis.vertical,
                                                 itemCount: data.length,
@@ -496,10 +495,7 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                       crossAxisSpacing: 12.0,
                                                       mainAxisSpacing: 12.0,
                                                     ),
-                                                itemBuilder: (
-                                                  BuildContext context,
-                                                  int index,
-                                                ) {
+                                                itemBuilder: (BuildContext context, int index) {
                                                   String imageUrl =
                                                       AppConstant.ImageUrl +
                                                       projectSnap
@@ -527,49 +523,49 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                               16.r,
                                                             ),
                                                         gradient: LinearGradient(
-                                                          colors:
-                                                              isSelected
-                                                                  ? [
-                                                                    appColors()
-                                                                        .primaryColorApp,
-                                                                    appColors()
-                                                                        .primaryColorApp,
-                                                                  ]
-                                                                  : [
-                                                                    appColors()
-                                                                        .gray[300]!,
-                                                                    appColors()
-                                                                        .gray[400]!,
-                                                                  ],
+                                                          colors: isSelected
+                                                              ? [
+                                                                  appColors()
+                                                                      .primaryColorApp,
+                                                                  appColors()
+                                                                      .primaryColorApp,
+                                                                ]
+                                                              : [
+                                                                  appColors()
+                                                                      .gray[300]!,
+                                                                  appColors()
+                                                                      .gray[400]!,
+                                                                ],
                                                           begin:
                                                               Alignment.topLeft,
-                                                          end:
-                                                              Alignment
-                                                                  .bottomRight,
+                                                          end: Alignment
+                                                              .bottomRight,
                                                         ),
                                                         image:
                                                             data[index]
-                                                                    .image
-                                                                    .isNotEmpty
-                                                                ? DecorationImage(
-                                                                  colorFilter:
-                                                                      isSelected
-                                                                          ? null
-                                                                          : ColorFilter.mode(
-                                                                            Colors.black.withOpacity(
+                                                                .image
+                                                                .isNotEmpty
+                                                            ? DecorationImage(
+                                                                colorFilter:
+                                                                    isSelected
+                                                                    ? null
+                                                                    : ColorFilter.mode(
+                                                                        Colors
+                                                                            .black
+                                                                            .withOpacity(
                                                                               0.5,
                                                                             ),
-                                                                            BlendMode.darken,
-                                                                          ),
-                                                                  image:
-                                                                      NetworkImage(
-                                                                        imageUrl,
+                                                                        BlendMode
+                                                                            .darken,
                                                                       ),
-                                                                  fit:
-                                                                      BoxFit
-                                                                          .cover,
-                                                                )
-                                                                : null,
+                                                                image:
+                                                                    NetworkImage(
+                                                                      imageUrl,
+                                                                    ),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              )
+                                                            : null,
                                                       ),
                                                       child: Stack(
                                                         children: [
@@ -577,9 +573,8 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                           // register on the entire card area.
                                                           Positioned.fill(
                                                             child: Material(
-                                                              color:
-                                                                  Colors
-                                                                      .transparent,
+                                                              color: Colors
+                                                                  .transparent,
                                                               child: InkWell(
                                                                 borderRadius:
                                                                     BorderRadius.circular(
@@ -629,8 +624,8 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                                       style: TextStyle(
                                                                         fontSize:
                                                                             16.sp,
-                                                                        color:
-                                                                            Colors.white,
+                                                                        color: Colors
+                                                                            .white,
                                                                         fontWeight:
                                                                             FontWeight.w600,
                                                                         fontFamily:
@@ -662,19 +657,16 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                                 width: 24.w,
                                                                 height: 24.w,
                                                                 decoration: const BoxDecoration(
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
-                                                                  shape:
-                                                                      BoxShape
-                                                                          .circle,
+                                                                  color: Colors
+                                                                      .white,
+                                                                  shape: BoxShape
+                                                                      .circle,
                                                                 ),
                                                                 child: Icon(
                                                                   Icons.check,
                                                                   size: 16.w,
-                                                                  color:
-                                                                      appColors()
-                                                                          .primaryColorApp,
+                                                                  color: appColors()
+                                                                      .primaryColorApp,
                                                                 ),
                                                               ),
                                                             ),
@@ -704,23 +696,14 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                             ),
                           ),
                           Padding(
-                            padding:
-                                (() {
-                                  final hasMiniPlayer =
-                                      _audioHandler?.mediaItem.value != null;
-                                  final bottomPadding =
-                                      hasMiniPlayer
-                                          ? AppSizes.basePadding +
-                                              AppSizes.miniPlayerPadding +
-                                              50.w
-                                          : AppSizes.basePadding + 50.w;
-                                  return EdgeInsets.only(
-                                    bottom: bottomPadding,
-                                    left: 24.w,
-                                    right: 24.w,
-                                    top: 16.w,
-                                  );
-                                })(),
+                            padding: (() {
+                              return EdgeInsets.only(
+                                bottom: AppPadding.bottom(context, extra: 50.w),
+                                left: 24.w,
+                                right: 24.w,
+                                top: 16.w,
+                              );
+                            })(),
                             child: SizedBox(
                               height: 56.w,
                               width: double.infinity,
@@ -735,8 +718,8 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                     i < selectedIndexList.length;
                                     i++
                                   ) {
-                                    final idStr =
-                                        selectedIndexList[i].toString();
+                                    final idStr = selectedIndexList[i]
+                                        .toString();
                                     tags.add(idStr);
                                     if (allSelected.isEmpty) {
                                       allSelected = idStr;

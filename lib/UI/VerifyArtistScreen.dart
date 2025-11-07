@@ -11,7 +11,7 @@ import 'package:jainverse/services/file_upload_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/widgets/verification/document_picker_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
@@ -122,9 +122,7 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
           child: StreamBuilder<MediaItem?>(
             stream: _audioHandler?.mediaItem,
             builder: (context, snapshot) {
-              final bottomPadding = snapshot.hasData
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 40.w
-                  : AppSizes.basePadding + 40.w;
+              final bottomPadding = AppPadding.bottom(context, extra: 40.w);
 
               return Column(
                 children: [

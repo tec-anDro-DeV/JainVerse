@@ -12,7 +12,8 @@ import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/report_state_manager.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
@@ -321,11 +322,17 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
         // Check if mini player is visible (music is playing)
         final hasMiniPlayer = snapshot.hasData;
 
-        // Calculate bottom padding based on mini player and nav bar
-        // Assuming navigation bar is always present, adjust if needed
-        final bottomPadding = hasMiniPlayer
-            ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 25.w
-            : AppSizes.basePadding + 25.w;
+        // Sync overlay manager so layout elsewhere can react
+        if (hasMiniPlayer) {
+          MediaOverlayManager.instance.showMiniPlayer(
+            type: MediaOverlayType.audioMini,
+          );
+        } else {
+          MediaOverlayManager.instance.hideMiniPlayer();
+        }
+
+        // Compute bottom padding centrally (adds an extra 25.w margin)
+        final bottomPadding = AppPadding.bottom(context) + 25.w;
 
         return CustomScrollView(
           controller: _scrollController,

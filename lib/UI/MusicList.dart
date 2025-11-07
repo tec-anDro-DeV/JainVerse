@@ -14,6 +14,7 @@ import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
@@ -149,8 +150,9 @@ class StateClass extends State<MusicList> {
     }
     // Initialize a single fallback image URL if not set
     if (_fallbackImageUrl == null) {
-      final songsWithImages =
-          list.where((song) => song.image.isNotEmpty).toList();
+      final songsWithImages = list
+          .where((song) => song.image.isNotEmpty)
+          .toList();
       if (songsWithImages.isNotEmpty) {
         final randomSong =
             songsWithImages[math.Random().nextInt(songsWithImages.length)];
@@ -411,15 +413,15 @@ class StateClass extends State<MusicList> {
           color: Colors.white.withOpacity(0.95),
           boxShadow:
               _scrollController.hasClients &&
-                      _scrollController.offset > _topScrollThreshold
-                  ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8.0,
-                      offset: const Offset(0, 0),
-                    ),
-                  ]
-                  : null,
+                  _scrollController.offset > _topScrollThreshold
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 0),
+                  ),
+                ]
+              : null,
         ),
         child: SafeArea(
           bottom: false,
@@ -451,10 +453,9 @@ class StateClass extends State<MusicList> {
         stream: _audioHandler?.mediaItem,
         builder: (context, snapshot) {
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+          final bottomPadding = hasMiniPlayer
+              ? AppPadding.bottom(context, extra: 100.w)
+              : AppPadding.bottom(context);
 
           return CustomScrollView(
             controller: _scrollController,
@@ -544,9 +545,8 @@ class StateClass extends State<MusicList> {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (context) =>
-                                  AllCategoryByName(_audioHandler, "Songs"),
+                          builder: (context) =>
+                              AllCategoryByName(_audioHandler, "Songs"),
                           settings: const RouteSettings(
                             name: '/MusicList/ExploreSongs',
                           ),
@@ -770,10 +770,9 @@ class StateClass extends State<MusicList> {
                           width: 8.w,
                           height: 8.w,
                           decoration: BoxDecoration(
-                            color:
-                                showDot
-                                    ? appColors().primaryColorApp
-                                    : Colors.transparent,
+                            color: showDot
+                                ? appColors().primaryColorApp
+                                : Colors.transparent,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -792,19 +791,16 @@ class StateClass extends State<MusicList> {
                           child: AutoManagedVisualizerOverlay(
                             show: isCurrentItem, // Only show when current
                             musicManager: musicManager,
-                            child:
-                                imageUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                      imageUrl: imageUrl,
-                                      fit: BoxFit.cover,
-                                      placeholder:
-                                          (context, url) =>
-                                              _buildPlaceholderImage(),
-                                      errorWidget:
-                                          (context, url, error) =>
-                                              _buildPlaceholderImage(),
-                                    )
-                                    : _buildPlaceholderImage(),
+                            child: imageUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) =>
+                                        _buildPlaceholderImage(),
+                                    errorWidget: (context, url, error) =>
+                                        _buildPlaceholderImage(),
+                                  )
+                                : _buildPlaceholderImage(),
                           ),
                         ),
                       ),
@@ -819,10 +815,9 @@ class StateClass extends State<MusicList> {
                               style: TextStyle(
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w600,
-                                color:
-                                    isCurrentItem
-                                        ? appColors().primaryColorApp
-                                        : Colors.black87,
+                                color: isCurrentItem
+                                    ? appColors().primaryColorApp
+                                    : Colors.black87,
                                 fontFamily: 'Poppins',
                               ),
                               maxLines: 1,
@@ -885,56 +880,50 @@ class StateClass extends State<MusicList> {
 
     return MusicMenuDataFactory.createSongMenuData(
       title: song.audio_title,
-      artist:
-          song.artists_name.isNotEmpty ? song.artists_name : 'Unknown Artist',
+      artist: song.artists_name.isNotEmpty
+          ? song.artists_name
+          : 'Unknown Artist',
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       onPlay: () => _playMusic(index),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl,
-            audioPath: audioPath,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl,
-            audioPath: audioPath,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            song.audio_title,
-            "song",
-            song.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-          ),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl,
+        audioPath: audioPath,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl,
+        audioPath: audioPath,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        song.audio_title,
+        "song",
+        song.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+      ),
       // If this screen was opened for a specific playlist, offer remove action
-      onRemove:
-          (typ == 'User Playlist' && _currentPlaylistId != null)
-              ? () => _removeSongFromPlaylist(song, _currentPlaylistId!)
-              : null,
-      onShare:
-          () => _musicActionHandler.handleShare(
-            song.audio_title,
-            "song",
-            itemId: song.id.toString(),
-            slug: song.audio_slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            song.id.toString(),
-            song.audio_title,
-            favoriteIds: _favoriteIds,
-          ),
+      onRemove: (typ == 'User Playlist' && _currentPlaylistId != null)
+          ? () => _removeSongFromPlaylist(song, _currentPlaylistId!)
+          : null,
+      onShare: () => _musicActionHandler.handleShare(
+        song.audio_title,
+        "song",
+        itemId: song.id.toString(),
+        slug: song.audio_slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        song.id.toString(),
+        song.audio_title,
+        favoriteIds: _favoriteIds,
+      ),
       isFavorite: isFavorite, // Use global favorites
     );
   }
@@ -946,34 +935,33 @@ class StateClass extends State<MusicList> {
     // Confirm intent quickly using a dialog
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (c) => AlertDialog(
-            title: Text(
-              'Remove from playlist',
-              style: TextStyle(
-                color: appColors().primaryColorApp,
-                fontSize: AppSizes.fontLarge,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            content: Text('Remove "${song.audio_title}" from this playlist?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(c, false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: appColors().gray[800]),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(c, true),
-                child: Text(
-                  'Remove',
-                  style: TextStyle(color: appColors().primaryColorApp),
-                ),
-              ),
-            ],
+      builder: (c) => AlertDialog(
+        title: Text(
+          'Remove from playlist',
+          style: TextStyle(
+            color: appColors().primaryColorApp,
+            fontSize: AppSizes.fontLarge,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        content: Text('Remove "${song.audio_title}" from this playlist?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: appColors().gray[800]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(
+              'Remove',
+              style: TextStyle(color: appColors().primaryColorApp),
+            ),
+          ),
+        ],
+      ),
     );
 
     if (confirm != true) return;
@@ -998,11 +986,13 @@ class StateClass extends State<MusicList> {
       PlaylistService().clearCache();
 
       // Remove from local list and refresh UI
+      if (!mounted) return;
       setState(() {
         list.removeWhere((s) => s.id == song.id);
       });
     } catch (e) {
       if (kDebugMode) print('Failed to remove song from playlist: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Failed to remove song. Try again.'),
@@ -1082,19 +1072,18 @@ class StateClass extends State<MusicList> {
     final items = songs.length >= 4 ? songs.sublist(0, 4) : songs;
 
     // Prepare image widgets (use placeholder when image missing)
-    final tiles =
-        items.map((s) {
-          if (s.image.isNotEmpty) {
-            final url = '${AppConstant.ImageUrl}images/audio/thumb/${s.image}';
-            return CachedNetworkImage(
-              imageUrl: url,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => _buildPlaceholderImage(),
-              errorWidget: (context, url, error) => _buildPlaceholderImage(),
-            );
-          }
-          return _buildPlaceholderImage();
-        }).toList();
+    final tiles = items.map((s) {
+      if (s.image.isNotEmpty) {
+        final url = '${AppConstant.ImageUrl}images/audio/thumb/${s.image}';
+        return CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => _buildPlaceholderImage(),
+          errorWidget: (context, url, error) => _buildPlaceholderImage(),
+        );
+      }
+      return _buildPlaceholderImage();
+    }).toList();
 
     // If fewer than 4 tiles (defensive), fill with placeholders
     while (tiles.length < 4) tiles.add(_buildPlaceholderImage());

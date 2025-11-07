@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
@@ -47,6 +48,7 @@ class _DeleteChannelState extends State<DeleteChannel> {
     try {
       final presenter = ChannelPresenter();
       final resp = await presenter.deleteChannel(widget.channelId);
+      if (!mounted) return;
       setState(() => _loading = false);
 
       if (resp['status'] == true) {
@@ -68,6 +70,7 @@ class _DeleteChannelState extends State<DeleteChannel> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red[700]),
@@ -94,10 +97,10 @@ class _DeleteChannelState extends State<DeleteChannel> {
         builder: (context, snapshot) {
           // Calculate proper bottom padding accounting for mini player and navigation
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 60.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding + 50.w;
+          final bottomPadding = AppPadding.bottom(
+            context,
+            extra: hasMiniPlayer ? 60.w : 50.w,
+          );
 
           return SingleChildScrollView(
             padding: EdgeInsets.only(
@@ -285,31 +288,30 @@ class _DeleteChannelState extends State<DeleteChannel> {
                       elevation: 2,
                     ),
                     onPressed: !_loading ? _attemptDelete : null,
-                    child:
-                        _loading
-                            ? SizedBox(
-                              height: 20.w,
-                              width: 20.w,
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                            : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.delete_forever, size: 20.w),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  'Delete Channel Permanently',
-                                  style: TextStyle(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
+                    child: _loading
+                        ? SizedBox(
+                            height: 20.w,
+                            width: 20.w,
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
                             ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.delete_forever, size: 20.w),
+                              SizedBox(width: 8.w),
+                              Text(
+                                'Delete Channel Permanently',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
                 SizedBox(height: 12.w),
@@ -325,10 +327,9 @@ class _DeleteChannelState extends State<DeleteChannel> {
                       ),
                       side: BorderSide(color: Colors.grey[400]!, width: 1.5),
                     ),
-                    onPressed:
-                        _loading
-                            ? null
-                            : () => Navigator.of(context).pop(false),
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.of(context).pop(false),
                     child: Text(
                       'Cancel',
                       style: TextStyle(

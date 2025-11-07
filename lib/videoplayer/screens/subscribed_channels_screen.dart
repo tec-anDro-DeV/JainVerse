@@ -5,7 +5,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/videoplayer/models/channel_item.dart';
 import 'package:jainverse/videoplayer/services/subscribed_channels_service.dart';
 import 'package:jainverse/videoplayer/screens/channel_videos_screen.dart';
-import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 
 class SubscribedChannelsScreen extends StatefulWidget {
@@ -95,14 +95,9 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
     return StreamBuilder<MediaItem?>(
       stream: audioHandler.mediaItem,
       builder: (context, snapshot) {
-        // Check if mini player is visible (music is playing)
-        final hasMiniPlayer = snapshot.hasData;
-
-        // Calculate bottom padding based on mini player and nav bar
-        final bottomPadding =
-            hasMiniPlayer
-                ? AppSizes.basePadding + AppSizes.miniPlayerPadding
-                : AppSizes.basePadding;
+        // Use centralized bottom padding computation. No extra space needed
+        // beyond the base for this screen.
+        final bottomPadding = AppPadding.bottom(context);
 
         if (_isLoading) {
           return ListView.builder(
@@ -222,11 +217,10 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder:
-                  (_) => ChannelVideosScreen(
-                    channelId: channel.id,
-                    channelName: channel.name,
-                  ),
+              builder: (_) => ChannelVideosScreen(
+                channelId: channel.id,
+                channelName: channel.name,
+              ),
             ),
           );
         },

@@ -15,6 +15,7 @@ import 'package:jainverse/Presenter/MusicLanguagePresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -125,84 +126,83 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
     if (fromLogin.contains("fromLogin")) {
       return (await showDialog(
             context: context,
-            builder:
-                (context) => AlertDialog(
-                  elevation: 5,
-                  backgroundColor: appColors().colorBackEditText,
-                  title: Text(
-                    'Do you want to exit the application?',
-                    style: TextStyle(
-                      color: appColors().black, // Explicitly set to black
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16.sp,
+            builder: (context) => AlertDialog(
+              elevation: 5,
+              backgroundColor: appColors().colorBackEditText,
+              title: Text(
+                'Do you want to exit the application?',
+                style: TextStyle(
+                  color: appColors().black, // Explicitly set to black
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16.sp,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.pop(context, false), // passing false
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+                    padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Text(
+                      Resources.of(context).strings.no,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14.0,
+                        color: Colors.white, // Always white for contrast
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed:
-                          () => Navigator.pop(context, false), // passing false
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-                        padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          Resources.of(context).strings.no,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14.0,
-                            color: Colors.white, // Always white for contrast
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        if (Platform.isAndroid) {
-                          SystemNavigator.pop();
-                        } else {
-                          exit(0);
-                        }
-                      }, // passing true
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-                        padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                              appColors().primaryColorApp,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          Resources.of(context).strings.yes,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14.0,
-                            color: Colors.white, // Always white for contrast
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
+                TextButton(
+                  onPressed: () {
+                    if (Platform.isAndroid) {
+                      SystemNavigator.pop();
+                    } else {
+                      exit(0);
+                    }
+                  }, // passing true
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+                    padding: const EdgeInsets.fromLTRB(22, 5, 22, 5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                          appColors().primaryColorApp,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    child: Text(
+                      Resources.of(context).strings.yes,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14.0,
+                        color: Colors.white, // Always white for contrast
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           )) ??
           false;
     } else {
@@ -240,15 +240,13 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // Start animation after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -314,13 +312,13 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                   children: [
                     fromDrawer.contains('fromDrawer')
                         ? IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            size: 24.w,
-                            color: appColors().black,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        )
+                            icon: Icon(
+                              Icons.arrow_back,
+                              size: 24.w,
+                              color: appColors().black,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          )
                         : SizedBox(width: 48.w),
                     Text(
                       Resources.of(context).strings.musicLanguage,
@@ -333,35 +331,35 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                     ),
                     !fromDrawer.contains('fromDrawer')
                         ? TextButton(
-                          onPressed: () {
-                            // Automatically set language to 1 (English) when skip is pressed
-                            MusicLanguagePresenter().setMusicLanguage(
-                              context,
-                              '1', // Set to English (ID 1)
-                              token,
-                            );
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (context) {
-                                  return const MainNavigationWrapper(
-                                    initialIndex: 0,
-                                  );
-                                },
+                            onPressed: () {
+                              // Automatically set language to 1 (English) when skip is pressed
+                              MusicLanguagePresenter().setMusicLanguage(
+                                context,
+                                '1', // Set to English (ID 1)
+                                token,
+                              );
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) {
+                                    return const MainNavigationWrapper(
+                                      initialIndex: 0,
+                                    );
+                                  },
+                                ),
+                                (Route<dynamic> route) =>
+                                    false, // This removes all previous routes
+                              );
+                            },
+                            child: Text(
+                              'Skip',
+                              style: TextStyle(
+                                color: appColors().colorTextHead,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w500,
+                                fontFamily: 'Poppins',
                               ),
-                              (Route<dynamic> route) =>
-                                  false, // This removes all previous routes
-                            );
-                          },
-                          child: Text(
-                            'Skip',
-                            style: TextStyle(
-                              color: appColors().colorTextHead,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                              fontFamily: 'Poppins',
                             ),
-                          ),
-                        )
+                          )
                         : SizedBox(width: 48.w),
                   ],
                 ),
@@ -415,10 +413,9 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                           SizedBox(height: 16.w),
                           Expanded(
                             child: FutureBuilder<ModelMusicLanguage>(
-                              future:
-                                  futureCall
-                                      ? (myFuture.whenComplete(() {}))
-                                      : null,
+                              future: futureCall
+                                  ? (myFuture.whenComplete(() {}))
+                                  : null,
                               builder: (context, projectSnap) {
                                 if (projectSnap.hasError) {
                                   Fluttertoast.showToast(
@@ -442,10 +439,9 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                             .selectedLanguage
                                             .isNotEmpty) {
                                           try {
-                                            var firstLanguage =
-                                                projectSnap
-                                                    .data!
-                                                    .selectedLanguage[0];
+                                            var firstLanguage = projectSnap
+                                                .data!
+                                                .selectedLanguage[0];
                                             if (firstLanguage != null &&
                                                 firstLanguage
                                                     .toString()
@@ -467,9 +463,8 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                           // Try to find and select the card with ID 1
                                           var cardWithId1 = data.firstWhere(
                                             (element) => element.id == 1,
-                                            orElse:
-                                                () =>
-                                                    data.first, // Fallback to first card if ID 1 not found
+                                            orElse: () => data
+                                                .first, // Fallback to first card if ID 1 not found
                                           );
                                           selectedLanguageId = cardWithId1.id;
                                         }
@@ -522,7 +517,13 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
 
                                               return GridView.builder(
                                                 padding: EdgeInsets.only(
-                                                  bottom: AppSizes.basePadding,
+                                                  bottom:
+                                                      AppPadding.bottom(
+                                                        context,
+                                                      ) -
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).padding.bottom,
                                                 ),
                                                 scrollDirection: Axis.vertical,
                                                 itemCount: data.length,
@@ -537,10 +538,7 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                                       crossAxisSpacing: 12.0,
                                                       mainAxisSpacing: 12.0,
                                                     ),
-                                                itemBuilder: (
-                                                  BuildContext context,
-                                                  int index,
-                                                ) {
+                                                itemBuilder: (BuildContext context, int index) {
                                                   String imageUrl =
                                                       AppConstant.ImageUrl +
                                                       projectSnap
@@ -564,40 +562,41 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                                             ),
                                                         image:
                                                             data[index]
-                                                                    .image
-                                                                    .isNotEmpty
-                                                                ? DecorationImage(
-                                                                  colorFilter:
-                                                                      selectedLanguageId ==
-                                                                              data[index].id
-                                                                          ? null // No overlay for selected
-                                                                          : ColorFilter.mode(
-                                                                            Colors.black.withOpacity(
-                                                                              0.7,
-                                                                            ), // More black for unselected
-                                                                            BlendMode.darken,
-                                                                          ),
-                                                                  image:
-                                                                      NetworkImage(
-                                                                        imageUrl,
-                                                                      ),
-                                                                  fit:
-                                                                      BoxFit
-                                                                          .cover,
-                                                                )
-                                                                : null,
-                                                        color:
-                                                            data[index]
-                                                                    .image
-                                                                    .isEmpty
-                                                                ? (selectedLanguageId ==
+                                                                .image
+                                                                .isNotEmpty
+                                                            ? DecorationImage(
+                                                                colorFilter:
+                                                                    selectedLanguageId ==
                                                                         data[index]
                                                                             .id
-                                                                    ? Colors
+                                                                    ? null // No overlay for selected
+                                                                    : ColorFilter.mode(
+                                                                        Colors.black.withOpacity(
+                                                                          0.7,
+                                                                        ), // More black for unselected
+                                                                        BlendMode
+                                                                            .darken,
+                                                                      ),
+                                                                image:
+                                                                    NetworkImage(
+                                                                      imageUrl,
+                                                                    ),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              )
+                                                            : null,
+                                                        color:
+                                                            data[index]
+                                                                .image
+                                                                .isEmpty
+                                                            ? (selectedLanguageId ==
+                                                                      data[index]
+                                                                          .id
+                                                                  ? Colors
                                                                         .grey[200] // lighter for selected
-                                                                    : Colors
+                                                                  : Colors
                                                                         .grey[700]) // darker for unselected
-                                                                : null,
+                                                            : null,
                                                       ),
                                                       child: Stack(
                                                         children: [
@@ -621,9 +620,8 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w600,
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
+                                                                  color: Colors
+                                                                      .white,
                                                                   fontFamily:
                                                                       'Poppins',
                                                                 ),
@@ -640,12 +638,10 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                                                 width: 24.w,
                                                                 height: 24.w,
                                                                 decoration: BoxDecoration(
-                                                                  color:
-                                                                      Colors
-                                                                          .white,
-                                                                  shape:
-                                                                      BoxShape
-                                                                          .circle,
+                                                                  color: Colors
+                                                                      .white,
+                                                                  shape: BoxShape
+                                                                      .circle,
                                                                   boxShadow: [
                                                                     BoxShadow(
                                                                       color: Colors
@@ -666,9 +662,8 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                                                 child: Icon(
                                                                   Icons.check,
                                                                   size: 16.w,
-                                                                  color:
-                                                                      appColors()
-                                                                          .primaryColorApp,
+                                                                  color: appColors()
+                                                                      .primaryColorApp,
                                                                 ),
                                                               ),
                                                             ),
@@ -726,42 +721,33 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                             ),
                           ),
                           Padding(
-                            padding:
-                                (() {
-                                  // When LanguageChoose is opened from auth flows
-                                  // (login, signup/verify email, or forgot password)
-                                  // we should NOT reserve extra space for the main
-                                  // navigation bar or the mini player. Keep the
-                                  // ad-space (if present) but remove nav/player padding.
-                                  final openedFromAuthFlow =
-                                      (fromLogin.contains('fromLogin') ||
-                                          fromLogin.contains('signup') ||
-                                          fromLogin.toLowerCase().contains(
-                                            'forgot',
-                                          ));
+                            padding: (() {
+                              // When LanguageChoose is opened from auth flows
+                              // (login, signup/verify email, or forgot password)
+                              // we should NOT reserve extra space for the main
+                              // navigation bar or the mini player. Keep the
+                              // ad-space (if present) but remove nav/player padding.
+                              final openedFromAuthFlow =
+                                  (fromLogin.contains('fromLogin') ||
+                                  fromLogin.contains('signup') ||
+                                  fromLogin.toLowerCase().contains('forgot'));
 
-                                  final hasMiniPlayer =
-                                      _audioHandler?.mediaItem.value != null;
+                              // If opened from auth flows we don't reserve
+                              // additional navigation / mini-player padding.
+                              final navPlayerPadding = openedFromAuthFlow
+                                  ? 0.w
+                                  : (AppPadding.bottom(context, extra: 30.w) -
+                                        MediaQuery.of(context).padding.bottom);
 
-                                  final navPlayerPadding =
-                                      openedFromAuthFlow
-                                          ? 0.w
-                                          : (hasMiniPlayer
-                                              ? AppSizes.basePadding +
-                                                  AppSizes.miniPlayerPadding +
-                                                  30.w
-                                              : AppSizes.basePadding + 30.w);
-
-                                  return EdgeInsets.only(
-                                    // keep ad space but conditionally add nav/player padding
-                                    bottom:
-                                        (allowAds ? 60.w : 24.w) +
-                                        navPlayerPadding,
-                                    left: 24.w,
-                                    right: 24.w,
-                                    top: 16.w,
-                                  );
-                                })(),
+                              return EdgeInsets.only(
+                                // keep ad space but conditionally add nav/player padding
+                                bottom:
+                                    (allowAds ? 60.w : 24.w) + navPlayerPadding,
+                                left: 24.w,
+                                right: 24.w,
+                                top: 16.w,
+                              );
+                            })(),
                             child: SizedBox(
                               height: 56.w,
                               width: double.infinity,
@@ -786,11 +772,10 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
                                     // Directly navigate without showing a toast
                                     Navigator.of(context).pushAndRemoveUntil(
                                       MaterialPageRoute(
-                                        builder:
-                                            (context) =>
-                                                const MainNavigationWrapper(
-                                                  initialIndex: 0,
-                                                ),
+                                        builder: (context) =>
+                                            const MainNavigationWrapper(
+                                              initialIndex: 0,
+                                            ),
                                       ),
                                       (Route<dynamic> route) =>
                                           false, // This removes all previous routes

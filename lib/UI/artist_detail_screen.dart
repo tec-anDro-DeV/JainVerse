@@ -13,6 +13,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
@@ -136,8 +137,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
 
           // Initialize a single fallback image URL if not set
           if (_fallbackImageUrl == null) {
-            final songsWithImages =
-                list.where((song) => song.image.isNotEmpty).toList();
+            final songsWithImages = list
+                .where((song) => song.image.isNotEmpty)
+                .toList();
             if (songsWithImages.isNotEmpty) {
               final randomSong =
                   songsWithImages[math.Random().nextInt(
@@ -416,8 +418,8 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
 
     final String? artistImage =
         (parentData != null && parentData!.image.isNotEmpty)
-            ? parentData!.image
-            : null;
+        ? parentData!.image
+        : null;
 
     return SliverAppBar(
       expandedHeight: _headerMaxHeight,
@@ -514,20 +516,17 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                       bottomLeft: Radius.circular(36.r),
                       bottomRight: Radius.circular(36.r),
                     ),
-                    child:
-                        (() {
-                          Widget imageWidget =
-                              artistImage != null
-                                  ? Image.network(
-                                    artistImage,
-                                    fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            _getDefaultCoverImage(),
-                                  )
-                                  : _getDefaultCoverImage();
-                          return imageWidget;
-                        })(),
+                    child: (() {
+                      Widget imageWidget = artistImage != null
+                          ? Image.network(
+                              artistImage,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _getDefaultCoverImage(),
+                            )
+                          : _getDefaultCoverImage();
+                      return imageWidget;
+                    })(),
                   ),
                 ),
               ),
@@ -775,10 +774,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
         stream: _audioHandler?.mediaItem,
         builder: (context, snapshot) {
           final hasMiniPlayer = snapshot.hasData;
-          final bottomPadding =
-              hasMiniPlayer
-                  ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 100.w
-                  : AppSizes.basePadding + AppSizes.miniPlayerPadding;
+          final bottomPadding = hasMiniPlayer
+              ? AppPadding.bottom(context, extra: 100.w)
+              : AppPadding.bottom(context);
 
           return SizedBox(height: bottomPadding);
         },
@@ -889,15 +887,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                         height: 8.w,
                         margin: EdgeInsets.only(right: 8.w),
                         decoration: BoxDecoration(
-                          color:
-                              showDot
-                                  ? appColors().primaryColorApp
-                                  : Colors.transparent,
+                          color: showDot
+                              ? appColors().primaryColorApp
+                              : Colors.transparent,
                           shape: BoxShape.circle,
-                          border:
-                              showDot
-                                  ? null
-                                  : Border.all(color: Colors.transparent),
+                          border: showDot
+                              ? null
+                              : Border.all(color: Colors.transparent),
                         ),
                       ),
                       // Song thumbnail with visualizer overlay
@@ -905,8 +901,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                         stream: audioHandler?.mediaItem,
                         builder: (context, snapshot) {
                           final currentItem = snapshot.data;
-                          final currentAudioId =
-                              currentItem?.extras?['audio_id']?.toString();
+                          final currentAudioId = currentItem
+                              ?.extras?['audio_id']
+                              ?.toString();
                           final isCurrentItem = currentAudioId == songAudioId;
                           return Container(
                             width: 56.w,
@@ -920,20 +917,16 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                               child: AutoManagedVisualizerOverlay(
                                 show: isCurrentItem,
                                 musicManager: musicManager,
-                                child:
-                                    imageUrl.isNotEmpty
-                                        ? Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error,
-                                            stackTrace,
-                                          ) {
-                                            return _buildPlaceholderImage();
-                                          },
-                                        )
-                                        : _buildPlaceholderImage(),
+                                child: imageUrl.isNotEmpty
+                                    ? Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return _buildPlaceholderImage();
+                                            },
+                                      )
+                                    : _buildPlaceholderImage(),
                               ),
                             ),
                           );
@@ -945,10 +938,11 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                       Expanded(
                         child: Builder(
                           builder: (context) {
-                            final currentItem =
-                                MusicManager.instance.getCurrentMediaItem();
-                            final currentAudioId =
-                                currentItem?.extras?['audio_id']?.toString();
+                            final currentItem = MusicManager.instance
+                                .getCurrentMediaItem();
+                            final currentAudioId = currentItem
+                                ?.extras?['audio_id']
+                                ?.toString();
                             final localIsCurrent =
                                 currentAudioId == songAudioId;
                             return Column(
@@ -959,10 +953,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                                   style: TextStyle(
                                     fontSize: AppSizes.fontNormal,
                                     fontWeight: FontWeight.w500,
-                                    color:
-                                        localIsCurrent
-                                            ? appColors().primaryColorApp
-                                            : Colors.black87,
+                                    color: localIsCurrent
+                                        ? appColors().primaryColorApp
+                                        : Colors.black87,
                                     fontFamily: 'Poppins',
                                   ),
                                   maxLines: 1,
@@ -1019,51 +1012,46 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
 
     return MusicMenuDataFactory.createSongMenuData(
       title: song.audio_title,
-      artist:
-          song.artists_name.isNotEmpty ? song.artists_name : 'Unknown Artist',
+      artist: song.artists_name.isNotEmpty
+          ? song.artists_name
+          : 'Unknown Artist',
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       onPlay: () => _playMusic(index),
-      onPlayNext:
-          () => _musicActionHandler.handlePlayNext(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl,
-            audioPath: audioPath,
-          ),
-      onAddToQueue:
-          () => _musicActionHandler.handleAddToQueue(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-            imagePath: imageUrl,
-            audioPath: audioPath,
-          ),
-      onDownload:
-          () => _musicActionHandler.handleDownload(
-            song.audio_title,
-            "song",
-            song.id.toString(),
-          ),
-      onAddToPlaylist:
-          () => _musicActionHandler.handleAddToPlaylist(
-            song.id.toString(),
-            song.audio_title,
-            song.artists_name,
-          ),
-      onShare:
-          () => _musicActionHandler.handleShare(
-            song.audio_title,
-            "song",
-            itemId: song.id.toString(),
-            slug: song.audio_slug,
-          ),
-      onFavorite:
-          () => _musicActionHandler.handleFavoriteToggle(
-            song.id.toString(),
-            song.audio_title,
-            favoriteIds: _favoriteIds,
-          ),
+      onPlayNext: () => _musicActionHandler.handlePlayNext(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl,
+        audioPath: audioPath,
+      ),
+      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+        imagePath: imageUrl,
+        audioPath: audioPath,
+      ),
+      onDownload: () => _musicActionHandler.handleDownload(
+        song.audio_title,
+        "song",
+        song.id.toString(),
+      ),
+      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+        song.id.toString(),
+        song.audio_title,
+        song.artists_name,
+      ),
+      onShare: () => _musicActionHandler.handleShare(
+        song.audio_title,
+        "song",
+        itemId: song.id.toString(),
+        slug: song.audio_slug,
+      ),
+      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+        song.id.toString(),
+        song.audio_title,
+        favoriteIds: _favoriteIds,
+      ),
       isFavorite: isFavorite, // Use global favorites
     );
   }
@@ -1134,8 +1122,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
     if (list.isEmpty) return;
 
     final musicManager = MusicManager.instance;
-    final startIndex =
-        shuffle ? (list.length * math.Random().nextDouble()).floor() : 0;
+    final startIndex = shuffle
+        ? (list.length * math.Random().nextDouble()).floor()
+        : 0;
 
     try {
       await musicManager.replaceQueue(

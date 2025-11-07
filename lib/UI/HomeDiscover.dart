@@ -18,6 +18,7 @@ import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/AllCategoryByName.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
@@ -1039,8 +1040,8 @@ class _state extends State<HomeDiscover>
                 builder: (context, snapshot) {
                   final hasMiniPlayer = snapshot.hasData;
                   final bottomPadding = hasMiniPlayer
-                      ? AppSizes.basePadding + AppSizes.miniPlayerPadding + 15.w
-                      : AppSizes.basePadding;
+                      ? AppPadding.bottom(context, extra: 15.w)
+                      : AppPadding.bottom(context);
 
                   return SliverPadding(
                     padding: EdgeInsets.fromLTRB(

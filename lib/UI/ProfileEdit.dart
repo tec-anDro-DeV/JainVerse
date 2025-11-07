@@ -19,6 +19,7 @@ import 'package:jainverse/Presenter/ProfilePresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -744,13 +745,10 @@ class myState extends State<ProfileEdit> {
                       stream: _audioHandler?.mediaItem,
                       builder: (context, snapshot) {
                         // Calculate proper bottom padding accounting for mini player and navigation
-                        final hasMiniPlayer = snapshot.hasData;
-                        final bottomPadding = hasMiniPlayer
-                            ? AppSizes.basePadding +
-                                  AppSizes.miniPlayerPadding +
-                                  100.w
-                            : AppSizes.basePadding + 100.w;
-
+                        final bottomPadding = AppPadding.bottom(
+                          context,
+                          extra: 100.w,
+                        );
                         return SingleChildScrollView(
                           controller: _scrollController,
                           padding: EdgeInsets.fromLTRB(
