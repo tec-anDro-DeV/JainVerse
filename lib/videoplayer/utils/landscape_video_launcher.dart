@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../screens/landscape_video_player.dart';
 
 /// Utility class for launching the landscape video player
@@ -26,18 +27,30 @@ class LandscapeVideoLauncher {
     String? channelName,
     String? thumbnailUrl,
   }) {
-    return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => LandscapeVideoPlayer(
-          videoUrl: videoUrl,
-          videoId: videoId,
-          title: title,
-          channelName: channelName,
-          thumbnailUrl: thumbnailUrl,
+    // Ensure the system UI and device orientation are set to landscape
+    // before pushing the route so we avoid an extra rotation/flicker.
+    return () async {
+      try {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } catch (_) {}
+
+      return Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => LandscapeVideoPlayer(
+            videoUrl: videoUrl,
+            videoId: videoId,
+            title: title,
+            channelName: channelName,
+            thumbnailUrl: thumbnailUrl,
+          ),
+          fullscreenDialog: true,
         ),
-        fullscreenDialog: true,
-      ),
-    );
+      );
+    }();
   }
 
   /// Replace the current route with the landscape video player
@@ -52,17 +65,27 @@ class LandscapeVideoLauncher {
     String? channelName,
     String? thumbnailUrl,
   }) {
-    return Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => LandscapeVideoPlayer(
-          videoUrl: videoUrl,
-          videoId: videoId,
-          title: title,
-          channelName: channelName,
-          thumbnailUrl: thumbnailUrl,
+    return () async {
+      try {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } catch (_) {}
+
+      return Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => LandscapeVideoPlayer(
+            videoUrl: videoUrl,
+            videoId: videoId,
+            title: title,
+            channelName: channelName,
+            thumbnailUrl: thumbnailUrl,
+          ),
+          fullscreenDialog: true,
         ),
-        fullscreenDialog: true,
-      ),
-    );
+      );
+    }();
   }
 }

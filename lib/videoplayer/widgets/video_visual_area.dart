@@ -77,18 +77,16 @@ class VideoVisualArea extends ConsumerWidget {
                   ),
                 ),
 
-              // Play/pause overlay (shows on tap)
-              if (videoState.showControls && videoState.isReady)
-                _buildPlayPauseOverlay(context, videoState, videoNotifier),
+              // (Play/pause overlay removed) Only keep other overlays such as fullscreen
 
-              // Fullscreen overlay button (top-right of the video)
+              // Fullscreen overlay button (bottom-right of the video)
               if (videoState.showControls && onFullscreen != null)
                 Positioned(
-                  top: 8.w,
+                  bottom: 8.w,
                   right: 8.w,
                   child: Container(
-                    width: 40.w,
-                    height: 40.w,
+                    width: 46.w,
+                    height: 46.w,
                     decoration: BoxDecoration(
                       color: Colors.black45,
                       shape: BoxShape.circle,
@@ -100,7 +98,7 @@ class VideoVisualArea extends ConsumerWidget {
                         onTap: onFullscreen,
                         child: Icon(
                           Icons.fullscreen_rounded,
-                          size: 20.w,
+                          size: 28.w,
                           color: Colors.white,
                         ),
                       ),

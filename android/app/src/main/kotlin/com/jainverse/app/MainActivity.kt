@@ -12,6 +12,7 @@ import androidx.annotation.NonNull
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.pm.ActivityInfo
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.view.KeyEvent
@@ -49,6 +50,32 @@ class MainActivity: AudioServiceFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
     audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+    // Orientation channel used by Dart `OrientationHelper` to request native
+    // orientation changes. This gives a stronger enforcement than the
+    // Flutter SystemChrome API on some OEMs/devices.
+    val orientationChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.jainverse.orientation")
+    orientationChannel.setMethodCallHandler { call, result ->
+        when (call.method) {
+            "setOrientationLock" -> {
+                val orient = call.argument<String>("orientation")
+                try {
+                    when (orient) {
+                        "portrait" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        "portraitUpsideDown" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+                        "landscape" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        "landscapeLeft" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        "landscapeRight" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                        "all" -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        else -> requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("orientation_failed", e.message, null)
+                }
+            }
+            else -> result.notImplemented()
+        }
+    }
 
         // Register the enhanced audio visualizer plugin
         flutterEngine.plugins.add(AudioVisualizerPlugin())

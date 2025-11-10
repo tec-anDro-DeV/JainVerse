@@ -4,6 +4,13 @@ import AVFoundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  // Native orientation lock used by supportedInterfaceOrientationsFor
+  // Defaults to portrait so the app remains portrait unless changed from Dart.
+  static var orientationLock: UIInterfaceOrientationMask = .portrait
+
+  private let orientationChannelName = "com.jainverse.orientation"
+  private var orientationChannel: FlutterMethodChannel?
+
   private let channelName = "com.jainverse.background_audio"
   private var methodChannel: FlutterMethodChannel?
   // Best-effort native state to report to Dart. Kept in sync with AVAudioSession
@@ -64,7 +71,7 @@ import AVFoundation
         case "pausePlayback":
           // If the app used a native player, pause it here. As a fallback
           // update the native flag so queries reflect the change.
-          self.nativeIsPlaying = false
+          self.nativeIsPlaying = false    
           result(nil)
 
         case "resumePlayback":
@@ -72,7 +79,7 @@ import AVFoundation
           // update the native flag so queries reflect the change.
           self.nativeIsPlaying = true
           result(nil)
-
+ 
         case "isAudioServiceRunning":
           // If the app runs an iOS audio background task we can't always
           // introspect it from here; use a pragmatic heuristic: active
@@ -100,7 +107,50 @@ import AVFoundation
           result(FlutterMethodNotImplemented)
         }
       })
+
+      // Orientation control channel: allows Dart to request a change to the
+      // native supported interface orientations at runtime. This works in
+      // tandem with Info.plist entries - Info.plist must still include the
+      // orientations we want to allow (we already updated it).
+      orientationChannel = FlutterMethodChannel(name: orientationChannelName, binaryMessenger: controller.binaryMessenger)
+      orientationChannel?.setMethodCallHandler({ (call, result) in
+        switch call.method {
+        case "setOrientationLock":
+          if let args = call.arguments as? [String: Any], let orientation = args["orientation"] as? String {
+            switch orientation {
+            case "portrait":
+              AppDelegate.orientationLock = .portrait
+            case "portraitUpsideDown":
+              AppDelegate.orientationLock = .portraitUpsideDown
+            case "landscape":
+              AppDelegate.orientationLock = [.landscapeLeft, .landscapeRight]
+            case "landscapeLeft":
+              AppDelegate.orientationLock = .landscapeLeft
+            case "landscapeRight":
+              AppDelegate.orientationLock = .landscapeRight
+            case "all":
+              AppDelegate.orientationLock = .all
+            default:
+              AppDelegate.orientationLock = .all
+            }
+          }
+          result(nil)
+
+        case "getOrientationLock":
+          result(AppDelegate.orientationLock.rawValue)
+
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      })
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Respect the currently requested orientation mask. This is invoked by
+  // iOS when deciding which orientations the app supports for the active
+  // window. We return the value set by Dart via the orientation channel.
+  override func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+    return AppDelegate.orientationLock
   }
 }

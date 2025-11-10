@@ -145,7 +145,6 @@ class _VideoReportModalState extends State<VideoReportModal> {
         // Calculate bottom padding using centralized AppPadding helper.
         // This accounts for the nav bar and any visible mini-player (audio/video).
         // We request an additional 40.w specific to this modal.
-        final bottomPadding = AppPadding.bottom(context, extra: 40.w);
 
         return Container(
           decoration: BoxDecoration(
@@ -155,9 +154,7 @@ class _VideoReportModalState extends State<VideoReportModal> {
           // Add bottom padding to account for navigation, mini player and keyboard
           // MediaQuery.viewInsets.bottom ensures the content (submit button)
           // is pushed above the on-screen keyboard and remains tappable.
-          padding: EdgeInsets.only(
-            bottom: bottomPadding + MediaQuery.of(context).viewInsets.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: 15.w),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

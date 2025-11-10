@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import '../managers/video_player_state_provider.dart';
 import '../../managers/music_manager.dart';
+import '../utils/orientation_helper.dart';
 
 /// Full-screen landscape video player with YouTube-style controls
 ///
@@ -42,6 +43,19 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   bool _showControls = true;
   Timer? _hideControlsTimer;
   bool _isInitialized = false;
+  // Double-tap skip/back accumulation state
+  int _accumulatedTapsLeft = 0; // count of 10s increments for left side (back)
+  int _accumulatedTapsRight =
+      0; // count of 10s increments for right side (forward)
+  Timer? _leftTapWindowTimer;
+  Timer? _rightTapWindowTimer;
+  bool _showLeftOverlay = false;
+  bool _showRightOverlay = false;
+  // Duration of the persistent tap window opened after the first double-tap
+  final Duration _tapWindow = const Duration(milliseconds: 1200);
+  // Stable base positions to avoid races with async controller updates.
+  Duration? _leftBasePosition;
+  Duration? _rightBasePosition;
 
   // Safe check to see if a controller is initialized without throwing when
   // the controller has been disposed concurrently.
@@ -85,7 +99,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   @override
   void dispose() {
     _hideControlsTimer?.cancel();
-    _restoreOrientation();
+    unawaited(_restoreOrientation());
     super.dispose();
   }
 
@@ -95,19 +109,33 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    // Also inform native iOS to allow landscape for this route
+    try {
+      OrientationHelper.setLandscape();
+    } catch (_) {}
   }
 
-  void _restoreOrientation() {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+  Future<void> _restoreOrientation() async {
+    try {
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+    } catch (_) {}
+
+    // Restore app to portrait defaults immediately so the underlying screens
+    // render using the expected layout regardless of the device's physical
+    // orientation at the moment the user exits landscape mode.
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    } catch (_) {}
+
+    try {
+      await OrientationHelper.setPortrait();
+    } catch (_) {}
   }
 
   Future<void> _initializePlayer() async {
@@ -198,8 +226,27 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
     _startHideTimer();
   }
 
-  void _exitFullscreen() {
-    Navigator.of(context).pop();
+  Future<void> _exitFullscreen() async {
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+
+    unawaited(_restoreOrientation());
+
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
+  }
+
+  Future<bool> _handleWillPop() async {
+    await _restoreOrientation();
+    return true;
   }
 
   @override
@@ -207,50 +254,217 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
     final videoState = ref.watch(videoPlayerProvider);
     final videoNotifier = ref.read(videoPlayerProvider.notifier);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleControls,
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            // Video player surface (center-aligned)
-            Center(
-              child: Builder(
-                builder: (context) {
-                  final controller = videoState.controller;
-                  final canShow =
-                      _isInitialized &&
-                      controller != null &&
-                      !ref
-                          .read(videoPlayerProvider.notifier)
-                          .isControllerDisposed(controller) &&
-                      !ref
-                          .read(videoPlayerProvider.notifier)
-                          .isControllerScheduledForDisposal(controller) &&
-                      controllerIsInitializedSafely(controller);
+    return WillPopScope(
+      onWillPop: _handleWillPop,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          onTap: _toggleControls,
+          // Detect double-taps and their positions to implement left/right 10s skip
+          onDoubleTapDown: (details) =>
+              _handleDoubleTapDown(details, videoNotifier),
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            children: [
+              // Video player surface (center-aligned)
+              Center(
+                child: Builder(
+                  builder: (context) {
+                    final controller = videoState.controller;
+                    final canShow =
+                        _isInitialized &&
+                        controller != null &&
+                        !ref
+                            .read(videoPlayerProvider.notifier)
+                            .isControllerDisposed(controller) &&
+                        !ref
+                            .read(videoPlayerProvider.notifier)
+                            .isControllerScheduledForDisposal(controller) &&
+                        controllerIsInitializedSafely(controller);
 
-                  if (!canShow) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                    if (!canShow) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      );
+                    }
+
+                    return AspectRatio(
+                      aspectRatio: controllerAspectRatioSafely(controller),
+                      child: _safeBuildVideoPlayer(controller),
                     );
-                  }
-
-                  return AspectRatio(
-                    aspectRatio: controllerAspectRatioSafely(controller),
-                    child: _safeBuildVideoPlayer(controller),
-                  );
-                },
+                  },
+                ),
               ),
-            ),
 
-            // Overlay controls
-            AnimatedOpacity(
-              opacity: _showControls ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: _showControls
-                  ? _buildOverlayControls(videoState, videoNotifier)
-                  : const SizedBox.shrink(),
+              // Overlay controls
+              AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: _showControls
+                    ? _buildOverlayControls(videoState, videoNotifier)
+                    : const SizedBox.shrink(),
+              ),
+
+              // Left / Right double-tap overlay feedback (persistent during tap window)
+              // Left (rewind) overlay
+              IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 36.w),
+                    child: AnimatedOpacity(
+                      opacity: _showLeftOverlay ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 160),
+                      child: _buildTapOverlay(isLeft: true),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Right (forward) overlay
+              IgnorePointer(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 36.w),
+                    child: AnimatedOpacity(
+                      opacity: _showRightOverlay ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 160),
+                      child: _buildTapOverlay(isLeft: false),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Handle double-tap down details to determine left/right and accumulate seeks
+  void _handleDoubleTapDown(TapDownDetails details, dynamic videoNotifier) {
+    // Determine which half of the screen was double-tapped
+    final dx = details.globalPosition.dx;
+    final width = MediaQuery.of(context).size.width;
+
+    final isLeft = dx < width / 2;
+
+    final videoState = ref.read(videoPlayerProvider);
+
+    if (isLeft) {
+      // Light haptic feedback
+      try {
+        HapticFeedback.lightImpact();
+      } catch (_) {}
+      // Rewind: set base position on first tap, then accumulate
+      if (_accumulatedTapsLeft == 0) {
+        _leftBasePosition = videoState.position;
+      }
+      _accumulatedTapsLeft++;
+      _showLeftOverlay = true;
+      // Cancel and (re)start the left-side tap window timer
+      _leftTapWindowTimer?.cancel();
+      _leftTapWindowTimer = Timer(_tapWindow, () => _clearLeftAccumulation());
+
+      // Seek backward by accumulated amount based on stable base position
+      try {
+        final base = _leftBasePosition ?? videoState.position;
+        final seconds = _accumulatedTapsLeft * 10;
+        final target = base - Duration(seconds: seconds);
+        final clamped = target < Duration.zero ? Duration.zero : target;
+        videoNotifier.seekTo(clamped);
+      } catch (_) {
+        // ignore if controller disposed concurrently
+      }
+    } else {
+      // Light haptic feedback
+      try {
+        HapticFeedback.lightImpact();
+      } catch (_) {}
+      // Forward: set base position on first tap, then accumulate
+      if (_accumulatedTapsRight == 0) {
+        _rightBasePosition = videoState.position;
+      }
+      _accumulatedTapsRight++;
+      _showRightOverlay = true;
+      _rightTapWindowTimer?.cancel();
+      _rightTapWindowTimer = Timer(_tapWindow, () => _clearRightAccumulation());
+
+      try {
+        final base = _rightBasePosition ?? videoState.position;
+        final seconds = _accumulatedTapsRight * 10;
+        final duration = videoState.duration;
+        final target = base + Duration(seconds: seconds);
+        final clamped = target > duration ? duration : target;
+        videoNotifier.seekTo(clamped);
+      } catch (_) {
+        // ignore if controller disposed concurrently
+      }
+    }
+
+    // Ensure controls are visible briefly when user interacts
+    _onUserInteraction();
+    // Force rebuild to show overlay label updates
+    if (mounted) setState(() {});
+  }
+
+  void _clearLeftAccumulation() {
+    _leftTapWindowTimer?.cancel();
+    _accumulatedTapsLeft = 0;
+    _showLeftOverlay = false;
+    _leftBasePosition = null;
+    if (mounted) setState(() {});
+  }
+
+  void _clearRightAccumulation() {
+    _rightTapWindowTimer?.cancel();
+    _accumulatedTapsRight = 0;
+    _showRightOverlay = false;
+    _rightBasePosition = null;
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildTapOverlay({required bool isLeft}) {
+    final count = isLeft ? _accumulatedTapsLeft : _accumulatedTapsRight;
+    if (count <= 0) return const SizedBox.shrink();
+    final seconds = count * 10;
+    final label = isLeft ? '${seconds}s' : '${seconds}s';
+    // Polished: fade + slide + scale animation, smaller font and icon
+    final show = isLeft ? _showLeftOverlay : _showRightOverlay;
+    return AnimatedOpacity(
+      opacity: show ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.94, end: show ? 1.0 : 0.94),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutBack,
+        builder: (context, scale, child) {
+          final slideX = isLeft ? -8.0 * (1 - scale) : 8.0 * (1 - scale);
+          return Transform.translate(
+            offset: Offset(slideX, 0),
+            child: Transform.scale(scale: scale, child: child),
+          );
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isLeft ? Icons.replay_10_rounded : Icons.forward_10_rounded,
+              color: Colors.white,
+              size: 18.w,
+              shadows: [const Shadow(blurRadius: 4, color: Colors.black45)],
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w600,
+                shadows: [const Shadow(blurRadius: 4, color: Colors.black45)],
+              ),
             ),
           ],
         ),
@@ -310,7 +524,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
                     widget.title ?? 'Video',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10.sp,
+                      fontSize: 9.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.0,
                     ),
@@ -323,7 +537,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
                       widget.channelName!,
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 8.sp,
+                        fontSize: 7.sp,
                         fontWeight: FontWeight.w400,
                         height: 1.0,
                       ),
@@ -528,7 +742,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
                         '${_formatDuration(videoState.position)}/${_formatDuration(videoState.duration)}',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 8.sp,
+                          fontSize: 7.sp,
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -560,7 +774,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
                       ),
                       // Use a tight GestureDetector instead of IconButton to avoid default padding
                       child: GestureDetector(
-                        onTap: _exitFullscreen,
+                        onTap: () => _exitFullscreen(),
                         behavior: HitTestBehavior.opaque,
                         child: SizedBox(
                           width: 20.w,

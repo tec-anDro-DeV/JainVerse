@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import '../widgets/video_report_modal.dart';
 import '../models/video_item.dart';
 import '../services/subscription_service.dart';
 import '../../managers/music_manager.dart';
+import '../utils/orientation_helper.dart';
 
 /// Full-screen video player view
 /// Mirrors the MusicPlayerView design with video-specific adaptations
@@ -68,6 +70,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   Orientation? _lastOrientation;
   // Guard to ensure we only launch landscape player once per rotation event
   bool _rotationLaunched = false;
+  DateTime? _landscapeCooldownUntil;
 
   // Drag gesture state
   late AnimationController _dragAnimationController;
@@ -95,6 +98,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // the thumbnail-derived theme is ready.
     _theme = VideoPlayerTheme.defaultTheme();
     _updateSystemUI(_theme!);
+    unawaited(_enableVideoScreenOrientations());
 
     // Initialize drag animation controller
     _dragAnimationController = AnimationController(
@@ -188,7 +192,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       }
       return;
     }
-
     // Ensure mini-player flags are cleared before loading a new video.
     if (videoState.isMinimized) {
       videoNotifier.expandToFullScreen();
@@ -267,6 +270,74 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     }
   }
 
+  Future<void> _launchLandscapePlayer() async {
+    if (_rotationLaunched) {
+      return;
+    }
+
+    _rotationLaunched = true;
+
+    try {
+      await LandscapeVideoLauncher.launch(
+        context: context,
+        videoUrl: widget.videoUrl,
+        videoId: widget.videoId,
+        title: widget.title,
+        channelName: widget.subtitle,
+        thumbnailUrl: widget.thumbnailUrl,
+      );
+    } finally {
+      final cooldownExpiry = DateTime.now().add(
+        const Duration(milliseconds: 700),
+      );
+
+      if (!mounted) {
+        _rotationLaunched = false;
+        _landscapeCooldownUntil = cooldownExpiry;
+        return;
+      }
+
+      setState(() {
+        _rotationLaunched = false;
+        _landscapeCooldownUntil = cooldownExpiry;
+      });
+
+      unawaited(_enableVideoScreenOrientations());
+    }
+  }
+
+  Future<void> _setPreferredOrientations(
+    List<DeviceOrientation> orientations,
+  ) async {
+    try {
+      await SystemChrome.setPreferredOrientations(orientations);
+    } catch (_) {}
+  }
+
+  Future<void> _enableVideoScreenOrientations() async {
+    await _setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
+    try {
+      await OrientationHelper.setAll();
+    } catch (_) {}
+  }
+
+  Future<void> _lockAppToPortrait() async {
+    await _setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+
+    try {
+      await OrientationHelper.setPortrait();
+    } catch (_) {}
+  }
+
   void _updateSystemUI(VideoPlayerTheme theme) {
     final statusBarColor = theme.primaryColor;
 
@@ -318,6 +389,8 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     // Restore global UI (navigation & mini player)
     MusicPlayerStateManager().hideFullPlayer();
+
+    unawaited(_lockAppToPortrait());
 
     // Remove subscription listener (ok to call even if not previously added)
     try {
@@ -526,32 +599,25 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     final currentVideoIdString = videoState.currentVideoId ?? widget.videoId;
     final int? currentVideoIdInt = int.tryParse(currentVideoIdString);
 
+    final now = DateTime.now();
+    final cooldownActive =
+        _landscapeCooldownUntil != null &&
+        now.isBefore(_landscapeCooldownUntil!);
+
     // Auto-launch landscape player when device orientation becomes landscape.
     final currentOrientation = MediaQuery.of(context).orientation;
     if (_lastOrientation != currentOrientation) {
-      if (currentOrientation == Orientation.landscape && !_rotationLaunched) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final isLandscape = currentOrientation == Orientation.landscape;
+
+      if (isLandscape && !cooldownActive) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _rotationLaunched = true;
-
-          await LandscapeVideoLauncher.launch(
-            context: context,
-            videoUrl: widget.videoUrl,
-            videoId: widget.videoId,
-            title: widget.title,
-            channelName: widget.subtitle,
-            thumbnailUrl: widget.thumbnailUrl,
-          );
-
-          if (mounted) {
-            setState(() {
-              _rotationLaunched = false;
-            });
-          }
+          _launchLandscapePlayer();
         });
-      } else if (currentOrientation == Orientation.portrait) {
+      } else if (!isLandscape) {
         _rotationLaunched = false;
       }
+
       _lastOrientation = currentOrientation;
     }
 
@@ -619,17 +685,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        SizedBox(height: 12.h),
                                         VideoVisualArea(
                                           onFullscreen: () {
-                                            LandscapeVideoLauncher.launch(
-                                              context: context,
-                                              videoUrl: widget.videoUrl,
-                                              videoId: widget.videoId,
-                                              title: widget.title,
-                                              channelName: widget.subtitle,
-                                              thumbnailUrl: widget.thumbnailUrl,
-                                            );
+                                            _launchLandscapePlayer();
                                           },
                                         ),
                                         SizedBox(height: 12.h),
@@ -817,14 +875,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                                   SizedBox(height: 24.h),
                                   VideoVisualArea(
                                     onFullscreen: () {
-                                      LandscapeVideoLauncher.launch(
-                                        context: context,
-                                        videoUrl: widget.videoUrl,
-                                        videoId: widget.videoId,
-                                        title: widget.title,
-                                        channelName: widget.subtitle,
-                                        thumbnailUrl: widget.thumbnailUrl,
-                                      );
+                                      _launchLandscapePlayer();
                                     },
                                   ),
                                   SizedBox(height: 12.h),
