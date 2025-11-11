@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img_pkg;
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:jainverse/Model/CountryModel.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
@@ -63,7 +64,7 @@ class myState extends State<ProfileEdit> {
   SharedPref sharePrefs = SharedPref();
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
   late UserModel model;
-  String gender = "Select Gender";
+  int? gender; // 0 = Male, 1 = Female, null = not selected
   Country? selectedCountry; // Changed to Country object
   String dateOfBirth = '';
   String imagePresent = '';
@@ -92,6 +93,8 @@ class myState extends State<ProfileEdit> {
   Future<dynamic> value() async {
     model = await sharePrefs.getUserData();
     token = await sharePrefs.getToken();
+    // Refresh profile from server when possible
+    await _fetchProfileFromApi(token);
     getSettings();
 
     setState(() {});
@@ -147,11 +150,14 @@ class myState extends State<ProfileEdit> {
 
     nameController.text = modelSettings.data.name;
     mobileController.text = modelSettings.data.mobile;
+    // Phone is non-editable in the updated UI; clear any validation error
+    phoneError = null;
 
-    // Set email if available
+    // Set email if available. Do not show placeholder text like 'Not provided';
+    // leave the field empty when email is not present so the hint text is visible.
     emailController.text = modelSettings.data.email.isNotEmpty
         ? modelSettings.data.email
-        : 'Not provided';
+        : '';
 
     // Note: Country selection is now handled in _setCountryFromUserData()
     // after countries are loaded from the API to avoid race conditions
@@ -167,16 +173,33 @@ class myState extends State<ProfileEdit> {
     //   allowAds = false;
     // }
 
-    if (modelSettings.data.gender.isNotEmpty) {
-      if (modelSettings.data.gender.toLowerCase() == 'male') {
-        gender = "Male";
-      } else if (modelSettings.data.gender.toLowerCase() == 'female') {
-        gender = 'Female';
-      } else if (modelSettings.data.gender.toLowerCase() == 'other') {
-        gender = 'Other';
+    // modelSettings.data.gender may be an int, numeric string, or textual value.
+    // Normalize to int? (0/1/null) by parsing the string first to avoid
+    // unrelated_type_equality_checks where the static type may be String.
+    try {
+      final rawGender = modelSettings.data.gender;
+      final s = rawGender.toString().trim();
+      if (s.isNotEmpty) {
+        final n = int.tryParse(s);
+        if (n != null) {
+          gender = (n == 0)
+              ? 0
+              : (n == 1)
+              ? 1
+              : null;
+        } else {
+          final low = s.toLowerCase();
+          gender = (low == 'male')
+              ? 0
+              : (low == 'female')
+              ? 1
+              : null;
+        }
       } else {
-        gender = 'Select Gender';
+        gender = null;
       }
+    } catch (_) {
+      gender = null;
     }
 
     if (modelSettings.data.dob.isNotEmpty) {
@@ -214,6 +237,76 @@ class myState extends State<ProfileEdit> {
     } catch (e) {
       print('Error loading countries: $e');
     }
+  }
+
+  /// Fetch profile data from server and merge into local fields used by the
+  /// profile edit screen. This keeps the edit form in sync with server data.
+  Future<void> _fetchProfileFromApi(String token) async {
+    if (token.isEmpty) return;
+    try {
+      final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
+      final resp = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (resp.statusCode == 200) {
+        final Map<String, dynamic> jsonResp = json.decode(resp.body);
+        final dynamic data = jsonResp['data'] ?? jsonResp;
+        if (data is Map<String, dynamic>) {
+          if (data['name'] != null)
+            nameController.text = data['name'].toString();
+          if (data['gender'] != null) {
+            final raw = data['gender'];
+            try {
+              if (raw is int) {
+                gender = (raw == 0)
+                    ? 0
+                    : (raw == 1)
+                    ? 1
+                    : null;
+              } else {
+                final s = raw.toString().trim();
+                final n = int.tryParse(s);
+                if (n != null) {
+                  gender = (n == 0)
+                      ? 0
+                      : (n == 1)
+                      ? 1
+                      : null;
+                } else {
+                  final low = s.toLowerCase();
+                  gender = (low == 'male')
+                      ? 0
+                      : (low == 'female')
+                      ? 1
+                      : null;
+                }
+              }
+            } catch (_) {
+              // leave as-is on parse error
+            }
+          }
+
+          if (data['dob'] != null && data['dob'].toString().isNotEmpty) {
+            try {
+              final DateTime dobDate = DateTime.parse(data['dob'].toString());
+              final DateFormat inputFormatter = DateFormat('yyyy-MM-dd');
+              birthdateController.text = inputFormatter.format(dobDate);
+              dateOfBirth = birthdateController.text;
+            } catch (_) {
+              // ignore parse errors, leave previous value
+            }
+          }
+        }
+      } else {
+        if (kDebugMode) print('my_profile returned ${resp.statusCode}');
+      }
+    } catch (e) {
+      if (kDebugMode) print('Failed to fetch profile: $e');
+    }
+
+    if (mounted) setState(() {});
   }
 
   // Method to set country from user data after countries are loaded
@@ -682,14 +775,9 @@ class myState extends State<ProfileEdit> {
 
   bool _validateForm() {
     _validateName();
-    _validatePhone();
-
-    // If there are errors, scroll to the first field with error
+    // Phone is non-editable so we only validate the name field here.
     if (nameError != null) {
       _scrollToField(_nameFieldKey, nameFocusNode);
-      return false;
-    } else if (phoneError != null) {
-      _scrollToField(_phoneFieldKey, phoneFocusNode);
       return false;
     }
 
@@ -878,13 +966,13 @@ class myState extends State<ProfileEdit> {
                                           : AppSizes.inputHeight,
                                       child: InputField(
                                         controller: mobileController,
-                                        hintText: 'Enter phone number',
+                                        hintText: 'Phone number',
                                         prefixIcon: Icons.phone_outlined,
                                         keyboardType: TextInputType.phone,
                                         maxLength: 20,
-                                        errorText: phoneError,
+                                        errorText: null,
                                         focusNode: phoneFocusNode,
-                                        onChanged: (value) => _validatePhone(),
+                                        enabled: false,
                                       ),
                                     ),
                                     // Add some space after error text
@@ -922,7 +1010,7 @@ class myState extends State<ProfileEdit> {
                                         prefixIcon: Icons.email_outlined,
                                         keyboardType:
                                             TextInputType.emailAddress,
-                                        enabled: false,
+                                        enabled: true,
                                       ),
                                     ),
                                   ],
@@ -952,13 +1040,10 @@ class myState extends State<ProfileEdit> {
                                     SizedBox(
                                       height: AppSizes.inputHeight,
                                       child: GenderInputField(
-                                        value: gender == "Select Gender"
-                                            ? null
-                                            : gender,
-                                        onChanged: (String? newValue) {
+                                        value: gender,
+                                        onChanged: (int? newValue) {
                                           setState(() {
-                                            gender =
-                                                newValue ?? 'Select Gender';
+                                            gender = newValue;
                                           });
                                         },
                                       ),
@@ -1131,7 +1216,7 @@ class myState extends State<ProfileEdit> {
                                                 '🏳️ DEBUG: selectedCountry isEmpty = ${selectedCountry == null}',
                                               );
                                               log(
-                                                '🏳️ DEBUG: selectedCountry == "Select Country" = ${selectedCountry == "Select Country"}',
+                                                '🏳️ DEBUG: selectedCountry == "Select Country" = ${selectedCountry?.nicename == "Select Country"}',
                                               );
 
                                               // Debug date values

@@ -316,8 +316,9 @@ class DropdownInputField<T> extends StatelessWidget {
 }
 
 class GenderInputField extends StatelessWidget {
-  final String? value;
-  final Function(String?) onChanged;
+  // Use int values for gender: 0 = Male, 1 = Female, null = not selected
+  final int? value;
+  final Function(int?) onChanged;
   final bool enabled;
 
   const GenderInputField({
@@ -327,7 +328,7 @@ class GenderInputField extends StatelessWidget {
     this.enabled = true,
   });
 
-  static const List<String> genderOptions = ['Male', 'Female'];
+  static const Map<int, String> genderOptions = {0: 'Male', 1: 'Female'};
 
   @override
   Widget build(BuildContext context) {
@@ -351,23 +352,25 @@ class GenderInputField extends StatelessWidget {
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
-              children: genderOptions.map((option) {
-                final bool selected = value == option;
+              children: genderOptions.entries.map((entry) {
+                final int optionKey = entry.key;
+                final String optionLabel = entry.value;
+                final bool selected = value == optionKey;
                 return Expanded(
                   child: InkWell(
-                    onTap: enabled ? () => onChanged(option) : null,
+                    onTap: enabled ? () => onChanged(optionKey) : null,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Radio<String>(
-                          value: option,
+                        Radio<int>(
+                          value: optionKey,
                           groupValue: value,
                           onChanged: enabled ? onChanged : null,
                           activeColor: appColors().primaryColorApp,
                         ),
                         SizedBox(width: 6.w),
                         Text(
-                          option,
+                          optionLabel,
                           style: TextStyle(
                             color: selected
                                 ? appColors().primaryColorApp

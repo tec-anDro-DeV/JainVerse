@@ -32,7 +32,7 @@ class ProfilePresenter {
     String pass,
     String mbl,
     String dob,
-    String gender,
+    int? gender,
     String countryId,
     String token,
     bool artist,
@@ -50,7 +50,8 @@ class ProfilePresenter {
     if (pass.isNotEmpty) {
       formDataMap[AppConstant.password] = pass;
     }
-    if (gender.isNotEmpty && gender != 'Select Gender') {
+    // Add gender only when provided (0 or 1)
+    if (gender != null) {
       formDataMap[AppConstant.gender] = gender;
     }
     if (dob.isNotEmpty && dob != 'Select Birthdate') {
@@ -93,7 +94,7 @@ class ProfilePresenter {
     log('Name: "$name" (isEmpty: ${name.isEmpty})');
     log('Mobile: "$mbl" (isEmpty: ${mbl.isEmpty})');
     log('DOB: "$dob" (isEmpty: ${dob.isEmpty})');
-    log('Gender: "$gender" (isEmpty: ${gender.isEmpty})');
+    log('Gender: ${gender == null ? "<null>" : gender}');
     log('Country: "$countryId" (isEmpty: ${countryId.isEmpty})');
     log(
       'Password: "${pass.isNotEmpty ? "[SET]" : "[EMPTY]"}" (isEmpty: ${pass.isEmpty})',

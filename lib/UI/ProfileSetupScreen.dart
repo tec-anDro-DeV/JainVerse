@@ -37,7 +37,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   // State variables
   Country? _selectedCountry;
   DateTime? _selectedDate;
-  String? _selectedGender;
   int? _selectedGenderInt; // 0 = Male, 1 = Female
   bool _isLoading = false;
   List<Country> _countries = [];
@@ -179,14 +178,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       }
 
+      // Split name into fname and lname (first word -> fname, rest -> lname)
+      final fullName = _nameController.text.trim();
+      String? fname;
+      String? lname;
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(RegExp(r"\s+"));
+        if (parts.isNotEmpty) {
+          fname = parts.first;
+          if (parts.length > 1) {
+            lname = parts.sublist(1).join(' ');
+          }
+        }
+      }
+
       final success = await _authService.updateProfile(
         context,
-        fname: _nameController.text.trim(),
+        fname: fname,
+        lname: (lname != null && lname.isNotEmpty) ? lname : null,
         email: _emailController.text.trim().isNotEmpty
             ? _emailController.text.trim()
             : null,
         dob: formattedDate,
-        country: _selectedCountry?.nicename,
+        countryId: _selectedCountry?.id,
         mobile: widget.phoneNumber,
         gender: _selectedGenderInt,
       );
@@ -362,7 +376,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                                     key: _nameKey,
                                     child: InputField(
                                       controller: _nameController,
-                                      hintText: 'Enter your full name',                                                                     
+                                      hintText: 'Enter your full name',
                                       prefixIcon: Icons.person_outline,
                                       textInputAction: TextInputAction.next,
                                       focusNode: _nameFocus,
@@ -438,17 +452,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                                   _buildFieldLabel('Gender', isRequired: false),
                                   SizedBox(height: 8.w),
                                   GenderInputField(
-                                    value: _selectedGender,
+                                    value: _selectedGenderInt,
                                     onChanged: (value) {
                                       setState(() {
-                                        _selectedGender = value;
-                                        if (value == 'Male') {
-                                          _selectedGenderInt = 0;
-                                        } else if (value == 'Female') {
-                                          _selectedGenderInt = 1;
-                                        } else {
-                                          _selectedGenderInt = null;
-                                        }
+                                        _selectedGenderInt = value;
                                       });
                                     },
                                   ),

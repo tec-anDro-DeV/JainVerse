@@ -167,11 +167,13 @@ class PhoneAuthService {
   /// Returns true if profile was updated successfully
   Future<bool> updateProfile(
     BuildContext context, {
-    required String fname,
+    String? name,
+    String? fname,
     String? lname,
     String? email,
     String? dob,
     String? country,
+    int? countryId,
     String? mobile,
     int? gender,
   }) async {
@@ -188,13 +190,30 @@ class PhoneAuthService {
         return false;
       }
 
-      final Map<String, dynamic> body = {'fname': fname};
+      final Map<String, dynamic> body = {};
+
+      // Prefer explicit fname/lname if provided, otherwise send 'name' for backward compatibility
+      if (fname != null && fname.isNotEmpty) {
+        body['fname'] = fname;
+      }
+      if (lname != null && lname.isNotEmpty) {
+        body['lname'] = lname;
+      }
+      if ((fname == null || fname.isEmpty) &&
+          (lname == null || lname.isEmpty)) {
+        // fallback to generic name if provided
+        if (name != null && name.isNotEmpty) body['name'] = name;
+      }
 
       // Add optional fields if provided
-      if (lname != null && lname.isNotEmpty) body['lname'] = lname;
       if (email != null && email.isNotEmpty) body['email'] = email;
       if (dob != null && dob.isNotEmpty) body['dob'] = dob;
-      if (country != null && country.isNotEmpty) body['country'] = country;
+      // prefer country_id if available, otherwise send country name
+      if (countryId != null) {
+        body['country_id'] = countryId;
+      } else if (country != null && country.isNotEmpty) {
+        body['country'] = country;
+      }
       if (mobile != null && mobile.isNotEmpty) body['mobile'] = mobile;
       if (gender != null) body['gender'] = gender;
 

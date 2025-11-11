@@ -30,7 +30,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 
 import '../widgets/common/app_header.dart';
 import 'FavoriteGenres.dart';
@@ -131,6 +133,8 @@ class MyState extends State<AccountPage>
         appPackageName = packageInfo.packageName;
       });
       token = await sharePrefs.getToken();
+      // Try to refresh profile from remote API using the saved token
+      await _fetchProfileFromApi(token);
       sharedPreThemeData = await sharePrefs.getThemeData();
       setState(() {});
 
@@ -139,7 +143,14 @@ class MyState extends State<AccountPage>
       final Map<String, dynamic> parsed = json.decode(sett!);
       modelSettings = ModelSettings.fromJson(parsed);
       if ((modelSettings.data.image.isNotEmpty)) {
-        imagePresent = AppConstant.ImageUrl + modelSettings.data.image;
+        // Normalize image URL: if server already provides absolute URL, use it,
+        // otherwise prefix with AppConstant.ImageUrl.
+        final raw = modelSettings.data.image.toString();
+        if (raw.startsWith('http')) {
+          imagePresent = raw;
+        } else {
+          imagePresent = AppConstant.ImageUrl + raw;
+        }
         // Prepare a robust image provider (try direct bytes first)
         try {
           await _prepareProfileImage(imagePresent);
@@ -242,7 +253,6 @@ class MyState extends State<AccountPage>
         if (mounted) setState(() => _profileImageProvider = null);
         return;
       }
-
       final uri = Uri.parse(url);
       final HttpClient client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
@@ -260,12 +270,45 @@ class MyState extends State<AccountPage>
       if (resp.statusCode == 200) {
         final Uint8List bytes = await consolidateHttpClientResponseBytes(resp);
         if (bytes.isNotEmpty) {
-          if (mounted) {
-            setState(() => _profileImageProvider = MemoryImage(bytes));
+          // Validate that the bytes represent a decodable image to avoid
+          // MemoryImage decode exceptions (e.g. when server returns HTML
+          // with 200 status). We attempt to instantiate a codec; if it
+          // fails we treat the bytes as invalid and evict cache.
+          try {
+            final codec = await ui.instantiateImageCodec(bytes);
+            // Ensure at least one frame can be read
+            await codec.getNextFrame();
+            if (mounted) {
+              setState(() => _profileImageProvider = MemoryImage(bytes));
+            }
+            client.close(force: true);
+            return;
+          } catch (e) {
+            if (kDebugMode) print('Invalid image bytes detected: $e');
+            try {
+              await CachedNetworkImage.evictFromCache(url);
+            } catch (_) {}
+            if (mounted) setState(() => _profileImageProvider = null);
+            client.close(force: true);
+            return;
           }
-          client.close(force: true);
-          return;
         }
+      } else if (resp.statusCode == 404) {
+        // Resource not found: ensure we don't cache the broken URL and
+        // show the fallback person icon instead of trying NetworkImage.
+        try {
+          await CachedNetworkImage.evictFromCache(url);
+        } catch (e) {
+          if (kDebugMode) print('evictFromCache failed: $e');
+        }
+        // Also clear in-memory image entries to avoid Flutter reusing a broken image
+        try {
+          PaintingBinding.instance.imageCache.clear();
+        } catch (_) {}
+
+        if (mounted) setState(() => _profileImageProvider = null);
+        client.close(force: true);
+        return;
       }
       client.close(force: true);
     } catch (e) {
@@ -273,8 +316,10 @@ class MyState extends State<AccountPage>
       if (kDebugMode) print('Profile image bytes fetch failed: $e');
     }
 
-    // Fallback: use network provider (may still fail but is last resort)
-    if (mounted) setState(() => _profileImageProvider = NetworkImage(url));
+    // Don't fallback to `NetworkImage` blindly - if the byte fetch failed we
+    // prefer to show the local person icon rather than attempt another network
+    // load which may be cached as a 404. Leave `_profileImageProvider` null.
+    if (mounted) setState(() => _profileImageProvider = null);
   }
 
   Future<void> checkUserChannel() async {
@@ -299,6 +344,56 @@ class MyState extends State<AccountPage>
   Future<void> checkConn() async {
     connected = await ConnectionCheck().checkConnection();
     setState(() {});
+  }
+
+  /// Fetch profile data from remote API and merge into state.
+  Future<void> _fetchProfileFromApi(String token) async {
+    if (token.isEmpty) return;
+    try {
+      final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
+      final resp = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (resp.statusCode == 200) {
+        final Map<String, dynamic> jsonResp = json.decode(resp.body);
+        final dynamic data = jsonResp['data'] ?? jsonResp;
+        if (data is Map<String, dynamic>) {
+          // Merge simple fields if present
+          if (data.containsKey('name') && data['name'] != null) {
+            name = data['name'].toString();
+          }
+          if (data.containsKey('email') && data['email'] != null) {
+            email = data['email'].toString();
+          }
+          if (data.containsKey('artist_verify_status') &&
+              data['artist_verify_status'] != null) {
+            artistStatus = data['artist_verify_status'].toString();
+          }
+          if (data.containsKey('image') &&
+              data['image'] != null &&
+              data['image'].toString().isNotEmpty) {
+            final raw = data['image'].toString();
+            if (raw.startsWith('http')) {
+              imagePresent = raw;
+            } else {
+              imagePresent = AppConstant.ImageUrl + raw;
+            }
+            // Try to prepare image bytes for smoother display
+            await _prepareProfileImage(imagePresent);
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('my_profile returned ${resp.statusCode}: ${resp.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Failed to fetch profile: $e');
+    }
+
+    if (mounted) setState(() {});
   }
 
   @override
@@ -876,12 +971,14 @@ class MyState extends State<AccountPage>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: appColors().primaryColorApp.withOpacity(0.3),
-                  image:
-                      (imagePresent.isNotEmpty || _profileImageProvider != null)
+                  // Only use a DecorationImage when we successfully prepared
+                  // image bytes (_profileImageProvider). Avoid creating a
+                  // NetworkImage here: if the server returned 404 we prefer
+                  // to show the local fallback icon instead of attempting
+                  // another network load which may be cached as a 404.
+                  image: (_profileImageProvider != null)
                       ? DecorationImage(
-                          image:
-                              _profileImageProvider ??
-                              NetworkImage(imagePresent),
+                          image: _profileImageProvider!,
                           fit: BoxFit.cover,
                         )
                       : null,
