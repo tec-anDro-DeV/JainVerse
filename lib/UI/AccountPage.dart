@@ -34,12 +34,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../widgets/common/app_header.dart';
 import 'FavoriteGenres.dart';
-import 'Login.dart';
 import 'ProfileEdit.dart';
 import 'contact_us.dart';
 import 'VerifyArtistScreen.dart';
 import 'CreateChannel.dart';
 import 'UserChannel.dart';
+import 'PhoneNumberInputScreen.dart';
 
 // Helper class for modern menu items
 class ModernMenuItem {
@@ -212,7 +212,9 @@ class MyState extends State<AccountPage>
       artistStatus = 'P';
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (BuildContext context) => const Login()),
+        MaterialPageRoute(
+          builder: (BuildContext context) => const PhoneNumberInputScreen(),
+        ),
         (Route<dynamic> route) => false,
       );
       Logout().logout(context, token);
@@ -535,7 +537,7 @@ class MyState extends State<AccountPage>
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (BuildContext context) =>
-                                    const Login(),
+                                    const PhoneNumberInputScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -911,21 +913,6 @@ class MyState extends State<AccountPage>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-
-                    SizedBox(height: 4.w),
-
-                    Text(
-                      email,
-                      style: TextStyle(
-                        fontSize: AppSizes.fontSmall,
-                        color: appColors().colorText,
-                        fontFamily: 'Poppins',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    SizedBox(height: 8.w),
 
                     // Artist Status Badge
                     if (artistStatus == 'A')
@@ -1431,7 +1418,7 @@ class MyState extends State<AccountPage>
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (BuildContext context) =>
-                                    const Login(),
+                                    const PhoneNumberInputScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -1597,7 +1584,7 @@ class MyState extends State<AccountPage>
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
                                   builder: (BuildContext context) =>
-                                      const Login(),
+                                      const PhoneNumberInputScreen(),
                                 ),
                                 (Route<dynamic> route) => false,
                               );

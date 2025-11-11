@@ -50,7 +50,7 @@ import '../widgets/music/playlist_card.dart';
 import '../widgets/music/popular_song_card.dart';
 import '../widgets/music/song_card.dart';
 import 'AccountPage.dart';
-import 'Login.dart';
+import 'PhoneNumberInputScreen.dart';
 
 AudioPlayerHandler? _audioHandler;
 
@@ -165,7 +165,9 @@ class _state extends State<HomeDiscover>
         // Clear all cache data including images when logging out
         await CacheManager.clearAllCacheIncludingImages();
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (BuildContext context) => const Login()),
+          MaterialPageRoute(
+            builder: (BuildContext context) => const PhoneNumberInputScreen(),
+          ),
           (Route<dynamic> route) => false,
         );
         Logout().logout(context, token);

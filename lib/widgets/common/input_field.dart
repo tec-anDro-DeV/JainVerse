@@ -45,10 +45,9 @@ class InputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height:
-          errorText != null
-              ? 90.w
-              : 70.w, // Increase height when error is present
+      height: errorText != null
+          ? 90.w
+          : 70.w, // Increase height when error is present
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -66,28 +65,26 @@ class InputField extends StatelessWidget {
           labelText: labelText.isEmpty ? null : labelText,
           errorText: errorText,
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 16.sp),
-          prefixIcon:
-              prefixIcon != null
-                  ? Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 15.w),
-                    child: Icon(
-                      prefixIcon,
-                      size: 22.sp,
-                      color: Colors.grey.shade600,
-                    ),
-                  )
-                  : null,
-          suffixIcon:
-              suffixIcon != null
-                  ? Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 15.w),
-                    child: Icon(
-                      suffixIcon,
-                      size: 22.sp,
-                      color: Colors.grey.shade700,
-                    ),
-                  )
-                  : null,
+          prefixIcon: prefixIcon != null
+              ? Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 15.w),
+                  child: Icon(
+                    prefixIcon,
+                    size: 22.sp,
+                    color: Colors.grey.shade600,
+                  ),
+                )
+              : null,
+          suffixIcon: suffixIcon != null
+              ? Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 15.w),
+                  child: Icon(
+                    suffixIcon,
+                    size: 22.sp,
+                    color: Colors.grey.shade700,
+                  ),
+                )
+              : null,
           filled: true,
           fillColor: enabled ? Colors.white : Colors.grey.shade300,
           contentPadding: EdgeInsets.symmetric(
@@ -297,22 +294,21 @@ class DropdownInputField<T> extends StatelessWidget {
           ),
         ),
         onChanged: enabled ? onChanged : null,
-        items:
-            items.map<DropdownMenuItem<T>>((T item) {
-              return DropdownMenuItem<T>(
-                value: item,
-                child: Text(
-                  displayTextBuilder != null
-                      ? displayTextBuilder!(item)
-                      : item.toString(),
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.black87,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              );
-            }).toList(),
+        items: items.map<DropdownMenuItem<T>>((T item) {
+          return DropdownMenuItem<T>(
+            value: item,
+            child: Text(
+              displayTextBuilder != null
+                  ? displayTextBuilder!(item)
+                  : item.toString(),
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.black87,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          );
+        }).toList(),
         dropdownColor: Colors.white,
       ),
     );
@@ -331,71 +327,64 @@ class GenderInputField extends StatelessWidget {
     this.enabled = true,
   });
 
-  static const List<String> genderOptions = ['Male', 'Female', 'Other'];
+  static const List<String> genderOptions = ['Male', 'Female'];
 
   @override
   Widget build(BuildContext context) {
-    // If value is null, we should not try to set it as the dropdown value
-    final String? dropdownValue = value;
-
     return Container(
-      height: 56.w,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: Colors.grey.shade300, width: 1.w),
       ),
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          prefixIcon: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
+      child: Row(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: 8.w),
             child: Icon(
               Icons.person_outline,
               size: 22.sp,
               color: Colors.grey.shade600,
             ),
           ),
-          contentPadding: EdgeInsets.symmetric(
-            vertical: 16.w,
-            horizontal: 16.w,
-          ),
-          hintText: 'Select Gender',
-        ),
-        value: dropdownValue,
-        isExpanded: true,
-        icon: Padding(
-          padding: EdgeInsets.only(right: 12.w),
-          child: Icon(
-            Icons.arrow_drop_down,
-            color: Colors.grey.shade600,
-            size: 24.sp,
-          ),
-        ),
-        onChanged: enabled ? onChanged : null,
-        items:
-            genderOptions.map<DropdownMenuItem<String>>((String gender) {
-              return DropdownMenuItem<String>(
-                value: gender,
-                child: Text(
-                  gender,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.black87,
-                    fontFamily: 'Poppins',
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: genderOptions.map((option) {
+                final bool selected = value == option;
+                return Expanded(
+                  child: InkWell(
+                    onTap: enabled ? () => onChanged(option) : null,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Radio<String>(
+                          value: option,
+                          groupValue: value,
+                          onChanged: enabled ? onChanged : null,
+                          activeColor: appColors().primaryColorApp,
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          option,
+                          style: TextStyle(
+                            color: selected
+                                ? appColors().primaryColorApp
+                                : Colors.black87,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-        dropdownColor: Colors.white,
-        hint: Text(
-          'Select Gender',
-          style: TextStyle(
-            fontSize: 16.sp,
-            color: Colors.grey.shade400,
-            fontFamily: 'Poppins',
+                );
+              }).toList(),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -452,20 +441,19 @@ class CountryInputField extends StatelessWidget {
           ),
         ),
         onChanged: enabled ? onChanged : null,
-        items:
-            countries.map<DropdownMenuItem<Country>>((Country country) {
-              return DropdownMenuItem<Country>(
-                value: country,
-                child: Text(
-                  country.nicename,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.black87,
-                    fontFamily: 'Poppins',
-                  ),
-                ),
-              );
-            }).toList(),
+        items: countries.map<DropdownMenuItem<Country>>((Country country) {
+          return DropdownMenuItem<Country>(
+            value: country,
+            child: Text(
+              country.nicename,
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Colors.black87,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          );
+        }).toList(),
         dropdownColor: Colors.white,
         hint: Text(
           'Select Country',

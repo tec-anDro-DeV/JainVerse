@@ -5,20 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import StringsLocalization directly
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/Login.dart'
-    as login_page; // Import with prefix to avoid ambiguity
+import 'package:jainverse/UI/PhoneNumberInputScreen.dart'; // Updated import
 import 'package:jainverse/services/app_router_manager.dart';
 import 'package:jainverse/services/offline_mode_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 import 'onboarding.dart';
-// Import with prefix to avoid ambiguity
 
 // Define a local Resources class to handle string localization
 class Resources {
-  final BuildContext _context;
-
-  Resources(this._context);
+  Resources();
 
   StringsLocalization get strings {
     switch ('en') {
@@ -32,7 +28,7 @@ class Resources {
   }
 
   static Resources of(BuildContext context) {
-    return Resources(context);
+    return Resources();
   }
 }
 
@@ -50,7 +46,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _circleTwoAnimation;
   late Animation<double> _circleThreeAnimation;
   late Animation<double> _logoAnimation;
-  late Animation<double> _textOpacityAnimation;
 
   List<MusicNote> musicNotes = [];
   final random = Random();
@@ -127,17 +122,6 @@ class _SplashScreenState extends State<SplashScreen>
           0.45,
           curve: Curves.easeOut,
         ), // Adjusted timing
-      ),
-    );
-
-    _textOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(
-          0.6,
-          0.7,
-          curve: Curves.easeIn,
-        ), // Shows text earlier
       ),
     );
 
@@ -364,7 +348,8 @@ class _SplashScreenState extends State<SplashScreen>
             onGetStarted: () {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (BuildContext context) => const login_page.Login(),
+                  builder: (BuildContext context) =>
+                      const PhoneNumberInputScreen(),
                 ),
               );
             },

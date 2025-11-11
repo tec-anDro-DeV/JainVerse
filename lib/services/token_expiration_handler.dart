@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/UI/Login.dart';
+import 'package:jainverse/UI/PhoneNumberInputScreen.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/utils/CacheManager.dart';
@@ -243,7 +243,9 @@ class TokenExpirationHandler {
       // Navigate to login screen using the global navigator key if possible.
       try {
         navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (BuildContext _) => const Login()),
+          MaterialPageRoute(
+            builder: (BuildContext _) => const PhoneNumberInputScreen(),
+          ),
           (Route<dynamic> route) => false,
         );
       } catch (e) {
@@ -254,7 +256,9 @@ class TokenExpirationHandler {
       // Still attempt to navigate to login even if cleanup fails
       try {
         navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (BuildContext _) => const Login()),
+          MaterialPageRoute(
+            builder: (BuildContext _) => const PhoneNumberInputScreen(),
+          ),
           (Route<dynamic> route) => false,
         );
       } catch (_) {}

@@ -5,10 +5,10 @@ import 'package:jainverse/Presenter/ForGotPassPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/Login.dart';
 import 'package:jainverse/utils/validators.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
+import 'package:jainverse/UI/PhoneNumberInputScreen.dart';
 
 bool sendOtp = false;
 String textEmail = '';
@@ -66,15 +66,13 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
       ),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+          ),
+        );
 
     // Start the animation after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -280,7 +278,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
 
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const Login()),
+              MaterialPageRoute(
+                builder: (context) => const PhoneNumberInputScreen(),
+              ),
             );
           } else {
             setState(() {
@@ -441,10 +441,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                   SizedBox(height: 8.w),
                                   InputField(
                                     controller: emailController,
-                                    hintText:
-                                        Resources.of(
-                                          context,
-                                        ).strings.enterUserEmailHere,
+                                    hintText: Resources.of(
+                                      context,
+                                    ).strings.enterUserEmailHere,
                                     keyboardType: TextInputType.emailAddress,
                                     prefixIcon: Icons.email_outlined,
                                   ),
@@ -469,8 +468,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                   SizedBox(
                                     height: 56.w,
                                     child: ElevatedButton(
-                                      onPressed:
-                                          _isLoading ? null : _requestOTP,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _requestOTP,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             appColors().primaryColorApp,
@@ -545,10 +545,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                   SizedBox(height: 8.w),
                                   PasswordInputField(
                                     controller: passController,
-                                    hintText:
-                                        Resources.of(
-                                          context,
-                                        ).strings.enterPassHere,
+                                    hintText: Resources.of(
+                                      context,
+                                    ).strings.enterPassHere,
                                   ),
                                   if (_autoValidate &&
                                       _validationErrors['password'] != null)
@@ -580,10 +579,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                   SizedBox(height: 8.w),
                                   PasswordInputField(
                                     controller: passConfirmController,
-                                    hintText:
-                                        Resources.of(
-                                          context,
-                                        ).strings.confirmPass,
+                                    hintText: Resources.of(
+                                      context,
+                                    ).strings.confirmPass,
                                   ),
                                   if (_autoValidate &&
                                       _validationErrors['confirmPassword'] !=
@@ -607,8 +605,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                   SizedBox(
                                     height: 56.w,
                                     child: ElevatedButton(
-                                      onPressed:
-                                          _isLoading ? null : _resetPassword,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _resetPassword,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             appColors().primaryColorApp,
@@ -655,34 +654,40 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                         Navigator.pushReplacement(
                                           context,
                                           PageRouteBuilder(
-                                            pageBuilder:
-                                                (_, __, ___) => const Login(),
+                                            pageBuilder: (_, __, ___) =>
+                                                const PhoneNumberInputScreen(),
                                             transitionDuration: const Duration(
                                               milliseconds: 300,
                                             ),
-                                            transitionsBuilder: (
-                                              context,
-                                              animation,
-                                              secondaryAnimation,
-                                              child,
-                                            ) {
-                                              var begin = const Offset(
-                                                1.0,
-                                                0.0,
-                                              );
-                                              var end = Offset.zero;
-                                              var curve = Curves.ease;
-                                              var tween = Tween(
-                                                begin: begin,
-                                                end: end,
-                                              ).chain(CurveTween(curve: curve));
-                                              return SlideTransition(
-                                                position: animation.drive(
-                                                  tween,
-                                                ),
-                                                child: child,
-                                              );
-                                            },
+                                            transitionsBuilder:
+                                                (
+                                                  context,
+                                                  animation,
+                                                  secondaryAnimation,
+                                                  child,
+                                                ) {
+                                                  var begin = const Offset(
+                                                    1.0,
+                                                    0.0,
+                                                  );
+                                                  var end = Offset.zero;
+                                                  var curve = Curves.ease;
+                                                  var tween =
+                                                      Tween(
+                                                        begin: begin,
+                                                        end: end,
+                                                      ).chain(
+                                                        CurveTween(
+                                                          curve: curve,
+                                                        ),
+                                                      );
+                                                  return SlideTransition(
+                                                    position: animation.drive(
+                                                      tween,
+                                                    ),
+                                                    child: child,
+                                                  );
+                                                },
                                           ),
                                         );
                                       },
@@ -709,9 +714,9 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                 SizedBox(
                                   height:
                                       MediaQuery.of(context).viewInsets.bottom >
-                                              0
-                                          ? 200.w
-                                          : 16.w,
+                                          0
+                                      ? 200.w
+                                      : 16.w,
                                 ),
                               ],
                             ),

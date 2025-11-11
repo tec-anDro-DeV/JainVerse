@@ -6,7 +6,7 @@ import 'package:flutter/services.dart'; // Add this import for SystemChrome
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/Login.dart';
+import 'package:jainverse/UI/PhoneNumberInputScreen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onGetStarted;
@@ -160,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             // Top Spacing
-                            SizedBox(height: screenHeight * 0.47),
+                            SizedBox(height: screenHeight * 0.49),
 
                             // Logo with slide-down animation
                             SlideTransition(
@@ -178,7 +178,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             ),
 
                             // Flexible spacer
-                            const SizedBox(height: 20),
+                            SizedBox(height: 12.w),
 
                             // Text with fade-in animation
                             FadeTransition(
@@ -190,7 +190,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                     'Welcome to',
                                     style: TextStyle(
                                       color: Colors.black,
-                                      fontSize: AppSizes.fontH1 + 10.sp,
+                                      fontSize: AppSizes.fontH1 + 6.sp,
                                       fontWeight: FontWeight.w500,
                                       fontFamily: 'Nunito-Regular',
                                       height: 1.2,
@@ -251,11 +251,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                             Brightness.dark,
                                       ),
                                     );
-                                    // Direct navigation to Login screen - Use pushReplacement to prevent back navigation
+                                    // Direct navigation to Phone Number Input screen - Use pushReplacement to prevent back navigation
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const Login(),
+                                        builder: (context) =>
+                                            const PhoneNumberInputScreen(),
                                       ),
                                     );
                                   },

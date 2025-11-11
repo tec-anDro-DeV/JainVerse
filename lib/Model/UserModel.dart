@@ -52,7 +52,8 @@ class UserModel {
       userData = UserData.fromJson(Map<String, dynamic>.from(json['data']));
     } else {
       // Create empty UserData if data is null or empty
-      userData = UserData(0, '', '', '', '', '', '', '', '', '');
+      // gender is nullable so pass null here
+      userData = UserData(0, '', '', '', '', '', '', '', null, '');
     }
 
     return UserModel(
@@ -69,7 +70,6 @@ class UserModel {
 
 class UserData {
   int id;
-
   String name = "";
   String fname = "";
   String lname = "";
@@ -77,7 +77,7 @@ class UserData {
   String mobile = "";
   String image = "";
   String dob = "";
-  String gender = "";
+  int? gender; // 0 = Male, 1 = Female; may be null if not set
   String artist_verify_status = "";
 
   UserData(
@@ -94,6 +94,21 @@ class UserData {
   );
 
   factory UserData.fromJson(Map<String, dynamic> json) {
+    // Parse gender safely: API may return int or string
+    int? parsedGender;
+    try {
+      if (json.containsKey('gender') && json['gender'] != null) {
+        final g = json['gender'];
+        if (g is int) {
+          parsedGender = g;
+        } else if (g is String) {
+          parsedGender = int.tryParse(g);
+        }
+      }
+    } catch (e) {
+      parsedGender = null;
+    }
+
     return UserData(
       json['id'] ?? 0,
       json['name'] ?? '',
@@ -103,8 +118,30 @@ class UserData {
       json['mobile'] ?? '',
       json['image'] ?? '',
       json['dob'] ?? '',
-      json['gender'] ?? '',
+      parsedGender,
       json['artist_verify_status'] ?? '',
     );
+  }
+}
+
+// Helper extension/utility on UserData
+extension UserDataExtensions on UserData {
+  /// Returns a readable display name: `name` if set, otherwise `fname + lname`.
+  String get displayName {
+    if (name.trim().isNotEmpty) return name.trim();
+    final full = '${fname.trim()} ${lname.trim()}'.trim();
+    if (full.isNotEmpty) return full;
+    return '';
+  }
+
+  /// Returns gender as int (0/1) or null if not available.
+  int? get genderInt => gender;
+
+  /// Returns gender as lowercase string for backward compatibility ('male','female')
+  String get genderString {
+    if (gender == null) return '';
+    if (gender == 0) return 'male';
+    if (gender == 1) return 'female';
+    return '';
   }
 }

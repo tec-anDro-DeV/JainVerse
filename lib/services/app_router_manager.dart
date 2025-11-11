@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../UI/Login.dart';
+import '../UI/PhoneNumberInputScreen.dart';
 import '../UI/MainNavigation.dart';
 import '../UI/OfflineDownloadScreen.dart';
 import '../UI/onboarding.dart';
@@ -273,17 +273,16 @@ class AppRouterManager {
 
     _navigatorKey!.currentState!.pushAndRemoveUntil(
       MaterialPageRoute(
-        builder:
-            (context) => OnboardingScreen(
-              onGetStarted: () {
-                _navigatorKey!.currentState!.pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const Login(),
-                    settings: const RouteSettings(name: '/login'),
-                  ),
-                );
-              },
-            ),
+        builder: (context) => OnboardingScreen(
+          onGetStarted: () {
+            _navigatorKey!.currentState!.pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const PhoneNumberInputScreen(),
+                settings: const RouteSettings(name: '/login'),
+              ),
+            );
+          },
+        ),
         settings: const RouteSettings(name: '/onboarding'),
       ),
       (route) => false,

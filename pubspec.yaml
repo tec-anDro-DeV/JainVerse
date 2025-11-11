@@ -153,6 +153,8 @@ flutter:
     - assets/images/search_active.svg
     - assets/images/search_inactive.svg
     - assets/images/global.svg
+    - assets/images/calendar_active.svg
+    - assets/images/calendar_inactive.svg
     - assets/images/playlist_placeholder.png
     - assets/images/song_placeholder.png
 

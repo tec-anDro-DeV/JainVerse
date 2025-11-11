@@ -5,9 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
-import 'package:jainverse/utils/share_helper.dart';
 import 'package:session_storage/session_storage.dart';
-import 'package:share_plus/share_plus.dart';
+import 'PanchangCalendarScreen.dart';
 
 import '../main.dart';
 import '../managers/media_coordinator.dart';
@@ -199,8 +198,11 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                                 _buildTabNavigator(0, const HomeDiscover()),
                                 _buildTabNavigator(1, const MyLibrary()),
                                 _buildTabNavigator(2, Search("")),
-                                // 4th tab is just a placeholder since it triggers share action
-                                Container(), // Empty placeholder for share tab
+                                // 4th tab now shows the Panchang calendar screen
+                                _buildTabNavigator(
+                                  3,
+                                  const PanchangCalendarScreen(),
+                                ),
                               ],
                             ),
                           ),
@@ -378,9 +380,9 @@ class BottomNavCustomState extends State<BottomNavCustom>
       'label': 'Search',
     },
     {
-      'activeIcon': 'assets/images/global.svg',
-      'inactiveIcon': 'assets/images/global.svg',
-      'label': 'Share',
+      'activeIcon': 'assets/images/calendar_active.svg',
+      'inactiveIcon': 'assets/images/calendar_inactive.svg',
+      'label': 'Calendar',
     },
   ];
 
@@ -457,13 +459,6 @@ class BottomNavCustomState extends State<BottomNavCustom>
       // Always update animations and navigate, even if same tab
       HapticFeedback.mediumImpact();
 
-      // Check if this is the global/share icon (index 3)
-      if (index == 3) {
-        _showShareDialog();
-        // Don't update animations or navigate for share button
-        return;
-      }
-
       // Update animations immediately (only for navigable tabs 0-2)
       _updateAnimationsForIndex(index);
 
@@ -485,25 +480,13 @@ class BottomNavCustomState extends State<BottomNavCustom>
     }
   }
 
-  void _showShareDialog() {
-    // Share the app URL with a nice message using modern SharePlus API
-    final message =
-        'Check out JainVerse - Your Ultimate Music Experience! 🎵\n\nDiscover, stream, and enjoy amazing music at https://jainverse.com/\n\nDownload the app now and join the musical journey!';
-    final rect = computeSharePosition(context);
-    if (rect != null) {
-      Share.share(message, sharePositionOrigin: rect);
-    } else {
-      Share.share(message);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Keep outer container full width to preserve the gradient look.
     // Only the inner rounded navigation box will be constrained to 50% width on tablets.
     return Container(
       width: double.infinity,
-      height: 150.w,
+      height: 110.w,
       decoration: BoxDecoration(
         // Gradient background for floating effect
         gradient: LinearGradient(
@@ -587,10 +570,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
         child: AnimatedBuilder(
           animation: widget.tabController!,
           builder: (context, child) {
-            // For share button (index 3), never show as selected
-            final isSelected = index == 3
-                ? false
-                : widget.tabController!.index == index;
+            final isSelected = widget.tabController!.index == index;
             final activeIconPath = navItems[index]['activeIcon']!;
             final inactiveIconPath = navItems[index]['inactiveIcon']!;
 
