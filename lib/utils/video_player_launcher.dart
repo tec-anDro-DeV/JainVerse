@@ -6,6 +6,7 @@ import '../managers/media_coordinator.dart';
 import '../managers/music_manager.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/screens/video_player_view.dart';
+import '../videoplayer/managers/video_player_state_provider.dart';
 
 /// Helper function to launch the new video player
 /// This replaces the old CommonVideoPlayerScreen navigation
@@ -84,6 +85,21 @@ Future<void> launchVideoPlayer(
     // Ignore extraction failures/timeouts and continue to navigate.
   }
   final id = videoId.isNotEmpty ? videoId : (videoItem?.id.toString() ?? '');
+
+  // Best-effort prefetch for replacement navigation as well
+  try {
+    container
+        .read(videoPlayerProvider.notifier)
+        .prefetchVideo(videoUrl: videoUrl, videoId: id);
+  } catch (_) {}
+
+  // Best-effort: prefetch video controller in background so the full-screen
+  // player can attach quickly when the route opens. This is non-blocking.
+  try {
+    container
+        .read(videoPlayerProvider.notifier)
+        .prefetchVideo(videoUrl: videoUrl, videoId: id);
+  } catch (_) {}
 
   // Navigate to new video player using a fade transition to avoid any
   // intermediate white frame during route transition. Use the root navigator

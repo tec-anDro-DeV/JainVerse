@@ -689,8 +689,17 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
 
   /// Build default placeholder icon
   Widget _buildDefaultPlaceholder() {
+    // Show a compact loader instead of a static icon so users see an
+    // active fallback while the mini-player is preparing the video.
     return Center(
-      child: Icon(Icons.videocam_rounded, size: 40.w, color: Colors.black38),
+      child: SizedBox(
+        width: 24.w,
+        height: 24.w,
+        child: const CircularProgressIndicator(
+          strokeWidth: 2.4,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.black38),
+        ),
+      ),
     );
   }
 

@@ -198,7 +198,17 @@ class VideoVisualArea extends ConsumerWidget {
     return Container(
       color: Colors.grey[900],
       child: Center(
-        child: Icon(Icons.videocam_rounded, size: 80.w, color: Colors.white30),
+        // Use a subtle loader as the fallback instead of a static video icon.
+        // This improves perceived responsiveness when the video is still
+        // initializing or when a thumbnail isn't available.
+        child: SizedBox(
+          width: 48.w,
+          height: 48.w,
+          child: const CircularProgressIndicator(
+            color: Colors.white54,
+            strokeWidth: 3.0,
+          ),
+        ),
       ),
     );
   }

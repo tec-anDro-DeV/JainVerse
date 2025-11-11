@@ -150,9 +150,10 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       });
     });
 
-    // Delay initialization so provider modifications happen after widget build
-    Future(() {
-      // Check if still mounted before accessing ref
+    // Defer heavy initialization until after first frame so the full-screen
+    // UI can render immediately. We still perform any long-running work in
+    // the background so the user perceives the player as opening instantly.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
       _initializeVideoPlayer();
@@ -244,18 +245,22 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       videoNotifier.clearMiniPlayerFlag();
     }
 
-    // Otherwise, initialize new video
+    // Start initialization in background so the UI isn't blocked. If a
+    // controller was prefetched it will be attached quickly in the provider.
     if (mounted) {
-      await videoNotifier.initializeVideo(
-        videoUrl: widget.videoUrl,
-        videoId: widget.videoId,
-        title: widget.title,
-        subtitle: widget.subtitle,
-        thumbnailUrl: widget.thumbnailUrl,
-        channelId: widget.channelId,
-        channelAvatarUrl: widget.channelAvatarUrl,
-        playlist: widget.playlist,
-        playlistIndex: widget.playlistIndex,
+      // fire-and-forget initialization to avoid blocking the first frame
+      unawaited(
+        videoNotifier.initializeVideo(
+          videoUrl: widget.videoUrl,
+          videoId: widget.videoId,
+          title: widget.title,
+          subtitle: widget.subtitle,
+          thumbnailUrl: widget.thumbnailUrl,
+          channelId: widget.channelId,
+          channelAvatarUrl: widget.channelAvatarUrl,
+          playlist: widget.playlist,
+          playlistIndex: widget.playlistIndex,
+        ),
       );
     }
   }

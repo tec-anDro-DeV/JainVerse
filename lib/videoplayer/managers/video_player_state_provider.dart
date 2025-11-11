@@ -32,6 +32,12 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   /// by a newer request.
   int _initRequestCounter = 0;
 
+  /// Cache of preloaded controllers keyed by stable video id string.
+  /// Controllers created here are initialized in the background and can be
+  /// attached quickly when the full-screen player opens. These controllers
+  /// are owned by the notifier until consumed or disposed.
+  final Map<String, VideoPlayerController> _preloadedControllers = {};
+
   @override
   VideoPlayerState build() => const VideoPlayerState();
 
@@ -107,9 +113,23 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         // Let the native player still attempt to initialize, but this reduces many transient errors.
       }
 
-      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-
-      await controller.initialize();
+      // If a preloaded controller exists for this videoId, prefer it so we
+      // avoid re-initializing and can attach faster. Otherwise construct a
+      // fresh controller and initialize it.
+      VideoPlayerController controller;
+      final preloaded = consumePreloadedController(videoId);
+      if (preloaded != null) {
+        controller = preloaded;
+        // Ensure initialization completed. If the preloaded controller is
+        // still initializing, await it here; if initialization previously
+        // failed the controller may have been removed by the prefetch logic.
+        if (!controller.value.isInitialized) {
+          await controller.initialize();
+        }
+      } else {
+        controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+        await controller.initialize();
+      }
 
       // If a newer initializeVideo started while we were initializing, don't
       // attach this controller to state — dispose it instead.
@@ -195,6 +215,58 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         isLoading: false,
         errorMessage: 'Failed to load video: ${e.toString()}',
       );
+    }
+  }
+
+  /// Begin prefetching a video controller in the background. This creates
+  /// a `VideoPlayerController`, stores it in an internal cache keyed by
+  /// `videoId` and begins initialization without attaching it to state.
+  ///
+  /// Callers should ignore failures (prefetch is best-effort). If successful
+  /// the controller can be consumed later via `consumePreloadedController`.
+  Future<void> prefetchVideo({
+    required String videoUrl,
+    required String videoId,
+  }) async {
+    // If already preloaded or a controller for this id is attached to state,
+    // skip.
+    if (_preloadedControllers.containsKey(videoId) ||
+        state.currentVideoId == videoId)
+      return;
+
+    try {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      _preloadedControllers[videoId] = controller;
+
+      // Start initialization but do not await here — we want it to happen
+      // in background. Chain a catch to remove and dispose on failure.
+      controller
+          .initialize()
+          .then((_) {
+            debugPrint('[VideoPlayer] prefetch complete for $videoId');
+          })
+          .catchError((e) {
+            debugPrint('[VideoPlayer] prefetch failed for $videoId: $e');
+            // Schedule safe dispose if initialization failed
+            try {
+              _scheduleDisposeController(controller);
+            } catch (_) {}
+            _preloadedControllers.remove(videoId);
+          });
+    } catch (e) {
+      debugPrint('[VideoPlayer] prefetch setup failed: $e');
+    }
+  }
+
+  /// Remove a preloaded controller from the cache and return it for
+  /// attachment. The caller takes ownership and must ensure it is either
+  /// attached to state or disposed.
+  VideoPlayerController? consumePreloadedController(String videoId) {
+    try {
+      final c = _preloadedControllers.remove(videoId);
+      return c;
+    } catch (_) {
+      return null;
     }
   }
 
