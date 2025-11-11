@@ -10,12 +10,14 @@ class VideoControlPanel extends ConsumerWidget {
   final Color? textColor;
   final Color? accentColor;
   final bool showTrackInfo;
+  final bool showSeekBar;
 
   const VideoControlPanel({
     super.key,
     this.textColor,
     this.accentColor,
     this.showTrackInfo = true,
+    this.showSeekBar = true,
   });
 
   @override
@@ -38,24 +40,26 @@ class VideoControlPanel extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
 
-        SizedBox(height: 24.h),
+        // Reduced vertical gap between the track info and the seek bar.
+        // Decreased from 24.h to 12.h to tighten the layout.
+        SizedBox(height: 4.h),
 
-        // Seek bar
-        MediaSeekBar(
-          position: videoState.position,
-          duration: videoState.duration,
-          onSeek: videoState.isReady
-              ? (newPosition) {
-                  videoNotifier.seekTo(newPosition);
-                }
-              : (position) {}, // No-op when not ready
-          progressColor: effectiveAccentColor,
-          backgroundColor: effectiveTextColor.withOpacity(0.3),
-          textColor: effectiveTextColor,
-          enabled: videoState.isReady,
-        ),
-
-        SizedBox(height: 32.h),
+        // Seek bar (optional - callers can render it elsewhere)
+        if (showSeekBar) ...[
+          MediaSeekBar(
+            position: videoState.position,
+            duration: videoState.duration,
+            onSeek: videoState.isReady
+                ? (newPosition) {
+                    videoNotifier.seekTo(newPosition);
+                  }
+                : (position) {}, // No-op when not ready
+            progressColor: effectiveAccentColor,
+            backgroundColor: effectiveTextColor.withOpacity(0.3),
+            textColor: effectiveTextColor,
+            enabled: videoState.isReady,
+          ),
+        ],
 
         // Playback controls
         MediaPlaybackControls(
@@ -97,16 +101,7 @@ class VideoControlPanel extends ConsumerWidget {
           iconSize: 36.w,
           // Make play/pause a bit larger on video full-screen for better tap/visibility
           playPauseIconSize: 64.w,
-        ),
-
-        SizedBox(height: 24.h),
-
-        // Volume slider (Android only)
-        MediaVolumeSlider(
-          iconColor: effectiveTextColor,
-          sliderColor: effectiveAccentColor,
-          backgroundColor: effectiveTextColor.withOpacity(0.2),
-          enabled: videoState.isReady,
+          volumeEnabled: videoState.isReady,
         ),
       ],
     );

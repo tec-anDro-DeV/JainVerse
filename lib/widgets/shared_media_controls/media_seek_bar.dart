@@ -93,9 +93,11 @@ class _MediaSeekBarState extends State<MediaSeekBar> {
                     : null,
               ),
             ),
-            SizedBox(height: 4.h),
+            // Minor vertical space between slider and time labels. Reduced
+            // from 4.h to 2.h to tighten spacing under the seek bar.
+            SizedBox(height: 2.h),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 0.w),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

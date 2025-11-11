@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:math' as math;
+
+import 'media_volume_slider.dart';
 
 /// Shared playback controls widget for both music and video players
 ///
@@ -9,9 +13,10 @@ import 'dart:math' as math;
 /// - Play/Pause button (large, centered)
 /// - Skip previous/next buttons
 /// - Optional shuffle and repeat buttons
+/// - Expandable system volume slider
 /// - Customizable icons and colors
 /// - Haptic feedback
-class MediaPlaybackControls extends StatelessWidget {
+class MediaPlaybackControls extends StatefulWidget {
   final bool isPlaying;
   final bool isLoading;
   final VoidCallback? onPlay;
@@ -31,6 +36,7 @@ class MediaPlaybackControls extends StatelessWidget {
   final bool showRepeat;
   final double iconSize;
   final double playPauseIconSize;
+  final bool volumeEnabled;
 
   const MediaPlaybackControls({
     super.key,
@@ -53,100 +59,220 @@ class MediaPlaybackControls extends StatelessWidget {
     this.showRepeat = true,
     this.iconSize = 36.0,
     this.playPauseIconSize = 56.0,
+    this.volumeEnabled = true,
   });
 
   @override
+  State<MediaPlaybackControls> createState() => _MediaPlaybackControlsState();
+}
+
+class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
+  static const _volumeAutoCloseDuration = Duration(seconds: 4);
+
+  bool _isVolumeExpanded = false;
+  Timer? _volumeCloseTimer;
+  final FocusNode _volumeFocusNode = FocusNode(debugLabel: 'mediaVolumeFocus');
+
+  @override
+  void dispose() {
+    _cancelAutoCloseTimer();
+    _volumeFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final defaultIconColor = iconColor ?? Colors.white;
-    final defaultAccentColor = accentColor ?? Theme.of(context).primaryColor;
+    final defaultIconColor = widget.iconColor ?? Colors.white;
+    final defaultAccentColor =
+        widget.accentColor ?? Theme.of(context).primaryColor;
 
-    // Use a Stack so the main controls (previous/play/next) remain perfectly centered
-    // while optional controls (shuffle/repeat) can sit on the right without shifting
-    // the centered group.
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: SizedBox(
-        // ensure there's vertical space for the controls
-        height: math.max(playPauseIconSize.w, iconSize.w),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Centered main controls: previous, play/pause, next
-            Align(
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Skip previous button (icon can be overridden)
-                  _buildControlButton(
-                    icon: skipPreviousIcon ?? Icons.skip_previous_rounded,
-                    onPressed: onSkipPrevious,
-                    color: defaultAccentColor,
-                    size: iconSize,
-                  ),
-
-                  SizedBox(width: 24.w),
-
-                  // Play/Pause button
-                  _buildPlayPauseButton(
-                    isPlaying: isPlaying,
-                    isLoading: isLoading,
-                    onPlay: onPlay,
-                    onPause: onPause,
-                    color: defaultIconColor,
-                    accentColor: defaultAccentColor,
-                  ),
-
-                  SizedBox(width: 24.w),
-
-                  // Skip next button (icon can be overridden)
-                  _buildControlButton(
-                    icon: skipNextIcon ?? Icons.skip_next_rounded,
-                    onPressed: onSkipNext,
-                    color: defaultAccentColor,
-                    size: iconSize,
-                  ),
-                ],
-              ),
-            ),
-
-            // Right-aligned optional controls (repeat then shuffle). Shuffle is kept
-            // on the far right so it doesn't affect the centered group.
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: EdgeInsets.only(right: 15.w),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+    return TapRegion(
+      onTapOutside: (_) => _collapseVolumePanel(),
+      child: Focus(
+        focusNode: _volumeFocusNode,
+        onFocusChange: (hasFocus) {
+          if (!hasFocus) {
+            _collapseVolumePanel();
+          }
+        },
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: math.max(widget.playPauseIconSize.w, widget.iconSize.w),
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    if (showRepeat)
-                      _buildRepeatButton(
-                        onPressed: onRepeat,
-                        repeatMode: repeatMode ?? 'none',
-                        activeColor: defaultAccentColor,
-                        inactiveColor: defaultIconColor,
-                        size: iconSize,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 8.w),
+                        child: _buildRepeatButtonOrPlaceholder(
+                          defaultAccentColor,
+                          defaultIconColor,
+                        ),
                       ),
-
-                    if (showRepeat && showShuffle) SizedBox(width: 8.w),
-
-                    if (showShuffle)
-                      _buildControlButton(
-                        icon: Icons.shuffle,
-                        onPressed: onShuffle,
-                        isActive: isShuffleEnabled ?? false,
-                        activeColor: defaultAccentColor,
-                        inactiveColor: defaultIconColor,
-                        size: iconSize,
+                    ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildControlButton(
+                            icon:
+                                widget.skipPreviousIcon ??
+                                Icons.skip_previous_rounded,
+                            onPressed: widget.onSkipPrevious,
+                            color: defaultAccentColor,
+                            size: widget.iconSize,
+                          ),
+                          SizedBox(width: 24.w),
+                          _buildPlayPauseButton(defaultAccentColor),
+                          SizedBox(width: 24.w),
+                          _buildControlButton(
+                            icon:
+                                widget.skipNextIcon ?? Icons.skip_next_rounded,
+                            onPressed: widget.onSkipNext,
+                            color: defaultAccentColor,
+                            size: widget.iconSize,
+                          ),
+                        ],
                       ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 15.w),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.showShuffle)
+                              _buildControlButton(
+                                icon: Icons.shuffle,
+                                onPressed: widget.onShuffle,
+                                isActive: widget.isShuffleEnabled ?? false,
+                                activeColor: defaultAccentColor,
+                                inactiveColor: defaultIconColor,
+                                size: widget.iconSize,
+                              ),
+                            if (widget.showShuffle) SizedBox(width: 12.w),
+                            _buildVolumeToggle(defaultIconColor),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
+                  child: _isVolumeExpanded
+                      ? Padding(
+                          padding: EdgeInsets.only(top: 12.h),
+                          child: MediaVolumeSlider(
+                            iconColor: widget.iconColor ?? Colors.white,
+                            sliderColor: defaultAccentColor,
+                            backgroundColor: (widget.iconColor ?? Colors.white)
+                                .withOpacity(0.2),
+                            enabled: widget.volumeEnabled,
+                            padding: EdgeInsets.zero,
+                            onInteraction: _restartAutoCloseTimer,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildRepeatButtonOrPlaceholder(
+    Color activeColor,
+    Color inactiveColor,
+  ) {
+    if (!widget.showRepeat) {
+      return SizedBox(width: widget.iconSize.w + 16.w);
+    }
+
+    return _buildRepeatButton(
+      onPressed: widget.onRepeat,
+      repeatMode: widget.repeatMode ?? 'none',
+      activeColor: activeColor,
+      inactiveColor: inactiveColor,
+      size: widget.iconSize,
+    );
+  }
+
+  Widget _buildVolumeToggle(Color iconColor) {
+    return IconButton(
+      key: const ValueKey('volumeToggle'),
+      icon: Icon(
+        Icons.volume_up_rounded,
+        color: iconColor,
+        size: widget.iconSize.w,
+      ),
+      padding: EdgeInsets.all(8.w),
+      constraints: BoxConstraints(
+        minWidth: widget.iconSize.w + 16.w,
+        minHeight: widget.iconSize.w + 16.w,
+      ),
+      splashRadius: 24.w,
+      tooltip: 'Adjust volume',
+      onPressed: _toggleVolumePanel,
+    );
+  }
+
+  void _toggleVolumePanel() {
+    final shouldExpand = !_isVolumeExpanded;
+    setState(() {
+      _isVolumeExpanded = shouldExpand;
+    });
+
+    if (shouldExpand) {
+      _volumeFocusNode.requestFocus();
+      HapticFeedback.lightImpact();
+      _restartAutoCloseTimer();
+    } else {
+      _volumeFocusNode.unfocus();
+      _cancelAutoCloseTimer();
+    }
+  }
+
+  void _collapseVolumePanel() {
+    if (!_isVolumeExpanded) return;
+    setState(() {
+      _isVolumeExpanded = false;
+    });
+    _volumeFocusNode.unfocus();
+    _cancelAutoCloseTimer();
+  }
+
+  void _restartAutoCloseTimer() {
+    _cancelAutoCloseTimer();
+    _volumeCloseTimer = Timer(_volumeAutoCloseDuration, () {
+      if (mounted) {
+        _collapseVolumePanel();
+      }
+    });
+  }
+
+  void _cancelAutoCloseTimer() {
+    _volumeCloseTimer?.cancel();
+    _volumeCloseTimer = null;
   }
 
   Widget _buildControlButton({
@@ -162,7 +288,6 @@ class MediaPlaybackControls extends StatelessWidget {
         ? (activeColor ?? color ?? Colors.white)
         : (color ?? inactiveColor ?? Colors.white70);
 
-    // Ensure the visual icon size and the button's tap target scale with `size`
     return IconButton(
       icon: SizedBox(
         width: size.w,
@@ -172,8 +297,8 @@ class MediaPlaybackControls extends StatelessWidget {
       iconSize: size.w,
       padding: EdgeInsets.all(8.w),
       constraints: BoxConstraints(
-        minWidth: (size.w + 16.w),
-        minHeight: (size.w + 16.w),
+        minWidth: size.w + 16.w,
+        minHeight: size.w + 16.w,
       ),
       color: effectiveColor,
       disabledColor: effectiveColor,
@@ -219,17 +344,10 @@ class MediaPlaybackControls extends StatelessWidget {
     );
   }
 
-  Widget _buildPlayPauseButton({
-    required bool isPlaying,
-    required bool isLoading,
-    required VoidCallback? onPlay,
-    required VoidCallback? onPause,
-    required Color color,
-    required Color accentColor,
-  }) {
+  Widget _buildPlayPauseButton(Color accentColor) {
     return Container(
-      width: playPauseIconSize.w,
-      height: playPauseIconSize.w,
+      width: widget.playPauseIconSize.w,
+      height: widget.playPauseIconSize.w,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
@@ -245,17 +363,17 @@ class MediaPlaybackControls extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(playPauseIconSize.w / 2),
+          borderRadius: BorderRadius.circular(widget.playPauseIconSize.w / 2),
           onTap: () {
             HapticFeedback.mediumImpact();
-            if (isPlaying) {
-              onPause?.call();
+            if (widget.isPlaying) {
+              widget.onPause?.call();
             } else {
-              onPlay?.call();
+              widget.onPlay?.call();
             }
           },
           child: Center(
-            child: isLoading
+            child: widget.isLoading
                 ? SizedBox(
                     width: 24.w,
                     height: 24.w,
@@ -270,11 +388,11 @@ class MediaPlaybackControls extends StatelessWidget {
                       return ScaleTransition(scale: animation, child: child);
                     },
                     child: Icon(
-                      isPlaying
+                      widget.isPlaying
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
-                      key: ValueKey<bool>(isPlaying),
-                      size: (playPauseIconSize * 0.64).w,
+                      key: ValueKey<bool>(widget.isPlaying),
+                      size: (widget.playPauseIconSize * 0.64).w,
                       color: accentColor,
                     ),
                   ),

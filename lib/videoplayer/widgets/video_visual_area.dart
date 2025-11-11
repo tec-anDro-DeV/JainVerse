@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../managers/video_player_state_provider.dart';
 
 /// Visual area displaying the video player
 /// This replaces the album art section in the music player
 class VideoVisualArea extends ConsumerWidget {
   final VoidCallback? onFullscreen;
+  // New callback to minimize / close the full-screen player (down-arrow)
+  final VoidCallback? onMinimize;
 
-  const VideoVisualArea({super.key, this.onFullscreen});
+  const VideoVisualArea({super.key, this.onFullscreen, this.onMinimize});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,12 +38,8 @@ class VideoVisualArea extends ConsumerWidget {
       aspectRatio: 16 / 9,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(16.w),
-        ),
+        decoration: BoxDecoration(color: Colors.black),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16.w),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -106,6 +105,33 @@ class VideoVisualArea extends ConsumerWidget {
                   ),
                 ),
 
+              // Minimize / close overlay button (top-left of the video)
+              if (videoState.showControls && onMinimize != null)
+                Positioned(
+                  top: 8.w,
+                  left: 8.w,
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20.w),
+                        onTap: onMinimize,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 28.w,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               // Error message
               if (videoState.errorMessage != null)
                 _buildError(videoState.errorMessage!),
@@ -155,12 +181,15 @@ class VideoVisualArea extends ConsumerWidget {
 
   /// Build thumbnail while loading
   Widget _buildThumbnail(String thumbnailUrl) {
-    return Image.network(
-      thumbnailUrl,
+    // Use CachedNetworkImage so disk + memory caching is handled. This
+    // will also honor precaching via CachedNetworkImageProvider.
+    return CachedNetworkImage(
+      imageUrl: thumbnailUrl,
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+      placeholder: (context, url) => _buildPlaceholder(),
+      errorWidget: (context, url, error) => _buildPlaceholder(),
     );
   }
 

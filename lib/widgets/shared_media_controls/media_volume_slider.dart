@@ -16,6 +16,8 @@ class MediaVolumeSlider extends StatefulWidget {
   final Color? sliderColor;
   final Color? backgroundColor;
   final bool enabled;
+  final EdgeInsetsGeometry? padding;
+  final VoidCallback? onInteraction;
 
   const MediaVolumeSlider({
     super.key,
@@ -23,6 +25,8 @@ class MediaVolumeSlider extends StatefulWidget {
     this.sliderColor,
     this.backgroundColor,
     this.enabled = true,
+    this.padding,
+    this.onInteraction,
   });
 
   @override
@@ -82,6 +86,7 @@ class _MediaVolumeSliderState extends State<MediaVolumeSlider> {
   Future<void> _setVolume(double volume) async {
     try {
       _volumeController?.setVolume(volume);
+      widget.onInteraction?.call();
       if (mounted) {
         setState(() {
           _currentVolume = volume;
@@ -117,7 +122,9 @@ class _MediaVolumeSliderState extends State<MediaVolumeSlider> {
         widget.sliderColor ?? Theme.of(context).primaryColor;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding:
+          widget.padding ??
+          EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       child: Row(
         children: [
           // Volume icon / mute button
@@ -125,7 +132,11 @@ class _MediaVolumeSliderState extends State<MediaVolumeSlider> {
             icon: Icon(_getVolumeIcon()),
             iconSize: 24.w,
             color: effectiveIconColor,
-            onPressed: widget.enabled ? _toggleMute : null,
+            onPressed: widget.enabled
+                ? () {
+                    _toggleMute();
+                  }
+                : null,
             splashRadius: 20.w,
           ),
 

@@ -77,27 +77,22 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Like button
+        // Like button (icon + count) inside a transparent rounded container (same as dislike)
         _buildButton(
           icon: isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+          label: (widget.totalLikes ?? 0).toString(),
           isActive: isLiked,
           activeColor: activeColor,
           inactiveColor: inactiveColor,
           iconSize: iconSize,
           onPressed: widget.onLike,
+          backgroundColor: Colors.transparent,
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
-        // Like count (to the right of like button)
-        SizedBox(width: 6.w),
-        Text(
-          (widget.totalLikes ?? 0).toString(),
-          style: TextStyle(
-            color: isLiked ? activeColor : inactiveColor,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+
         SizedBox(width: 8.w),
-        // Dislike button
+
+        // Dislike button in its own transparent rounded container
         _buildButton(
           icon: isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined,
           isActive: isDisliked,
@@ -105,8 +100,11 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
           inactiveColor: inactiveColor,
           iconSize: iconSize,
           onPressed: widget.onDislike,
+          backgroundColor: Colors.transparent,
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
-        // Report button (icon + text)
+
+        // Report button (icon + text) inside a transparent rounded container (same as dislike)
         if (widget.showReportButton && widget.onReport != null) ...[
           SizedBox(width: 8.w),
           _buildButton(
@@ -117,6 +115,8 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
             inactiveColor: inactiveColor,
             iconSize: iconSize,
             onPressed: widget.onReport!,
+            backgroundColor: Colors.transparent,
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
           ),
         ],
       ],
@@ -131,6 +131,8 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
     required Color inactiveColor,
     required double iconSize,
     required VoidCallback onPressed,
+    Color? backgroundColor,
+    BoxBorder? border,
   }) {
     final content = label == null
         ? Icon(
@@ -159,6 +161,9 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
             ],
           );
 
+    // Determine effective colors for content when inside a dark background
+    final effectiveContentColor = isActive ? activeColor : inactiveColor;
+
     return ScaleTransition(
       scale: isActive ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
       child: Material(
@@ -166,12 +171,30 @@ class _AnimatedLikeDislikeButtonsState extends State<AnimatedLikeDislikeButtons>
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(20.w),
-          child: Padding(
+          child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: label == null ? 8.w : 12.w,
+              horizontal: label == null ? 10.w : 14.w,
               vertical: 8.w,
             ),
-            child: content,
+            decoration: BoxDecoration(
+              color: backgroundColor ?? Colors.transparent,
+              borderRadius: BorderRadius.circular(20.w),
+              border: border,
+            ),
+            child: DefaultTextStyle(
+              style: TextStyle(
+                color: effectiveContentColor,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+              ),
+              child: IconTheme(
+                data: IconThemeData(
+                  size: iconSize,
+                  color: isActive ? activeColor : inactiveColor,
+                ),
+                child: content,
+              ),
+            ),
           ),
         ),
       ),
