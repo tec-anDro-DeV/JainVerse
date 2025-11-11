@@ -785,7 +785,7 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
           shape: BoxShape.circle,
           color: Colors.black12,
         ),
-        child: Icon(Icons.close_rounded, size: 20.w, color: Colors.black),
+        child: Icon(Icons.close_outlined, size: 20.w, color: Colors.black),
       ),
     );
   }

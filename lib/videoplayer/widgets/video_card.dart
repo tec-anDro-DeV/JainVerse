@@ -317,34 +317,6 @@ class VideoCard extends StatelessWidget {
                         },
                         itemBuilder: (context) => [
                           PopupMenuItem(
-                            value: 'watch_later',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.watch_later_outlined,
-                                  size: 18.w,
-                                  color: Colors.grey.shade800,
-                                ),
-                                SizedBox(width: 12.w),
-                                Text('Save to Watch Later'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'add_playlist',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.playlist_add,
-                                  size: 18.w,
-                                  color: Colors.grey.shade800,
-                                ),
-                                SizedBox(width: 12.w),
-                                Text('Add to Playlist'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
                             value: 'share',
                             child: Row(
                               children: [

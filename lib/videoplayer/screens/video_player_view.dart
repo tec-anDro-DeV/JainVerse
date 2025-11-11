@@ -13,6 +13,7 @@ import '../widgets/video_visual_area.dart';
 import '../widgets/video_control_panel.dart';
 import '../../widgets/shared_media_controls/shared_media_controls.dart';
 import '../widgets/video_title_channel_row.dart';
+import '../widgets/video_more_sheet.dart';
 import 'channel_videos_screen.dart';
 import '../../utils/music_player_state_manager.dart';
 import 'package:jainverse/services/tab_navigation_service.dart';
@@ -95,8 +96,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   double _dragDistance = 0.0;
   bool _isProgrammaticPop = false;
   bool _isMinimizeInProgress = false;
-  // Whether a header (video area) drag is currently active. We only accept
-  // swipe-to-exit gestures that start within the top zone of the screen.
   bool _headerDragActive = false;
   // Subscription management
   final SubscriptionService _subscriptionService = SubscriptionService();
@@ -689,11 +688,80 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             title: videoState.currentVideoTitle ?? widget.title ?? '',
             channelName:
                 videoState.currentVideoSubtitle ?? widget.subtitle ?? '',
-            avatarUrl: widget.channelAvatarUrl ?? videoState.channelAvatarUrl,
+            // Prefer provider value so avatar updates when provider changes
+            avatarUrl: videoState.channelAvatarUrl ?? widget.channelAvatarUrl,
             subscriberCount: widget.channelSubscriberCount,
             isSubscribed: _isSubscribed,
             isSubscriptionInProgress: _isSubscriptionInProgress,
             onSubscribePressed: _toggleSubscription,
+            onMorePressed: () {
+              // compute sheet height so the sheet's top aligns with the
+              // bottom of the video visual area (9:16 aspect)
+              final screenWidth = MediaQuery.of(context).size.width;
+              final videoHeaderHeight = screenWidth * (9 / 16);
+              final topPadding = MediaQuery.of(context).padding.top;
+              final desiredHeight =
+                  MediaQuery.of(context).size.height -
+                  (videoHeaderHeight + topPadding);
+
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                enableDrag: true,
+                backgroundColor: Colors.transparent,
+                barrierColor: Colors.transparent,
+                builder: (sheetContext) => VideoMoreSheet(
+                  theme: theme,
+                  videoIdString: videoState.currentVideoId ?? widget.videoId,
+                  videoIdInt: currentVideoIdInt,
+                  videoTitle:
+                      videoState.currentVideoTitle ?? widget.title ?? '',
+                  // pass the originating VideoItem (may be null) so the sheet
+                  // can render description, views, createdAt etc.
+                  videoItem: widget.videoItem,
+                  // pass explicit channel id so the sheet can listen/update
+                  // even when widget.videoItem is null (e.g. after minimize)
+                  channelId: widget.channelId ?? videoState.channelId,
+                  parentContext: context,
+                  sheetHeight: desiredHeight.clamp(
+                    120.0,
+                    MediaQuery.of(context).size.height,
+                  ),
+                  onReport: currentVideoIdInt != null
+                      ? () => _handleReportPressed(
+                          currentVideoIdInt,
+                          videoState.currentVideoTitle ?? widget.title ?? '',
+                        )
+                      : null,
+                  // subscription state + handler
+                  isSubscribed: _isSubscribed,
+                  isSubscriptionInProgress: _isSubscriptionInProgress,
+                  onSubscribePressed: _toggleSubscription,
+                  // channel footer handlers/data
+                  onChannelTap: () {
+                    final cid = widget.channelId ?? videoState.channelId;
+                    if (cid != null) {
+                      _minimizeAndNavigateTo(
+                        ChannelVideosScreen(
+                          channelId: cid,
+                          channelName:
+                              videoState.currentVideoSubtitle ??
+                              widget.subtitle,
+                        ),
+                      );
+                    }
+                  },
+                  localTotalLikes: _localTotalLikes,
+                  channelSubscriberCount: widget.channelSubscriberCount,
+                  // Prefer provider avatar when available so the modal shows
+                  // the up-to-date channel avatar after a video change.
+                  channelAvatarUrl:
+                      videoState.channelAvatarUrl ?? widget.channelAvatarUrl,
+                  channelName:
+                      videoState.currentVideoSubtitle ?? widget.subtitle,
+                ),
+              );
+            },
             showSubscribe: !(widget.isOwn ?? false),
             onChannelTap: () {
               final cid = widget.channelId ?? videoState.channelId;

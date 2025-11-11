@@ -15,6 +15,8 @@ class VideoTitleChannelRow extends StatelessWidget {
   final bool showSubscribe;
   final VoidCallback onSubscribePressed;
   final VoidCallback? onChannelTap;
+  final VoidCallback? onMorePressed;
+  final bool showMore;
   final VideoPlayerTheme theme;
 
   const VideoTitleChannelRow({
@@ -28,6 +30,8 @@ class VideoTitleChannelRow extends StatelessWidget {
     required this.onSubscribePressed,
     this.onChannelTap,
     this.showSubscribe = true,
+    this.onMorePressed,
+    this.showMore = true,
     required this.theme,
   });
 
@@ -38,13 +42,50 @@ class VideoTitleChannelRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: theme.textColor,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: theme.textColor,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (showMore)
+                Padding(
+                  padding: EdgeInsets.only(left: 8.w),
+                  child: InkWell(
+                    onTap: onMorePressed,
+                    borderRadius: BorderRadius.circular(16.w),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10.w,
+                        vertical: 6.h,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: theme.primaryColor.withOpacity(0.95),
+                          width: 1.w,
+                        ),
+                        borderRadius: BorderRadius.circular(16.w),
+                      ),
+                      child: Text(
+                        'More',
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           SizedBox(height: 12.h),
           Row(
