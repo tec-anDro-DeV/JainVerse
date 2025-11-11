@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelPlanList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Presenter/PlanPresenter.dart';
@@ -27,7 +26,6 @@ class PaymentController extends ChangeNotifier {
   // Settings
   late ModelSettings _modelSettings;
   bool _allowDownload = false;
-  bool _allowAds = true;
   String _currencySym = '\$';
 
   // Plans
@@ -40,15 +38,12 @@ class PaymentController extends ChangeNotifier {
   bool _isPaystackEnabled = false;
 
   // Ads
-  InterstitialAd? _interstitialAd;
-  bool _isInterstitialAdReady = false;
-  bool _isLoadingAd = false;
+  // Ads (removed)
 
   // Getters
   List<SubData> get plans => List.unmodifiable(_plans);
   bool get plansLoading => _plansLoading;
   bool get allowDownload => _allowDownload;
-  bool get allowAds => _allowAds;
   String get currencySym => _currencySym;
   bool get isRazorpayEnabled => _isRazorpayEnabled;
   bool get isStripeEnabled => _isStripeEnabled;
@@ -56,7 +51,6 @@ class PaymentController extends ChangeNotifier {
   String get userId => _userId;
   String get userEmail => _userEmail;
   String get userName => _userName;
-  bool get isInterstitialAdReady => _isInterstitialAdReady;
 
   /// Initialize the payment controller
   Future<void> initialize() async {
@@ -94,7 +88,6 @@ class PaymentController extends ChangeNotifier {
         _modelSettings = ModelSettings.fromJson(parsed);
 
         _allowDownload = _modelSettings.data.download == 1;
-        _allowAds = _modelSettings.data.ads == 1;
 
         // Set currency symbol
         if (_modelSettings.data.currencySymbol.isNotEmpty) {
@@ -106,17 +99,16 @@ class PaymentController extends ChangeNotifier {
             _modelSettings.payment_gateways.razorpay.razorpay_key.isNotEmpty;
         _isStripeEnabled =
             _modelSettings.payment_gateways.stripe.stripe_client_id.isNotEmpty;
-        _isPaystackEnabled =
-            _modelSettings
-                .payment_gateways
-                .paystack
-                .paystack_public_key
-                .isNotEmpty;
+        _isPaystackEnabled = _modelSettings
+            .payment_gateways
+            .paystack
+            .paystack_public_key
+            .isNotEmpty;
 
         notifyListeners();
 
         developer.log(
-          '[DEBUG][PaymentController][_loadSettings] Settings loaded - Download: $_allowDownload, Ads: $_allowAds',
+          '[DEBUG][PaymentController][_loadSettings] Settings loaded - Download: $_allowDownload',
           name: 'PaymentController',
         );
       }
@@ -187,112 +179,7 @@ class PaymentController extends ChangeNotifier {
   }
 
   /// Load interstitial ad
-  Future<void> loadInterstitialAd() async {
-    if (!_allowAds || _isLoadingAd) return;
-
-    _isLoadingAd = true;
-
-    try {
-      await InterstitialAd.load(
-        adUnitId: _getInterstitialAdUnitId(),
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (InterstitialAd ad) {
-            _interstitialAd = ad;
-            _isInterstitialAdReady = true;
-            _isLoadingAd = false;
-            notifyListeners();
-
-            developer.log(
-              '[DEBUG][PaymentController][loadInterstitialAd] Ad loaded successfully',
-              name: 'PaymentController',
-            );
-
-            _interstitialAd!.setImmersiveMode(true);
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            _isInterstitialAdReady = false;
-            _isLoadingAd = false;
-            notifyListeners();
-
-            developer.log(
-              '[ERROR][PaymentController][loadInterstitialAd] Failed to load ad: $error',
-              name: 'PaymentController',
-            );
-          },
-        ),
-      );
-    } catch (e) {
-      _isLoadingAd = false;
-      developer.log(
-        '[ERROR][PaymentController][loadInterstitialAd] Exception: $e',
-        name: 'PaymentController',
-        error: e,
-      );
-    }
-  }
-
-  /// Show interstitial ad
-  Future<void> showInterstitialAd() async {
-    if (!_isInterstitialAdReady || _interstitialAd == null) {
-      developer.log(
-        '[DEBUG][PaymentController][showInterstitialAd] Ad not ready',
-        name: 'PaymentController',
-      );
-      return;
-    }
-
-    try {
-      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-        onAdShowedFullScreenContent: (InterstitialAd ad) {
-          developer.log(
-            '[DEBUG][PaymentController][showInterstitialAd] Ad showed full screen',
-            name: 'PaymentController',
-          );
-        },
-        onAdDismissedFullScreenContent: (InterstitialAd ad) {
-          ad.dispose();
-          _interstitialAd = null;
-          _isInterstitialAdReady = false;
-          notifyListeners();
-
-          // Load next ad
-          loadInterstitialAd();
-
-          developer.log(
-            '[DEBUG][PaymentController][showInterstitialAd] Ad dismissed',
-            name: 'PaymentController',
-          );
-        },
-        onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
-          ad.dispose();
-          _interstitialAd = null;
-          _isInterstitialAdReady = false;
-          notifyListeners();
-
-          developer.log(
-            '[ERROR][PaymentController][showInterstitialAd] Failed to show ad: $error',
-            name: 'PaymentController',
-          );
-        },
-      );
-
-      await _interstitialAd!.show();
-    } catch (e) {
-      developer.log(
-        '[ERROR][PaymentController][showInterstitialAd] Exception: $e',
-        name: 'PaymentController',
-        error: e,
-      );
-    }
-  }
-
-  /// Get interstitial ad unit ID
-  String _getInterstitialAdUnitId() {
-    // Return the appropriate ad unit ID based on platform
-    // This should be configured in your app settings
-    return 'ca-app-pub-3940256099942544/1033173712'; // Test ad unit ID
-  }
+  /// Interstitial ads removed
 
   /// Validate payment amount
   bool isValidAmount(String amount) {
@@ -377,7 +264,6 @@ class PaymentController extends ChangeNotifier {
   /// Clean up resources
   @override
   void dispose() {
-    _interstitialAd?.dispose();
     super.dispose();
   }
 }

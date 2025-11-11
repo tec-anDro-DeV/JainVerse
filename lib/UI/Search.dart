@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
@@ -74,9 +73,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
   // String yt_key = '', yt_code = ''; // COMMENTED OUT - YouTube API keys
   List<DataMusic> list = [];
   String pathImage = '', audioPath = '';
-  late BannerAd _bannerAd;
-  final bool _isBannerAdReady = false;
-  bool allowDown = false, allowAds = true;
+  // Ads removed
 
   final WeSlideController _controller = WeSlideController();
   final double _panelMinSize = 0.0;
@@ -384,17 +381,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     // yt_code = modelSettings.data.yt_country_code; // COMMENTED OUT - YouTube country code
     // yt_key = modelSettings.data.google_api_key; // COMMENTED OUT - YouTube API key
 
-    if (modelSettings.data.download == 1) {
-      allowDown = true;
-    } else {
-      allowDown = false;
-    }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
-    }
-
     setState(() {});
   }
 
@@ -427,9 +413,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     _scrollController.dispose();
     txtSearch.dispose(); // Add this to prevent memory leaks
     _dio.close(); // Close Dio instance
-    if (_isBannerAdReady) {
-      _bannerAd.dispose();
-    }
+    // Ads removed
     super.dispose();
   }
 

@@ -72,7 +72,7 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
   late Widget futureWidget;
   static bool isRemoveAny = false;
   bool futureCall = false;
-  bool allowDown = false, allowAds = true;
+  bool allowDown = false;
 
   Future<void> apiSettings() async {
     String settingDetails = await AppSettingsPresenter().getAppSettings(token);
@@ -113,12 +113,6 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
     } else {
       allowDown = false;
     }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
-    }
-
     setState(() {});
   }
 
@@ -741,8 +735,7 @@ class _State extends State<LanguageChoose> with SingleTickerProviderStateMixin {
 
                               return EdgeInsets.only(
                                 // keep ad space but conditionally add nav/player padding
-                                bottom:
-                                    (allowAds ? 60.w : 24.w) + navPlayerPadding,
+                                bottom: navPlayerPadding,
                                 left: 24.w,
                                 right: 24.w,
                                 top: 16.w,

@@ -69,7 +69,7 @@ class myState extends State<ProfileEdit> {
   String dateOfBirth = '';
   String imagePresent = '';
   String token = '';
-  bool allowDown = false, allowAds = true;
+  bool allowDown = false;
   bool isOpen = false;
   bool _isLoading = false; // Add loading state
 
@@ -159,23 +159,6 @@ class myState extends State<ProfileEdit> {
         ? modelSettings.data.email
         : '';
 
-    // Note: Country selection is now handled in _setCountryFromUserData()
-    // after countries are loaded from the API to avoid race conditions
-
-    // if (modelSettings.data.download == 1) {
-    //   allowDown = true;
-    // } else {
-    //   allowDown = false;
-    // }
-    // if (modelSettings.data.ads == 1) {
-    //   allowAds = true;
-    // } else {
-    //   allowAds = false;
-    // }
-
-    // modelSettings.data.gender may be an int, numeric string, or textual value.
-    // Normalize to int? (0/1/null) by parsing the string first to avoid
-    // unrelated_type_equality_checks where the static type may be String.
     try {
       final rawGender = modelSettings.data.gender;
       final s = rawGender.toString().trim();

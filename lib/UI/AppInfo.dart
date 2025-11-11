@@ -115,7 +115,7 @@ class MyState extends State<AppInfo> {
   late UserModel model;
   String token = '';
   List<Data> list = [];
-  bool allowDown = false, allowAds = true, isLoad = true;
+  bool allowDown = false, isLoad = true;
   int selectedIndex = -1;
 
   // Audio handler for mini player detection
@@ -197,11 +197,6 @@ class MyState extends State<AppInfo> {
       allowDown = true;
     } else {
       allowDown = false;
-    }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
     }
     setState(() {});
   }

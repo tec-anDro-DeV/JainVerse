@@ -53,7 +53,6 @@ class MusicController extends ChangeNotifier {
   late ModelSettings _modelSettings;
   String _musicId = '';
   bool _allowDown = false;
-  bool _allowAds = true;
   List<SubData> _listPlans = [];
   bool _isOpen = false;
   final bool _local = false;
@@ -90,7 +89,6 @@ class MusicController extends ChangeNotifier {
   ModelSettings get modelSettings => _modelSettings;
   String get musicId => _musicId;
   bool get allowDown => _allowDown;
-  bool get allowAds => _allowAds;
   List<SubData> get listPlans => _listPlans;
   bool get isOpen => _isOpen;
   bool get local => _local;
@@ -169,7 +167,6 @@ class MusicController extends ChangeNotifier {
         final Map<String, dynamic> parsed = json.decode(sett);
         _modelSettings = ModelSettings.fromJson(parsed);
         _allowDown = _modelSettings.data.download == 1;
-        _allowAds = _modelSettings.data.ads == 1;
 
         // Set currency symbol
         if (_modelSettings.data.currencySymbol.isNotEmpty) {

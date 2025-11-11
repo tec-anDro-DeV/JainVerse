@@ -92,7 +92,7 @@ class _state extends State<HomeDiscover>
   String buildNumber = '', appPackageName = '';
   String token = '';
   bool connected = true, checkRuning = false;
-  bool allowDown = false, allowAds = true;
+  bool allowDown = false;
   List<DataMusic> listVideo = [];
   late ModelSettings modelSettings;
 
@@ -177,11 +177,6 @@ class _state extends State<HomeDiscover>
         allowDown = true;
       } else {
         allowDown = false;
-      }
-      if (modelSettings.data.ads == 1) {
-        allowAds = true;
-      } else {
-        allowAds = false;
       }
 
       if (mounted) {

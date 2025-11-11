@@ -5,7 +5,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
@@ -21,7 +20,6 @@ import 'package:jainverse/main.dart';
 import 'package:jainverse/models/channel_model.dart';
 import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
@@ -79,8 +77,7 @@ class MyState extends State<AccountPage>
   var progressString = "";
   String isSelected = 'all';
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
-  bool allowDown = false, allowAds = true;
-  late BannerAd _bannerAd;
+  bool allowDown = false;
   String version = '';
   String buildNumber = '', appPackageName = '';
   String audioPath = 'images/audio/thumb/';
@@ -199,7 +196,7 @@ class MyState extends State<AccountPage>
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _headerAnimationController.dispose();
-    _bannerAd.dispose();
+    // Banner ads removed
 
     super.dispose();
   }
@@ -235,11 +232,6 @@ class MyState extends State<AccountPage>
       allowDown = true;
     } else {
       allowDown = false;
-    }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
     }
 
     setState(() {});
@@ -422,8 +414,7 @@ class MyState extends State<AccountPage>
     // Start initialization once and keep the future so UI can wait on it
     _initFuture = _initializeData();
 
-    // Initialize ads
-    _initGoogleMobileAds();
+    // Ads removed
   }
 
   // Initialize or reset static variables for clean state
@@ -552,25 +543,7 @@ class MyState extends State<AccountPage>
     future.then((value) => closeModal(value));
   }
 
-  void _initGoogleMobileAds() {
-    MobileAds.instance.initialize();
-
-    _bannerAd = BannerAd(
-      adUnitId: AdHelper.bannerAdUnitId,
-      request: const AdRequest(),
-      size: AdSize.largeBanner,
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          setState(() {});
-        },
-        onAdFailedToLoad: (ad, err) {
-          ad.dispose();
-        },
-      ),
-    );
-
-    _bannerAd.load();
-  }
+  // Ads removed
 
   void showCustomDialog(BuildContext context) {
     showGeneralDialog(

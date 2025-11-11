@@ -69,7 +69,7 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
 
   bool futureCall = false;
 
-  bool allowDown = false, allowAds = true;
+  bool allowDown = false;
 
   Future<void> apiSettings() async {
     String settingDetails = await AppSettingsPresenter().getAppSettings(token);
@@ -103,7 +103,6 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
     if (sett == null || sett.trim().isEmpty) {
       // fallback defaults
       allowDown = false;
-      allowAds = true;
       setState(() {});
       return;
     }
@@ -113,16 +112,13 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
       if (decoded is Map<String, dynamic>) {
         ModelSettings modelSettings = ModelSettings.fromJson(decoded);
         allowDown = modelSettings.data.download == 1;
-        allowAds = modelSettings.data.ads == 1;
       } else {
         // Unexpected shape, use defaults
         allowDown = false;
-        allowAds = true;
       }
     } catch (e) {
       // Invalid JSON (for example the literal string 'error') -> use defaults
       allowDown = false;
-      allowAds = true;
     }
 
     setState(() {});

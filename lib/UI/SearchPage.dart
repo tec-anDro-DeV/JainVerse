@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
@@ -49,10 +48,8 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _numberOfPostsPerRequest = 9;
   final txtSearch = TextEditingController();
-  bool allowAds = true;
   ModelSettings? modelSettings;
 
-  BannerAd? _bannerAd;
   int isYt = 0;
   String lastStatus = '', searchTag = '', token = '';
   String pathImage = '', audioPath = '';
@@ -130,7 +127,6 @@ class _SearchPageState extends State<SearchPage> {
     _pagingController.dispose();
     _videoPagingController.dispose();
     txtSearch.dispose();
-    _bannerAd?.dispose();
     _dio.close();
     super.dispose();
   }
@@ -138,7 +134,6 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> _initializeData() async {
     await value();
     await getSettings();
-    _initGoogleMobileAds();
   }
 
   Future<void> _loadRecentSearches() async {
@@ -230,28 +225,6 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  void _initGoogleMobileAds() {
-    _bannerAd = BannerAd(
-      adUnitId: AdHelper.bannerAdUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          if (mounted) {
-            setState(() {
-              // Ad loaded successfully
-            });
-          }
-        },
-        onAdFailedToLoad: (ad, err) {
-          ad.dispose();
-        },
-      ),
-    );
-
-    _bannerAd?.load();
-  }
-
   Future<void> getSettings() async {
     try {
       String? sett = await sharePrefs.getSettings();
@@ -259,7 +232,6 @@ class _SearchPageState extends State<SearchPage> {
         final Map<String, dynamic> parsed = json.decode(sett);
         ModelSettings modelSettings = ModelSettings.fromJson(parsed);
 
-        allowAds = modelSettings.data.ads == 1;
 
         if (mounted) {
           setState(() {});

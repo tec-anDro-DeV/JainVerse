@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelCatSubcatMusic.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
@@ -19,7 +18,6 @@ import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
-import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -66,8 +64,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   SharedPref sharePrefs = SharedPref();
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
   late UserModel model;
-  bool allowDown = false, allowAds = true;
-  late BannerAd _bannerAd;
+  bool allowDown = false;
 
   String isSelected = 'all';
   String token = '';
@@ -408,26 +405,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     }
   }
 
-  void _initGoogleMobileAds() {
-    MobileAds.instance.initialize();
-    _bannerAd = BannerAd(
-      adUnitId: AdHelper.bannerAdUnitId,
-      request: const AdRequest(),
-      size: AdSize.largeBanner,
-      listener: BannerAdListener(
-        onAdLoaded: (_) {
-          setState(() {
-            // Ad loaded successfully
-          });
-        },
-        onAdFailedToLoad: (ad, err) {
-          ad.dispose();
-        },
-      ),
-    );
-    _bannerAd.load();
-  }
-
   Future<void> getSettings() async {
     String? sett = await sharePrefs.getSettings();
     final Map<String, dynamic> parsed = json.decode(sett!);
@@ -436,11 +413,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       allowDown = true;
     } else {
       allowDown = false;
-    }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
     }
     setState(() {});
   }
@@ -465,7 +437,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     );
 
     getSettings();
-    _initGoogleMobileAds();
 
     // Initialize data loading only if not already done
     if (!_hasInitialized) {

@@ -3,13 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-// import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-// import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 String title = '';
@@ -31,7 +29,7 @@ class MyState extends State<PrivacyPolicy> {
   SharedPref sharePrefs = SharedPref();
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
   late UserModel model;
-  bool allowDown = false, allowAds = true;
+  bool allowDown = false;
 
   String isSelected = 'all';
 
@@ -50,11 +48,6 @@ class MyState extends State<PrivacyPolicy> {
       allowDown = true;
     } else {
       allowDown = false;
-    }
-    if (modelSettings.data.ads == 1) {
-      allowAds = true;
-    } else {
-      allowAds = false;
     }
     setState(() {});
   }
