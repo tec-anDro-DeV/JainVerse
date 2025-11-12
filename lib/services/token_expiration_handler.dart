@@ -11,6 +11,10 @@ import 'package:jainverse/managers/music_manager.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jainverse/videoplayer/managers/video_player_state_provider.dart';
+import 'package:jainverse/utils/video_memory_manager.dart';
 
 class TokenExpirationHandler {
   static final TokenExpirationHandler _instance =
@@ -229,6 +233,38 @@ class TokenExpirationHandler {
       } catch (e) {
         // ignore errors - best-effort
         print('Error stopping music manager during logout: $e');
+      }
+
+      // Ensure any mini-player UI overlay is hidden (audio or video)
+      try {
+        MediaOverlayManager.instance.hideMiniPlayer();
+      } catch (e) {
+        // best-effort
+      }
+
+      // Try to stop and dispose any active video playback (mini/full)
+      try {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          final container = ProviderScope.containerOf(ctx);
+          try {
+            // Signal the video provider to force-stop and dispose video resources
+            await container
+                .read(videoPlayerProvider.notifier)
+                .forceStopForExternalMediaSwitch();
+          } catch (e) {
+            print('Error stopping video player via provider during logout: $e');
+          }
+        }
+
+        // Also ensure any registered controllers are disposed from the memory manager
+        try {
+          await VideoMemoryManager().disposeAll();
+        } catch (e) {
+          print('Error disposing video memory manager during logout: $e');
+        }
+      } catch (e) {
+        print('Error while attempting video cleanup during logout: $e');
       }
 
       try {

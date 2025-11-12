@@ -20,6 +20,11 @@ import 'package:jainverse/main.dart';
 import 'package:jainverse/models/channel_model.dart';
 import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jainverse/videoplayer/managers/video_player_state_provider.dart';
+import 'package:jainverse/utils/video_memory_manager.dart';
+import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
@@ -593,8 +598,39 @@ class MyState extends State<AccountPage>
                             audioHandler?.stop();
                             Logout().logout(context, token);
                             sharePrefs.removeValues();
+
                             // Clear all cache data including images when logging out
                             await CacheManager.clearAllCacheIncludingImages();
+
+                            // Best-effort: hide any mini player overlay and stop/cleanup video
+                            try {
+                              MediaOverlayManager.instance.hideMiniPlayer();
+                            } catch (_) {}
+
+                            try {
+                              final container = ProviderScope.containerOf(
+                                context,
+                              );
+                              await container
+                                  .read(videoPlayerProvider.notifier)
+                                  .forceStopForExternalMediaSwitch();
+                            } catch (e) {
+                              print(
+                                'Error stopping video player during logout: $e',
+                              );
+                            }
+
+                            try {
+                              await VideoMemoryManager().disposeAll();
+                            } catch (e) {
+                              print(
+                                'Error disposing video controllers during logout: $e',
+                              );
+                            }
+
+                            try {
+                              MusicPlayerStateManager().forceResetState();
+                            } catch (_) {}
 
                             // Clear static variables to prevent data from persisting between accounts
                             imagePresent = '';
@@ -1476,8 +1512,39 @@ class MyState extends State<AccountPage>
                             audioHandler?.stop();
                             Logout().logout(context, token);
                             sharePrefs.removeValues();
+
                             // Clear all cache data including images when logging out
                             await CacheManager.clearAllCacheIncludingImages();
+
+                            // Best-effort: hide any mini player overlay and stop/cleanup video
+                            try {
+                              MediaOverlayManager.instance.hideMiniPlayer();
+                            } catch (_) {}
+
+                            try {
+                              final container = ProviderScope.containerOf(
+                                context,
+                              );
+                              await container
+                                  .read(videoPlayerProvider.notifier)
+                                  .forceStopForExternalMediaSwitch();
+                            } catch (e) {
+                              print(
+                                'Error stopping video player during logout: $e',
+                              );
+                            }
+
+                            try {
+                              await VideoMemoryManager().disposeAll();
+                            } catch (e) {
+                              print(
+                                'Error disposing video controllers during logout: $e',
+                              );
+                            }
+
+                            try {
+                              MusicPlayerStateManager().forceResetState();
+                            } catch (_) {}
 
                             // Clear static variables to prevent data from persisting between accounts
                             imagePresent = '';
