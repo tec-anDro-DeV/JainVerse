@@ -44,22 +44,7 @@ class VideoControlPanel extends ConsumerWidget {
         // Decreased from 24.h to 12.h to tighten the layout.
         SizedBox(height: 4.h),
 
-        // Seek bar (optional - callers can render it elsewhere)
-        if (showSeekBar) ...[
-          MediaSeekBar(
-            position: videoState.position,
-            duration: videoState.duration,
-            onSeek: videoState.isReady
-                ? (newPosition) {
-                    videoNotifier.seekTo(newPosition);
-                  }
-                : (position) {}, // No-op when not ready
-            progressColor: effectiveAccentColor,
-            backgroundColor: effectiveTextColor.withOpacity(0.3),
-            textColor: effectiveTextColor,
-            enabled: videoState.isReady,
-          ),
-        ],
+        // Seek bar removed from UI (not needed). Playback controls remain.
 
         // Playback controls
         MediaPlaybackControls(

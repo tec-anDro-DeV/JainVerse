@@ -11,7 +11,6 @@ import '../managers/video_player_state_provider.dart';
 import '../services/video_player_theme_service.dart';
 import '../widgets/video_visual_area.dart';
 import '../widgets/video_control_panel.dart';
-import '../../widgets/shared_media_controls/shared_media_controls.dart';
 import '../widgets/video_title_channel_row.dart';
 import '../widgets/video_more_sheet.dart';
 import 'channel_videos_screen.dart';
@@ -640,6 +639,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                 child: VideoVisualArea(
                   onFullscreen: () => unawaited(_launchLandscapePlayer()),
                   onMinimize: _minimizeToMiniPlayer,
+                  theme: theme,
                 ),
               );
             },
@@ -663,27 +663,14 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MediaSeekBar(
-            position: videoState.position,
-            duration: videoState.duration,
-            onSeek: videoState.isReady
-                ? (newPosition) {
-                    videoNotifier.seekTo(newPosition);
-                  }
-                : (_) {},
-            progressColor: theme.primaryColor,
-            backgroundColor: theme.textColor.withOpacity(0.3),
-            textColor: theme.textColor,
-            enabled: videoState.isReady,
-          ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 2.h),
           VideoControlPanel(
             textColor: theme.textColor,
             accentColor: theme.primaryColor,
             showTrackInfo: false,
             showSeekBar: false,
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 12.h),
           VideoTitleChannelRow(
             title: videoState.currentVideoTitle ?? widget.title ?? '',
             channelName:
@@ -777,7 +764,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             },
             theme: theme,
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 2.h),
           if (currentVideoIdInt != null)
             Builder(
               builder: (context) {
