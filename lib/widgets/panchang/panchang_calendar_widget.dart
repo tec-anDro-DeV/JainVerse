@@ -65,6 +65,24 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
     super.dispose();
   }
 
+  /// Public API: force the calendar to show a specific month.
+  /// `month` may be any date within the target month; the widget will
+  /// normalize to the first day of that month. If the month is already
+  /// displayed this is a no-op.
+  void showMonth(DateTime month, {bool animate = false}) {
+    final target = DateTime(month.year, month.month, 1);
+    if (displayedMonth.year == target.year &&
+        displayedMonth.month == target.month) {
+      return; // already showing
+    }
+
+    setState(() {
+      displayedMonth = target;
+    });
+    // NOTE: we don't have a paged view to animate here; if in future the
+    // grid is wrapped in a PageView we can use `_pageController` to animate.
+  }
+
   void _previousMonth() {
     setState(() {
       displayedMonth = DateTime(

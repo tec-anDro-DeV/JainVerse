@@ -53,8 +53,9 @@ Future<List<int>> _flipImageBytes(Uint8List bytes) async {
 class myState extends State<ProfileEdit> {
   TextEditingController passwordController = TextEditingController();
   TextEditingController mobileController = TextEditingController();
-  TextEditingController nameController = TextEditingController();
-  TextEditingController emailController = TextEditingController();
+  // Replaced single name controller with separate first/last name controllers
+  TextEditingController firstNameController = TextEditingController();
+  TextEditingController lastNameController = TextEditingController();
   TextEditingController birthdateController = TextEditingController();
 
   final picker = ImagePicker();
@@ -82,11 +83,15 @@ class myState extends State<ProfileEdit> {
 
   // Form validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final GlobalKey _nameFieldKey = GlobalKey();
+  // Separate keys for first and last name fields
+  final GlobalKey _firstNameFieldKey = GlobalKey();
+  final GlobalKey _lastNameFieldKey = GlobalKey();
   final GlobalKey _phoneFieldKey = GlobalKey();
-  String? nameError;
+  String? firstNameError;
+  String? lastNameError;
   String? phoneError;
-  late FocusNode nameFocusNode;
+  late FocusNode firstNameFocusNode;
+  late FocusNode lastNameFocusNode;
   late FocusNode phoneFocusNode;
   late ScrollController _scrollController;
 
@@ -107,7 +112,8 @@ class myState extends State<ProfileEdit> {
     _scrollController = ScrollController();
 
     // Initialize focus nodes
-    nameFocusNode = FocusNode();
+    firstNameFocusNode = FocusNode();
+    lastNameFocusNode = FocusNode();
     phoneFocusNode = FocusNode();
 
     // Initialize audio handler
@@ -117,9 +123,15 @@ class myState extends State<ProfileEdit> {
     _loadCountries();
 
     // Add focus listeners for validation
-    nameFocusNode.addListener(() {
-      if (!nameFocusNode.hasFocus) {
-        _validateName();
+    firstNameFocusNode.addListener(() {
+      if (!firstNameFocusNode.hasFocus) {
+        _validateFirstName();
+      }
+    });
+
+    lastNameFocusNode.addListener(() {
+      if (!lastNameFocusNode.hasFocus) {
+        _validateLastName();
       }
     });
 
@@ -148,16 +160,25 @@ class myState extends State<ProfileEdit> {
       presentImage = true;
     }
 
-    nameController.text = modelSettings.data.name;
+    // Populate first and last name. If server provides a single `name` string,
+    // split it into first and last parts (first token as first name,
+    // remainder as last name). If empty, leave fields empty.
+    final fullName = modelSettings.data.name.toString();
+    if (fullName.trim().isNotEmpty) {
+      final parts = fullName.trim().split(RegExp(r"\s+"));
+      firstNameController.text = parts.first;
+      lastNameController.text = parts.length > 1
+          ? parts.sublist(1).join(' ')
+          : '';
+    } else {
+      firstNameController.text = '';
+      lastNameController.text = '';
+    }
     mobileController.text = modelSettings.data.mobile;
     // Phone is non-editable in the updated UI; clear any validation error
     phoneError = null;
 
-    // Set email if available. Do not show placeholder text like 'Not provided';
-    // leave the field empty when email is not present so the hint text is visible.
-    emailController.text = modelSettings.data.email.isNotEmpty
-        ? modelSettings.data.email
-        : '';
+    // Email removed from edit form - keep profile editable fields limited to name/phone/dob/gender
 
     try {
       final rawGender = modelSettings.data.gender;
@@ -237,8 +258,14 @@ class myState extends State<ProfileEdit> {
         final Map<String, dynamic> jsonResp = json.decode(resp.body);
         final dynamic data = jsonResp['data'] ?? jsonResp;
         if (data is Map<String, dynamic>) {
-          if (data['name'] != null)
-            nameController.text = data['name'].toString();
+          if (data['name'] != null) {
+            final full = data['name'].toString();
+            final parts = full.trim().split(RegExp(r"\s+"));
+            firstNameController.text = parts.isNotEmpty ? parts.first : '';
+            lastNameController.text = parts.length > 1
+                ? parts.sublist(1).join(' ')
+                : '';
+          }
           if (data['gender'] != null) {
             final raw = data['gender'];
             try {
@@ -336,7 +363,8 @@ class myState extends State<ProfileEdit> {
   void dispose() {
     // Dispose controllers and focus nodes
     _scrollController.dispose();
-    nameFocusNode.dispose();
+    firstNameFocusNode.dispose();
+    lastNameFocusNode.dispose();
     phoneFocusNode.dispose();
 
     super.dispose();
@@ -735,14 +763,34 @@ class myState extends State<ProfileEdit> {
   }
 
   // Validation methods
-  void _validateName() {
-    final error = Validators.validateName(
-      nameController.text,
-      fieldName: 'Full Name',
-    );
-    if (nameError != error) {
+  void _validateFirstName() {
+    final value = firstNameController.text.trim();
+    String? error;
+    if (value.isEmpty) {
+      error = 'Please enter first name';
+    } else {
+      // Fall back to shared validator for other rules (length, chars)
+      error = Validators.validateName(value, fieldName: 'First Name');
+    }
+    if (firstNameError != error) {
       setState(() {
-        nameError = error;
+        firstNameError = error;
+      });
+    }
+  }
+
+  void _validateLastName() {
+    final value = lastNameController.text.trim();
+    String? error;
+    if (value.isEmpty) {
+      error = 'Please enter last name';
+    } else {
+      // Use shared validator for other constraints
+      error = Validators.validateName(value, fieldName: 'Last Name');
+    }
+    if (lastNameError != error) {
+      setState(() {
+        lastNameError = error;
       });
     }
   }
@@ -757,10 +805,30 @@ class myState extends State<ProfileEdit> {
   }
 
   bool _validateForm() {
-    _validateName();
-    // Phone is non-editable so we only validate the name field here.
-    if (nameError != null) {
-      _scrollToField(_nameFieldKey, nameFocusNode);
+    // Validate both first and last names. Phone is non-editable.
+    _validateFirstName();
+    _validateLastName();
+
+    // Ensure both fields are present (cannot be blank)
+    if (firstNameController.text.trim().isEmpty) {
+      _validateFirstName();
+      _scrollToField(_firstNameFieldKey, firstNameFocusNode);
+      return false;
+    }
+
+    if (lastNameController.text.trim().isEmpty) {
+      _validateLastName();
+      _scrollToField(_lastNameFieldKey, lastNameFocusNode);
+      return false;
+    }
+
+    if (firstNameError != null) {
+      _scrollToField(_firstNameFieldKey, firstNameFocusNode);
+      return false;
+    }
+
+    if (lastNameError != null) {
+      _scrollToField(_lastNameFieldKey, lastNameFocusNode);
       return false;
     }
 
@@ -882,9 +950,9 @@ class myState extends State<ProfileEdit> {
                                 SizedBox(height: 30.w),
 
                                 // Form Fields
-                                // Full Name Section
+                                // First Name Section
                                 Column(
-                                  key: _nameFieldKey,
+                                  key: _firstNameFieldKey,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Padding(
@@ -893,7 +961,7 @@ class myState extends State<ProfileEdit> {
                                         bottom: 8.w,
                                       ),
                                       child: Text(
-                                        'Full Name',
+                                        'First Name',
                                         style: TextStyle(
                                           fontSize: AppSizes.fontNormal,
                                           fontWeight: FontWeight.w500,
@@ -903,20 +971,61 @@ class myState extends State<ProfileEdit> {
                                       ),
                                     ),
                                     SizedBox(
-                                      height: nameError != null
+                                      height: firstNameError != null
                                           ? 90.w
                                           : AppSizes.inputHeight,
                                       child: InputField(
-                                        controller: nameController,
-                                        hintText: 'Enter full name',
+                                        controller: firstNameController,
+                                        hintText: 'Enter first name',
                                         prefixIcon: Icons.person_outline,
-                                        errorText: nameError,
-                                        focusNode: nameFocusNode,
-                                        onChanged: (value) => _validateName(),
+                                        errorText: firstNameError,
+                                        focusNode: firstNameFocusNode,
+                                        onChanged: (value) =>
+                                            _validateFirstName(),
                                       ),
                                     ),
-                                    // Add some space after error text
-                                    if (nameError != null)
+                                    if (firstNameError != null)
+                                      SizedBox(height: 8.w),
+                                  ],
+                                ),
+
+                                SizedBox(height: AppSizes.paddingM / 2),
+
+                                // Last Name Section
+                                Column(
+                                  key: _lastNameFieldKey,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                        left: 4.w,
+                                        bottom: 8.w,
+                                      ),
+                                      child: Text(
+                                        'Last Name',
+                                        style: TextStyle(
+                                          fontSize: AppSizes.fontNormal,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black87,
+                                          fontFamily: 'Poppins',
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: lastNameError != null
+                                          ? 90.w
+                                          : AppSizes.inputHeight,
+                                      child: InputField(
+                                        controller: lastNameController,
+                                        hintText: 'Enter last name',
+                                        prefixIcon: Icons.person_outline,
+                                        errorText: lastNameError,
+                                        focusNode: lastNameFocusNode,
+                                        onChanged: (value) =>
+                                            _validateLastName(),
+                                      ),
+                                    ),
+                                    if (lastNameError != null)
                                       SizedBox(height: 8.w),
                                   ],
                                 ),
@@ -966,40 +1075,7 @@ class myState extends State<ProfileEdit> {
 
                                 SizedBox(height: AppSizes.paddingM),
 
-                                // Email Address Section
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 4.w,
-                                        bottom: 8.w,
-                                      ),
-                                      child: Text(
-                                        'Email Address',
-                                        style: TextStyle(
-                                          fontSize: AppSizes.fontNormal,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black87,
-                                          fontFamily: 'Poppins',
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height: AppSizes.inputHeight,
-                                      child: InputField(
-                                        controller: emailController,
-                                        hintText: 'Enter email address',
-                                        prefixIcon: Icons.email_outlined,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
-                                        enabled: true,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                SizedBox(height: AppSizes.paddingM),
+                                // Email field removed from profile edit
 
                                 // Gender Section
                                 Column(
@@ -1217,23 +1293,24 @@ class myState extends State<ProfileEdit> {
 
                                               try {
                                                 // Make a single API call with both profile data and image
-                                                await ProfilePresenter()
-                                                    .getProfileUpdate(
-                                                      context,
-                                                      _imageChanged
-                                                          ? _tempSelectedImage
-                                                          : null,
-                                                      nameController.text,
-                                                      passwordController.text,
-                                                      mobileController.text,
-                                                      dateOfBirth,
-                                                      gender,
-                                                      selectedCountry?.id
-                                                              .toString() ??
-                                                          '', // Send country ID as string
-                                                      token,
-                                                      false,
-                                                    );
+                                                await ProfilePresenter().getProfileUpdate(
+                                                  context,
+                                                  _imageChanged
+                                                      ? _tempSelectedImage
+                                                      : null,
+                                                  // Combine first and last name for API
+                                                  '${firstNameController.text} ${lastNameController.text}'
+                                                      .trim(),
+                                                  passwordController.text,
+                                                  mobileController.text,
+                                                  dateOfBirth,
+                                                  gender,
+                                                  selectedCountry?.id
+                                                          .toString() ??
+                                                      '', // Send country ID as string
+                                                  token,
+                                                  false,
+                                                );
 
                                                 // Reset image change tracking after successful save
                                                 _imageChanged = false;
@@ -1251,7 +1328,8 @@ class myState extends State<ProfileEdit> {
                                                   });
 
                                                   // Navigate back to AccountPage after successful update
-                                                  Navigator.pop(context);
+                                                  // Return `true` so calling page can refresh immediately.
+                                                  Navigator.pop(context, true);
                                                 }
                                               } catch (e) {
                                                 // Hide loading state on error

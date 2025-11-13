@@ -24,6 +24,10 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
   bool isLoading = true;
   AudioHandler? _audioHandler;
 
+  // Key to access calendar state so we can programmatically change the
+  // displayed month even when the selected date hasn't changed.
+  final GlobalKey _calendarKey = GlobalKey();
+
   // Scroll detection
   late ScrollController _scrollController;
   bool _isCompact = false;
@@ -31,6 +35,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
   late Animation<double> _animation;
   // track drag distance (vertical) for intentional expand gesture
   double _verticalDragDistance = 0.0;
+  // Guard to avoid double-handling of tap when using onTapDown
+  bool _didExpandFromTapDown = false;
 
   // Default location - India (can be made customizable)
   double latitude = 23.0225;
@@ -85,12 +91,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
         _animationController.forward();
       } else {
         _animationController.reverse();
-        // Scroll to top when expanding
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // NOTE: remove automatic scroll-to-top so taps open the calendar
+        // immediately and are not intercepted by a scroll animation.
       }
     });
   }
@@ -115,10 +117,21 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
   }
 
   void _selectDate(DateTime date) {
+    // Avoid redundant reload when the same date is selected. If caller
+    // needs the calendar UI to jump to a different month while the
+    // selection is already the same date, use the calendar key to call
+    // `showMonth` directly (done by the "Today" handler below).
+    if (date.year == selectedDate.year &&
+        date.month == selectedDate.month &&
+        date.day == selectedDate.day) {
+      return;
+    }
+
     setState(() {
       selectedDate = date;
-      _loadPanchangData();
     });
+
+    _loadPanchangData();
   }
 
   void _changeDay(int days) {
@@ -141,10 +154,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
       backgroundColor: colors.white,
       appBar: AppBar(
         backgroundColor: colors.white,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.primaryColorApp[50]),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: Text(
           'Panchang Calendar',
           style: TextStyle(
@@ -153,15 +163,46 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: true,
+        centerTitle: false,
         actions: [
-          IconButton(
-            icon: Icon(Icons.today, color: colors.primaryColorApp[50]),
-            onPressed: () {
-              final now = DateTime.now();
-              _selectDate(DateTime(now.year, now.month, now.day));
-            },
-            tooltip: 'Go to Today',
+          Tooltip(
+            message: 'Go to Today',
+            child: TextButton.icon(
+              onPressed: () {
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+
+                // Always make the calendar view jump back to the current
+                // month (so today becomes visible). If the currently
+                // selected date is different, update selection and reload
+                // data; if it's the same, avoid redundant reload but still
+                // force the month to be displayed.
+                try {
+                  // call showMonth on the calendar state (use dynamic to
+                  // avoid referencing private state type across files)
+                  (_calendarKey.currentState as dynamic)?.showMonth(
+                    today,
+                    animate: true,
+                  );
+                } catch (_) {}
+
+                if (!(selectedDate.year == today.year &&
+                    selectedDate.month == today.month &&
+                    selectedDate.day == today.day)) {
+                  _selectDate(today);
+                }
+              },
+              icon: Icon(Icons.today, color: colors.primaryColorApp[50]),
+              label: Text(
+                'Today',
+                style: TextStyle(color: colors.primaryColorApp[50]),
+              ),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                minimumSize: Size(0, 40.w),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
           ),
         ],
       ),
@@ -178,7 +219,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
 
                 return Column(
                   children: [
-                    // Animated Calendar Header
                     AnimatedBuilder(
                       animation: _animation,
                       builder: (context, child) {
@@ -230,6 +270,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
 
   Widget _buildFullCalendar() {
     return PanchangCalendarWidget(
+      key: _calendarKey,
       selectedDate: selectedDate,
       onDateSelected: _selectDate,
       latitude: latitude,
@@ -274,7 +315,25 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _toggleCalendarView,
+              // onTap will toggle view; onTapDown expands immediately
+              onTapDown: (details) {
+                if (_isCompact) {
+                  // Expand instantly (before any layout/scroll changes)
+                  setState(() {
+                    _isCompact = false;
+                    _animationController.reverse();
+                  });
+                  _didExpandFromTapDown = true;
+                }
+              },
+              onTap: () {
+                // If we already expanded in onTapDown, avoid toggling back.
+                if (_didExpandFromTapDown) {
+                  _didExpandFromTapDown = false;
+                  return;
+                }
+                _toggleCalendarView();
+              },
               onVerticalDragUpdate: (details) {
                 // accumulate upward drag distance; require a deliberate drag
                 // (approx 40 logical pixels) to expand the calendar.
@@ -284,11 +343,6 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
                     setState(() {
                       _isCompact = false; // expand
                       _animationController.reverse();
-                      _scrollController.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOut,
-                      );
                     });
                     _verticalDragDistance = 0;
                   }

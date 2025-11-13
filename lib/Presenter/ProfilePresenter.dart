@@ -40,9 +40,24 @@ class ProfilePresenter {
     // Create FormData that can handle both image and profile data
     Map<String, dynamic> formDataMap = {};
 
-    // Add profile data if provided
+    // Add profile data if provided.
+    // `name` may be a combined full name (First Last). Prefer to send
+    // separate `fname` and `lname` fields for backend compatibility while
+    // keeping `name` for any legacy handling.
     if (name.isNotEmpty) {
       formDataMap[AppConstant.name] = name;
+
+      // Split into first/last name tokens. First token => fname, rest => lname.
+      final parts = name.trim().split(RegExp(r"\s+"));
+      final fname = parts.isNotEmpty ? parts.first : '';
+      final lname = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+      if (fname.isNotEmpty) {
+        formDataMap[AppConstant.fname] = fname;
+      }
+      if (lname.isNotEmpty) {
+        formDataMap[AppConstant.lname] = lname;
+      }
     }
     if (mbl.isNotEmpty) {
       formDataMap[AppConstant.mobile] = mbl;
@@ -92,6 +107,16 @@ class ProfilePresenter {
     // Debug the original parameters first
     log('📝 ORIGINAL PARAMETERS:');
     log('Name: "$name" (isEmpty: ${name.isEmpty})');
+    // If we split name into fname/lname, log that too for debugging
+    try {
+      final parts = name.trim().split(RegExp(r"\s+"));
+      final fname = parts.isNotEmpty ? parts.first : '';
+      final lname = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      log('First Name (fname): "$fname"');
+      log('Last Name (lname): "$lname"');
+    } catch (_) {
+      // ignore parsing errors in logs
+    }
     log('Mobile: "$mbl" (isEmpty: ${mbl.isEmpty})');
     log('DOB: "$dob" (isEmpty: ${dob.isEmpty})');
     log('Gender: ${gender == null ? "<null>" : gender}');

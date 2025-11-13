@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:jainverse/main.dart' show routeObserver;
 import '../managers/video_player_state_provider.dart';
 import '../services/video_player_theme_service.dart';
 import '../widgets/video_visual_area.dart';
@@ -69,7 +70,7 @@ class VideoPlayerView extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   VideoPlayerTheme? _theme;
   // Track which thumbnail URLs we've precached to avoid redundant work
   final Set<String> _precachedThumbnails = <String>{};
@@ -84,6 +85,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   // Guard to ensure we only launch landscape player once per rotation event
   bool _rotationLaunched = false;
   DateTime? _landscapeCooldownUntil;
+  bool _routeAwareSubscribed = false;
+  bool _routeIsActive = true;
+  Future<void>? _pendingAutoRotate;
 
   // Drag gesture state
   late AnimationController _dragAnimationController;
@@ -120,7 +124,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // the thumbnail-derived theme is ready.
     _theme = VideoPlayerTheme.defaultTheme();
     _updateSystemUI(_theme!);
-    unawaited(_enableVideoScreenOrientations());
+    Future.microtask(() => _ensureAutoRotate(resetOrientationState: true));
 
     // Initialize drag animation controller
     _dragAnimationController = AnimationController(
@@ -184,6 +188,44 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // `ref.listen` here for ConsumerState; doing it in initState triggers an
     // assertion in some Riverpod versions. See build() for the change
     // detection logic.
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final route = ModalRoute.of(context);
+    if (!_routeAwareSubscribed && route is PageRoute) {
+      try {
+        routeObserver.subscribe(this, route);
+        _routeAwareSubscribed = true;
+        _routeIsActive = true;
+      } catch (e) {
+        debugPrint('[VideoPlayerView] RouteObserver subscribe failed: $e');
+      }
+    }
+  }
+
+  @override
+  void didPush() {
+    _routeIsActive = true;
+    _ensureAutoRotate(resetOrientationState: true);
+  }
+
+  @override
+  void didPopNext() {
+    _routeIsActive = true;
+    _ensureAutoRotate(resetOrientationState: true);
+  }
+
+  @override
+  void didPushNext() {
+    _routeIsActive = false;
+  }
+
+  @override
+  void didPop() {
+    _routeIsActive = false;
   }
 
   // Safe check to see if a controller is initialized without throwing when
@@ -487,19 +529,43 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
         const Duration(milliseconds: 700),
       );
 
-      if (!mounted) {
+      if (mounted) {
+        setState(() {
+          _rotationLaunched = false;
+          _landscapeCooldownUntil = cooldownExpiry;
+        });
+      } else {
         _rotationLaunched = false;
         _landscapeCooldownUntil = cooldownExpiry;
-        return;
       }
 
-      setState(() {
-        _rotationLaunched = false;
-        _landscapeCooldownUntil = cooldownExpiry;
-      });
-
-      unawaited(_enableVideoScreenOrientations());
+      await _applyAutoRotate();
     }
+  }
+
+  Future<void> _applyAutoRotate() async {
+    await _enableVideoScreenOrientations();
+    try {
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } catch (_) {}
+  }
+
+  void _ensureAutoRotate({bool resetOrientationState = false}) {
+    if (!mounted) return;
+
+    if (resetOrientationState) {
+      _lastOrientation = null;
+      _rotationLaunched = false;
+      _landscapeCooldownUntil = null;
+    }
+
+    final future = _applyAutoRotate();
+    _pendingAutoRotate = future;
+    future.whenComplete(() {
+      if (identical(_pendingAutoRotate, future)) {
+        _pendingAutoRotate = null;
+      }
+    });
   }
 
   Future<void> _setPreferredOrientations(
@@ -513,7 +579,6 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   Future<void> _enableVideoScreenOrientations() async {
     await _setPreferredOrientations([
       DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
@@ -524,10 +589,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   }
 
   Future<void> _lockAppToPortrait() async {
-    await _setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    await _setPreferredOrientations([DeviceOrientation.portraitUp]);
 
     try {
       await OrientationHelper.setPortrait();
@@ -1030,6 +1092,15 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   void dispose() {
     debugPrint('[VideoPlayerView] dispose() called');
 
+    if (_routeAwareSubscribed) {
+      try {
+        routeObserver.unsubscribe(this);
+      } catch (_) {}
+      _routeAwareSubscribed = false;
+    }
+    _routeIsActive = false;
+    _pendingAutoRotate = null;
+
     // Dispose drag animation controller
     _dragAnimationController.dispose();
     // Dispose snap-back controller
@@ -1304,7 +1375,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     // Auto-launch landscape player when device orientation becomes landscape.
     final currentOrientation = MediaQuery.of(context).orientation;
-    if (_lastOrientation != currentOrientation) {
+    if (!_routeIsActive) {
+      _lastOrientation = currentOrientation;
+    } else if (_lastOrientation != currentOrientation) {
       final isLandscape = currentOrientation == Orientation.landscape;
 
       if (isLandscape && !cooldownActive) {
@@ -1674,7 +1747,16 @@ class _VideoPlayerHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return child;
+    // Compute the current extent available for the header based on the
+    // incoming shrinkOffset. The child must report a height consistent with
+    // the sliver's layout to avoid SliverGeometry validation errors where the
+    // layoutExtent exceeds the paintExtent. Use a SizedBox to force the
+    // child's height to the computed extent (clamped between min and max).
+    final currentExtent = (maxExtent - shrinkOffset).clamp(
+      minExtent,
+      maxExtent,
+    );
+    return SizedBox(height: currentExtent, child: child);
   }
 
   @override

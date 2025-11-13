@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/presenters/base_presenter.dart';
 import 'package:jainverse/services/token_expiration_handler.dart';
+import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
@@ -25,6 +26,11 @@ class Logout extends BasePresenter {
         ),
         context: context,
       );
+      // Ensure any background playback is stopped when logging out
+      try {
+        // Stop the singleton audio handler (safe no-op if not initialized)
+        AudioPlayerHandlerImpl.instance.stop();
+      } catch (_) {}
     } on DioException catch (e) {
       // If token is already expired, it's ok during logout
       if (_tokenHandler.isTokenExpired(e.response)) {
@@ -48,6 +54,11 @@ class Logout extends BasePresenter {
         ),
         context: context,
       );
+
+      // Stop audio playback when account is deleted as well
+      try {
+        AudioPlayerHandlerImpl.instance.stop();
+      } catch (_) {}
 
       return 1;
     } on DioException catch (e) {

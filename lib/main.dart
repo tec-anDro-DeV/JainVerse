@@ -263,7 +263,6 @@ Future<void> main() async {
       // Also set preferred orientations
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
       ]);
 
       // Initialize session storage before audio
@@ -362,12 +361,17 @@ class _ImageCacheObserver extends WidgetsBindingObserver {
 }
 
 class MyApp extends StatelessWidget {
-  static final AudioPlayerHandler _audioHandlerr = _audioHandler!;
-
   const MyApp({super.key});
 
+  /// Return the current global audio handler instance (non-nullable).
+  ///
+  /// We intentionally assert `!` here so callers keep the same non-nullable
+  /// contract they previously had (many UI locations expect a non-null
+  /// `AudioPlayerHandler`). The audio handler is initialized before
+  /// `runApp` in `main()`, so this should be safe. If it is unexpectedly
+  /// null, this will throw and reveal initialization ordering issues.
   AudioPlayerHandler called() {
-    return _audioHandlerr;
+    return _audioHandler!;
   }
 
   @override

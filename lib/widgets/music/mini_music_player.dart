@@ -184,18 +184,28 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   void _setupMediaListener() {
     // Listen to media changes to trigger animations
     widget.audioHandler?.mediaItem.listen((mediaItem) {
+      developer.log(
+        '[MiniMusicPlayer] _setupMediaListener: mediaItem event: ${mediaItem?.id} / ${mediaItem?.title}',
+      );
       if (mounted) {
         final shouldShow =
             mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
 
-        if (shouldShow && !_hasMediaItem) {
-          // New media item detected, show with animation
+        developer.log(
+          '[MiniMusicPlayer] _setupMediaListener: shouldShow=$shouldShow, _hasMediaItem=$_hasMediaItem, _isVisible=$_isVisible',
+        );
+        // Show when we have media but the widget is not currently visible.
+        // Previously this used `_hasMediaItem` which can be true while
+        // `_isVisible` is still false (race), preventing the mini-player
+        // from ever being shown. Use `_isVisible` to decide show/hide.
+        if (shouldShow && !_isVisible) {
           _showMiniPlayer();
-        } else if (!shouldShow && _hasMediaItem) {
-          // No media item, hide with animation
+        } else if (!shouldShow && _isVisible) {
           _hideMiniPlayer();
         }
 
+        // Keep _hasMediaItem as a cache of whether media is present; this
+        // is still useful for debounce/hide logic elsewhere.
         _hasMediaItem = shouldShow;
       }
     });
@@ -203,6 +213,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
   void _showMiniPlayer() {
     if (!_isVisible) {
+      developer.log(
+        '[MiniMusicPlayer] _showMiniPlayer: scheduling show (setState)',
+      );
       setState(() {
         _isVisible = true;
         _horizontalDragOffset = 0.0;
@@ -224,16 +237,31 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       HapticFeedback.lightImpact();
       // Inform global overlay manager so layout/padding can update
       try {
+        developer.log(
+          '[MiniMusicPlayer] _showMiniPlayer: calling MediaOverlayManager.showMiniPlayer(height=${_MiniPlayerConfig.height})',
+        );
         MediaOverlayManager.instance.showMiniPlayer(
           height: _MiniPlayerConfig.height,
           type: MediaOverlayType.audioMini,
         );
-      } catch (_) {}
+        developer.log(
+          '[MiniMusicPlayer] _showMiniPlayer: MediaOverlayManager updated',
+        );
+      } catch (e) {
+        developer.log(
+          '[MiniMusicPlayer] _showMiniPlayer: MediaOverlayManager.showMiniPlayer error: $e',
+        );
+      }
+    } else {
+      developer.log(
+        '[MiniMusicPlayer] _showMiniPlayer: already visible, no-op',
+      );
     }
   }
 
   void _hideMiniPlayer() {
     if (_isVisible) {
+      developer.log('[MiniMusicPlayer] _hideMiniPlayer: scheduling hide');
       _showDelayTimer?.cancel();
       // Reverse animations
       _fadeAnimationController.reverse();
@@ -256,8 +284,20 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       });
       // Inform overlay manager that the mini player is hidden
       try {
+        developer.log(
+          '[MiniMusicPlayer] _hideMiniPlayer: calling MediaOverlayManager.hideMiniPlayer()',
+        );
         MediaOverlayManager.instance.hideMiniPlayer();
-      } catch (_) {}
+        developer.log(
+          '[MiniMusicPlayer] _hideMiniPlayer: MediaOverlayManager hid mini player',
+        );
+      } catch (e) {
+        developer.log(
+          '[MiniMusicPlayer] _hideMiniPlayer: MediaOverlayManager.hideMiniPlayer error: $e',
+        );
+      }
+    } else {
+      developer.log('[MiniMusicPlayer] _hideMiniPlayer: already hidden, no-op');
     }
   }
 
@@ -276,6 +316,9 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     return StreamBuilder<MediaItem?>(
       stream: widget.audioHandler?.mediaItem,
       builder: (context, snapshot) {
+        developer.log(
+          '[MiniMusicPlayer] build StreamBuilder: snapshot.hasData=${snapshot.hasData}, snapshot.data=${snapshot.data?.id ?? 'null'}; _isVisible=$_isVisible, _hasMediaItem=$_hasMediaItem',
+        );
         final mediaItem = snapshot.data;
         bool shouldShow =
             mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
@@ -316,17 +359,31 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           // Cancel any pending show timer when visibility decisions change
           _showDelayTimer?.cancel();
 
+          developer.log(
+            '[MiniMusicPlayer] postFrameCallback: shouldShow=$shouldShow, _hasMediaItem=$_hasMediaItem, _isVisible=$_isVisible, _awaitingNewPlaybackAfterDismiss=$_awaitingNewPlaybackAfterDismiss',
+          );
+
           if (shouldShow && !_hasMediaItem) {
             // Debounce the show slightly so transient states don't flash the UI.
+            developer.log('[MiniMusicPlayer] scheduling delayed show in 150ms');
             _showDelayTimer = Timer(const Duration(milliseconds: 150), () {
+              developer.log('[MiniMusicPlayer] delayed show timer fired');
               if (!mounted) return;
               // If we had an explicit manual dismiss and we're still awaiting a
               // new playback session, don't auto-show until _handleNewPlaybackDetected
-              if (_awaitingNewPlaybackAfterDismiss) return;
+              if (_awaitingNewPlaybackAfterDismiss) {
+                developer.log(
+                  '[MiniMusicPlayer] delayed show aborted: awaiting new playback after dismiss',
+                );
+                return;
+              }
               _showMiniPlayer();
             });
           } else if (!shouldShow && _hasMediaItem) {
             // If we need to hide, cancel pending show and hide immediately.
+            developer.log(
+              '[MiniMusicPlayer] hiding immediately via postFrameCallback',
+            );
             _showDelayTimer?.cancel();
             _hideMiniPlayer();
           }

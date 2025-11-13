@@ -35,6 +35,7 @@ import '../widgets/music/recent_search_card.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/widgets/video_card.dart';
 import '../videoplayer/screens/video_player_view.dart';
+import '../utils/video_player_launcher.dart';
 import 'AccountPage.dart';
 import 'CreatePlaylist.dart';
 
@@ -890,20 +891,37 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       child: VideoCard(
         item: video,
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => VideoPlayerView(
-                videoUrl: video.videoUrl,
-                videoId: video.id.toString(),
-                title: video.title,
-                thumbnailUrl: video.thumbnailUrl,
-                channelId: video.channelId,
-                channelAvatarUrl: video.channelImageUrl,
-                videoItem: video,
+          // Use centralized launcher to ensure consistent system UI,
+          // prefetching and routing (root navigator). Also pass subtitle
+          // (channel name) so the player header shows correctly.
+          try {
+            launchVideoPlayer(
+              context,
+              videoUrl: video.videoUrl,
+              videoId: video.id.toString(),
+              videoTitle: video.title,
+              videoSubtitle: video.channelName ?? video.channelImageUrl,
+              thumbnailUrl: video.thumbnailUrl,
+              videoItem: video,
+            );
+          } catch (e) {
+            // Fallback: push the player directly if launcher fails
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VideoPlayerView(
+                  videoUrl: video.videoUrl,
+                  videoId: video.id.toString(),
+                  title: video.title,
+                  subtitle: video.channelName,
+                  thumbnailUrl: video.thumbnailUrl,
+                  channelId: video.channelId,
+                  channelAvatarUrl: video.channelImageUrl,
+                  videoItem: video,
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
       ),
     );

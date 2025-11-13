@@ -123,18 +123,30 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
       );
     } catch (_) {}
 
-    // Restore app to portrait defaults immediately so the underlying screens
-    // render using the expected layout regardless of the device's physical
-    // orientation at the moment the user exits landscape mode.
+    // First steer the UI back toward portrait, then immediately expand the
+    // allowed orientations again so the upstream player view can keep reacting
+    // to subsequent device rotations without getting stuck in a forced lock.
     try {
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
+      ]);
+    } catch (_) {}
+
+    // Give the framework a moment to apply the portrait preference before
+    // widening the allowance; this avoids flakiness observed on some devices
+    // where rapid back-to-back calls can race each other.
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
       ]);
     } catch (_) {}
 
     try {
-      await OrientationHelper.setPortrait();
+      await OrientationHelper.setAll();
     } catch (_) {}
   }
 
@@ -353,7 +365,6 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
     final videoState = ref.read(videoPlayerProvider);
 
     if (isLeft) {
-      // Light haptic feedback
       try {
         HapticFeedback.lightImpact();
       } catch (_) {}
@@ -572,17 +583,18 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   }
 
   Widget _buildCenterControls(videoState, videoNotifier) {
-    // Each control gets its own small glass pill
+    // Each control gets its own small glass pill. Reduced padding/size so the
+    // icons (kept at the same sizes) sit closer together.
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Rewind glass pill (circular)
+        // Rewind glass pill (circular) — slightly smaller than before
         ClipOval(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
             child: Container(
-              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.w),
+              constraints: BoxConstraints.tightFor(width: 36.w, height: 36.w),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -602,30 +614,30 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
           ),
         ),
 
-        SizedBox(width: 28.w),
+        SizedBox(width: 16.w),
 
-        // Play/Pause glass pill (wraps the existing play button)
+        // Play/Pause glass pill — tightened but keep icon size 26.w
         ClipRRect(
-          borderRadius: BorderRadius.circular(26.w),
+          borderRadius: BorderRadius.circular(20.w),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
             child: Container(
-              // fix the pill size to avoid stretching
-              constraints: BoxConstraints.tightFor(width: 46.w, height: 46.w),
+              // reduced pill size
+              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.w),
               decoration: BoxDecoration(color: Colors.black.withOpacity(0.04)),
               child: _buildPlayPauseInner(videoState, videoNotifier),
             ),
           ),
         ),
 
-        SizedBox(width: 28.w),
+        SizedBox(width: 16.w),
 
         // Forward glass pill (circular)
         ClipOval(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
             child: Container(
-              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.w),
+              constraints: BoxConstraints.tightFor(width: 36.w, height: 36.w),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -656,10 +668,12 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18.w),
+        // slightly smaller ripple radius to match reduced pill size
+        borderRadius: BorderRadius.circular(14.w),
         onTap: onPressed,
         child: Padding(
-          padding: EdgeInsets.all(8.w),
+          // reduced padding so the container hugs the icon more tightly
+          padding: EdgeInsets.all(4.w),
           child: Icon(icon, color: Colors.white, size: 18.w),
         ),
       ),
@@ -669,12 +683,12 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   // Inner play/pause tappable content without outer container — used by glass pill
   Widget _buildPlayPauseInner(videoState, videoNotifier) {
     return SizedBox(
-      width: 46.w,
-      height: 46.w,
+      width: 40.w,
+      height: 40.w,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(26.w),
+          borderRadius: BorderRadius.circular(20.w),
           onTap: () {
             _onUserInteraction();
             if (videoState.isPlaying) {
@@ -738,12 +752,34 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
                           color: Colors.white.withOpacity(0.05),
                         ),
                       ),
-                      child: Text(
-                        '${_formatDuration(videoState.position)}/${_formatDuration(videoState.duration)}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 7.sp,
-                          fontWeight: FontWeight.w500,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${_formatDuration(videoState.position)}',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 7.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' / ',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 7.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '${_formatDuration(videoState.duration)}',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 7.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

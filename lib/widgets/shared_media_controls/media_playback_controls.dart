@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -34,6 +35,12 @@ class MediaPlaybackControls extends StatefulWidget {
   final IconData? skipNextIcon;
   final bool showShuffle;
   final bool showRepeat;
+
+  /// Optional override for the repeat icon size. If null, falls back to [iconSize].
+  final double? repeatIconSize;
+
+  /// Optional override for the volume icon size. If null, falls back to [iconSize].
+  final double? volumeIconSize;
   final double iconSize;
   final double playPauseIconSize;
   final bool volumeEnabled;
@@ -57,7 +64,9 @@ class MediaPlaybackControls extends StatefulWidget {
     this.skipNextIcon,
     this.showShuffle = true,
     this.showRepeat = true,
-    this.iconSize = 36.0,
+    this.iconSize = 32.0,
+    this.repeatIconSize,
+    this.volumeIconSize,
     this.playPauseIconSize = 56.0,
     this.volumeEnabled = true,
   });
@@ -159,7 +168,9 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
                                 size: widget.iconSize,
                               ),
                             if (widget.showShuffle) SizedBox(width: 12.w),
-                            _buildVolumeToggle(defaultIconColor),
+                            // Volume controls are Android-only: hide on other platforms
+                            if (defaultTargetPlatform == TargetPlatform.android)
+                              _buildVolumeToggle(defaultIconColor),
                           ],
                         ),
                       ),
@@ -177,7 +188,9 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
                   switchOutCurve: Curves.easeIn,
                   transitionBuilder: (child, animation) =>
                       FadeTransition(opacity: animation, child: child),
-                  child: _isVolumeExpanded
+                  child:
+                      (_isVolumeExpanded &&
+                          defaultTargetPlatform == TargetPlatform.android)
                       ? Padding(
                           padding: EdgeInsets.only(top: 12.h),
                           child: MediaVolumeSlider(
@@ -205,7 +218,8 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
     Color inactiveColor,
   ) {
     if (!widget.showRepeat) {
-      return SizedBox(width: widget.iconSize.w + 16.w);
+      final repeatSize = widget.repeatIconSize ?? widget.iconSize;
+      return SizedBox(width: repeatSize.w + 16.w);
     }
 
     return _buildRepeatButton(
@@ -213,7 +227,7 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
       repeatMode: widget.repeatMode ?? 'none',
       activeColor: activeColor,
       inactiveColor: inactiveColor,
-      size: widget.iconSize,
+      size: widget.repeatIconSize ?? widget.iconSize,
     );
   }
 
@@ -223,12 +237,12 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
       icon: Icon(
         Icons.volume_up_rounded,
         color: iconColor,
-        size: widget.iconSize.w,
+        size: (widget.volumeIconSize ?? widget.iconSize).w,
       ),
       padding: EdgeInsets.all(8.w),
       constraints: BoxConstraints(
-        minWidth: widget.iconSize.w + 16.w,
-        minHeight: widget.iconSize.w + 16.w,
+        minWidth: (widget.volumeIconSize ?? widget.iconSize).w + 16.w,
+        minHeight: (widget.volumeIconSize ?? widget.iconSize).w + 16.w,
       ),
       splashRadius: 24.w,
       tooltip: 'Adjust volume',

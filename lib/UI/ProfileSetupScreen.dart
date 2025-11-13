@@ -26,8 +26,8 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     with SingleTickerProviderStateMixin {
   // Controllers
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   // Services
@@ -40,6 +40,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   int? _selectedGenderInt; // 0 = Male, 1 = Female
   bool _isLoading = false;
   List<Country> _countries = [];
+  // Track when focus moved to a non-text widget so we can avoid
+  // immediately returning focus to a text field after closing
+  // a date picker / dropdown which briefly focused a non-text widget.
+  DateTime? _lastNonTextFocusAt;
 
   // Animation controllers
   late AnimationController _animationController;
@@ -47,12 +51,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   Animation<Offset> _slideAnimation = const AlwaysStoppedAnimation(Offset.zero);
 
   // Focus nodes
-  final FocusNode _nameFocus = FocusNode();
-  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _firstNameFocus = FocusNode();
+  final FocusNode _lastNameFocus = FocusNode();
 
   // Field keys for scrolling to invalid fields
-  final GlobalKey _nameKey = GlobalKey();
-  final GlobalKey _emailKey = GlobalKey();
+  final GlobalKey _firstNameKey = GlobalKey();
+  final GlobalKey _lastNameKey = GlobalKey();
 
   // Scroll controller
   final ScrollController _scrollController = ScrollController();
@@ -100,19 +104,76 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       }
     });
 
+    // Listen to focus changes so we can dismiss the keyboard when
+    // focus moves to non-text widgets (like date pickers, dropdowns)
+    FocusManager.instance.addListener(_handleFocusChange);
+
     // Load countries
     _loadCountries();
+  }
+
+  /// Hide the keyboard when focus changes to a non-text widget.
+  ///
+  /// We check the current primary focus's widget; if it's not an
+  /// [EditableText] (the underlying widget for TextField), we hide
+  /// the text input. This keeps the keyboard visible when moving
+  /// between text fields but hides it when the user focuses a
+  /// control that doesn't need typing.
+  void _handleFocusChange() {
+    try {
+      final primary = FocusManager.instance.primaryFocus;
+      // If there's no focus, ensure keyboard is hidden
+      if (primary == null) {
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+        _lastNonTextFocusAt = DateTime.now();
+        return;
+      }
+
+      final widget = primary.context?.widget;
+      // EditableText is the underlying widget for TextField/TextFormField
+      if (widget is! EditableText) {
+        // Focus moved to a non-text widget (like date picker controls)
+        // Hide the keyboard and remember when this happened. Some
+        // pickers briefly take focus and then return it to the field —
+        // we'll prevent that quick return by clearing focus if it
+        // happens within a short threshold.
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+        _lastNonTextFocusAt = DateTime.now();
+        return;
+      }
+
+      // If focus returned to an EditableText very shortly after being on
+      // a non-text widget, it's likely from closing a picker — avoid
+      // automatically re-showing the keyboard by unfocusing.
+      if (_lastNonTextFocusAt != null) {
+        final diff = DateTime.now().difference(_lastNonTextFocusAt!);
+        if (diff.inMilliseconds < 700) {
+          // Clear focus so the keyboard does not flash back.
+          FocusManager.instance.primaryFocus?.unfocus();
+          _lastNonTextFocusAt = null;
+          SystemChannels.textInput.invokeMethod('TextInput.hide');
+          return;
+        }
+        // If it's been longer than the threshold, allow normal behavior
+        _lastNonTextFocusAt = null;
+      }
+    } catch (e) {
+      // ignore any issues while trying to hide the keyboard
+      // (for safety, do not crash the UI)
+      // print('Focus change handler error: $e');
+    }
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     _scrollController.dispose();
-    _nameController.dispose();
-    _emailController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _phoneController.dispose();
-    _nameFocus.dispose();
-    _emailFocus.dispose();
+    _firstNameFocus.dispose();
+    _lastNameFocus.dispose();
+    FocusManager.instance.removeListener(_handleFocusChange);
     super.dispose();
   }
 
@@ -135,37 +196,46 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
-    // Validate required fields
-    if (_nameController.text.trim().isEmpty) {
-      // Scroll to name field
-      _scrollToField(_nameKey);
-      _showError('Name is required');
+    // Validate required fields: First name and last name are required
+    if (_firstNameController.text.trim().isEmpty) {
+      // Scroll to first name field
+      _scrollToField(_firstNameKey);
+      _showError('First name is required');
       return;
     }
 
-    final nameError = Validators.validateName(
-      _nameController.text.trim(),
+    final firstNameError = Validators.validateName(
+      _firstNameController.text.trim(),
       minLength: 2,
       maxLength: 30,
     );
 
-    if (nameError != null) {
-      _scrollToField(_nameKey);
-      _showError(nameError);
+    if (firstNameError != null) {
+      _scrollToField(_firstNameKey);
+      _showError(firstNameError);
       return;
     }
 
-    // Name is a single field now (was first+last)
-
-    // Validate email if provided
-    if (_emailController.text.trim().isNotEmpty) {
-      final emailError = Validators.validateEmail(_emailController.text.trim());
-      if (emailError != null) {
-        _scrollToField(_emailKey);
-        _showError(emailError);
-        return;
-      }
+    // Last name required
+    if (_lastNameController.text.trim().isEmpty) {
+      _scrollToField(_lastNameKey);
+      _showError('Last name is required');
+      return;
     }
+
+    final lastNameError = Validators.validateName(
+      _lastNameController.text.trim(),
+      minLength: 2,
+      maxLength: 30,
+    );
+
+    if (lastNameError != null) {
+      _scrollToField(_lastNameKey);
+      _showError(lastNameError);
+      return;
+    }
+
+    // Email removed from profile setup; skip email validation
 
     setState(() {
       _isLoading = true;
@@ -178,27 +248,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       }
 
-      // Split name into fname and lname (first word -> fname, rest -> lname)
-      final fullName = _nameController.text.trim();
-      String? fname;
-      String? lname;
-      if (fullName.isNotEmpty) {
-        final parts = fullName.split(RegExp(r"\s+"));
-        if (parts.isNotEmpty) {
-          fname = parts.first;
-          if (parts.length > 1) {
-            lname = parts.sublist(1).join(' ');
-          }
-        }
-      }
+      // Use separate first and last name fields (both required)
+      final fname = _firstNameController.text.trim();
+      final lname = _lastNameController.text.trim();
 
       final success = await _authService.updateProfile(
         context,
         fname: fname,
-        lname: (lname != null && lname.isNotEmpty) ? lname : null,
-        email: _emailController.text.trim().isNotEmpty
-            ? _emailController.text.trim()
-            : null,
+        lname: lname,
         dob: formattedDate,
         countryId: _selectedCountry?.id,
         mobile: widget.phoneNumber,
@@ -369,41 +426,48 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                                   ),
                                   SizedBox(height: 24.w),
 
-                                  // Name (single field)
-                                  _buildFieldLabel('Name', isRequired: true),
+                                  // First Name (required)
+                                  _buildFieldLabel(
+                                    'First Name',
+                                    isRequired: true,
+                                  ),
                                   SizedBox(height: 8.w),
                                   Container(
-                                    key: _nameKey,
+                                    key: _firstNameKey,
                                     child: InputField(
-                                      controller: _nameController,
-                                      hintText: 'Enter your full name',
+                                      controller: _firstNameController,
+                                      hintText: 'Enter your first name',
                                       prefixIcon: Icons.person_outline,
                                       textInputAction: TextInputAction.next,
-                                      focusNode: _nameFocus,
+                                      focusNode: _firstNameFocus,
                                       onSubmitted: (_) => FocusScope.of(
                                         context,
-                                      ).requestFocus(_emailFocus),
+                                      ).requestFocus(_lastNameFocus),
                                     ),
                                   ),
                                   SizedBox(height: 16.w),
 
-                                  // Email
-                                  _buildFieldLabel('Email', isRequired: false),
+                                  // Last Name (required)
+                                  _buildFieldLabel(
+                                    'Last Name',
+                                    isRequired: true,
+                                  ),
                                   SizedBox(height: 8.w),
                                   Container(
-                                    key: _emailKey,
+                                    key: _lastNameKey,
                                     child: InputField(
-                                      controller: _emailController,
-                                      hintText: 'Enter your email',
-                                      keyboardType: TextInputType.emailAddress,
-                                      prefixIcon: Icons.email_outlined,
+                                      controller: _lastNameController,
+                                      hintText: 'Enter your last name',
+                                      prefixIcon: Icons.person_outline,
                                       textInputAction: TextInputAction.next,
-                                      focusNode: _emailFocus,
+                                      focusNode: _lastNameFocus,
                                       onSubmitted: (_) =>
                                           FocusScope.of(context).unfocus(),
                                     ),
                                   ),
                                   SizedBox(height: 16.w),
+
+                                  // Email field removed from setup screen
 
                                   // Phone (Read-only)
                                   _buildFieldLabel(

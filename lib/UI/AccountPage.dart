@@ -33,6 +33,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 
 import '../widgets/common/app_header.dart';
+import '../widgets/common/loader.dart';
 import 'FavoriteGenres.dart';
 import 'ProfileEdit.dart';
 import 'contact_us.dart';
@@ -41,7 +42,6 @@ import 'CreateChannel.dart';
 import 'UserChannel.dart';
 import 'PhoneNumberInputScreen.dart';
 
-// Helper class for modern menu items
 class ModernMenuItem {
   final IconData icon;
   final String title;
@@ -70,7 +70,7 @@ class AccountPage extends StatefulWidget {
 }
 
 class MyState extends State<AccountPage>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin, RouteAware {
   late UserModel model;
   SharedPref sharePrefs = SharedPref();
   bool isOpen = false;
@@ -86,15 +86,13 @@ class MyState extends State<AccountPage>
   var focusNode = FocusNode();
   bool connected = true, checkRuning = false;
 
-  // Modern scroll controller for header animation
   late ScrollController _scrollController;
   bool _isHeaderVisible = true;
   double _lastScrollPosition = 0;
 
-  // Animation controller for smooth transitions
   late AnimationController _headerAnimationController;
 
-  static String name = '', email = '', artistStatus = 'P';
+  static String name = '', artistStatus = 'P';
   static String imagePresent = '';
   ImageProvider? _profileImageProvider;
   late ModelSettings modelSettings;
@@ -130,7 +128,6 @@ class MyState extends State<AccountPage>
         appPackageName = packageInfo.packageName;
       });
       token = await sharePrefs.getToken();
-      // Try to refresh profile from remote API using the saved token
       await _fetchProfileFromApi(token);
       sharedPreThemeData = await sharePrefs.getThemeData();
       setState(() {});
@@ -140,27 +137,22 @@ class MyState extends State<AccountPage>
       final Map<String, dynamic> parsed = json.decode(sett!);
       modelSettings = ModelSettings.fromJson(parsed);
       if ((modelSettings.data.image.isNotEmpty)) {
-        // Normalize image URL: if server already provides absolute URL, use it,
-        // otherwise prefix with AppConstant.ImageUrl.
         final raw = modelSettings.data.image.toString();
         if (raw.startsWith('http')) {
           imagePresent = raw;
         } else {
           imagePresent = AppConstant.ImageUrl + raw;
         }
-        // Prepare a robust image provider (try direct bytes first)
         try {
           await _prepareProfileImage(imagePresent);
         } catch (e) {
           if (kDebugMode) print('prepareProfileImage failed: $e');
         }
       } else {
-        // Clear the image when the new user doesn't have a profile image
         imagePresent = '';
       }
 
       name = modelSettings.data.name;
-      email = modelSettings.data.email;
       artistStatus = model.data.artist_verify_status;
       if (modelSettings.data.in_app_purchase == 1) {
         hasPre = true;
@@ -168,7 +160,7 @@ class MyState extends State<AccountPage>
       if (Platform.isAndroid) {
         hasPre = true;
       }
-      return model.data.email;
+      return model.data.name;
     } on Exception {}
   }
 
@@ -184,8 +176,7 @@ class MyState extends State<AccountPage>
         break;
       case AppLifecycleState.detached:
         break;
-      case AppLifecycleState.hidden: // Add support for the new hidden state
-        // Handle hidden state if needed
+      case AppLifecycleState.hidden:
         break;
     }
   }
@@ -196,9 +187,70 @@ class MyState extends State<AccountPage>
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _headerAnimationController.dispose();
-    // Banner ads removed
+    try {
+      routeObserver.unsubscribe(this);
+    } catch (_) {}
 
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      final ModalRoute? route = ModalRoute.of(context);
+      if (route != null) routeObserver.subscribe(this, route);
+    } catch (e) {}
+  }
+
+  @override
+  void didPopNext() {
+    (() async {
+      try {
+        token = await sharePrefs.getToken();
+        await _fetchProfileFromApi(token);
+        await getSettings();
+
+        Future<void> attemptRefresh([bool cacheBust = false]) async {
+          if (imagePresent.isEmpty) return;
+
+          final String urlToUse = cacheBust
+              ? '$imagePresent?_=${DateTime.now().millisecondsSinceEpoch}'
+              : imagePresent;
+
+          try {
+            try {
+              await CachedNetworkImage.evictFromCache(imagePresent);
+            } catch (e) {
+              if (kDebugMode) print('Failed to evict cached network image: $e');
+            }
+
+            try {
+              PaintingBinding.instance.imageCache.clear();
+            } catch (e) {
+              if (kDebugMode) print('Failed to clear image cache: $e');
+            }
+
+            await _prepareProfileImage(urlToUse);
+          } catch (e) {
+            if (kDebugMode) print('Profile image refresh attempt failed: $e');
+          }
+        }
+
+        attemptRefresh(false);
+
+        Future.delayed(
+          const Duration(milliseconds: 500),
+          () => attemptRefresh(true),
+        );
+
+        Future.delayed(const Duration(seconds: 2), () => attemptRefresh(true));
+      } catch (e) {
+        if (kDebugMode) print('Error refreshing profile on return: $e');
+      }
+
+      if (mounted) setState(() {});
+    })();
   }
 
   Future<void> loadd() async {
@@ -213,10 +265,8 @@ class MyState extends State<AccountPage>
     if (modelSettings.data.status == 0) {
       sharePrefs.removeValues();
 
-      // Clear static variables to prevent data from persisting between accounts
       imagePresent = '';
       name = '';
-      email = '';
       artistStatus = 'P';
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -237,8 +287,6 @@ class MyState extends State<AccountPage>
     setState(() {});
   }
 
-  // Try to fetch image bytes directly (safer than NetworkImage alone) and
-  // produce a MemoryImage; falls back to NetworkImage on any failure.
   Future<void> _prepareProfileImage(String url) async {
     try {
       if (url.isEmpty) {
@@ -250,7 +298,6 @@ class MyState extends State<AccountPage>
       client.connectionTimeout = const Duration(seconds: 10);
 
       final HttpClientRequest req = await client.getUrl(uri);
-      // Request closed connection to avoid servers that mis-handle keep-alive
       req.headers.set(HttpHeaders.connectionHeader, 'close');
       req.headers.set(HttpHeaders.acceptHeader, 'image/*');
 
@@ -262,13 +309,8 @@ class MyState extends State<AccountPage>
       if (resp.statusCode == 200) {
         final Uint8List bytes = await consolidateHttpClientResponseBytes(resp);
         if (bytes.isNotEmpty) {
-          // Validate that the bytes represent a decodable image to avoid
-          // MemoryImage decode exceptions (e.g. when server returns HTML
-          // with 200 status). We attempt to instantiate a codec; if it
-          // fails we treat the bytes as invalid and evict cache.
           try {
             final codec = await ui.instantiateImageCodec(bytes);
-            // Ensure at least one frame can be read
             await codec.getNextFrame();
             if (mounted) {
               setState(() => _profileImageProvider = MemoryImage(bytes));
@@ -286,14 +328,11 @@ class MyState extends State<AccountPage>
           }
         }
       } else if (resp.statusCode == 404) {
-        // Resource not found: ensure we don't cache the broken URL and
-        // show the fallback person icon instead of trying NetworkImage.
         try {
           await CachedNetworkImage.evictFromCache(url);
         } catch (e) {
           if (kDebugMode) print('evictFromCache failed: $e');
         }
-        // Also clear in-memory image entries to avoid Flutter reusing a broken image
         try {
           PaintingBinding.instance.imageCache.clear();
         } catch (_) {}
@@ -304,13 +343,9 @@ class MyState extends State<AccountPage>
       }
       client.close(force: true);
     } catch (e) {
-      // swallow and fall back to NetworkImage
       if (kDebugMode) print('Profile image bytes fetch failed: $e');
     }
 
-    // Don't fallback to `NetworkImage` blindly - if the byte fetch failed we
-    // prefer to show the local person icon rather than attempt another network
-    // load which may be cached as a 404. Leave `_profileImageProvider` null.
     if (mounted) setState(() => _profileImageProvider = null);
   }
 
@@ -338,7 +373,6 @@ class MyState extends State<AccountPage>
     setState(() {});
   }
 
-  /// Fetch profile data from remote API and merge into state.
   Future<void> _fetchProfileFromApi(String token) async {
     if (token.isEmpty) return;
     try {
@@ -352,12 +386,8 @@ class MyState extends State<AccountPage>
         final Map<String, dynamic> jsonResp = json.decode(resp.body);
         final dynamic data = jsonResp['data'] ?? jsonResp;
         if (data is Map<String, dynamic>) {
-          // Merge simple fields if present
           if (data.containsKey('name') && data['name'] != null) {
             name = data['name'].toString();
-          }
-          if (data.containsKey('email') && data['email'] != null) {
-            email = data['email'].toString();
           }
           if (data.containsKey('artist_verify_status') &&
               data['artist_verify_status'] != null) {
@@ -372,7 +402,6 @@ class MyState extends State<AccountPage>
             } else {
               imagePresent = AppConstant.ImageUrl + raw;
             }
-            // Try to prepare image bytes for smoother display
             await _prepareProfileImage(imagePresent);
           }
         }
@@ -392,10 +421,8 @@ class MyState extends State<AccountPage>
   void initState() {
     super.initState();
 
-    // Initialize static variables for clean state
     _initializeStaticVariables();
 
-    // Initialize scroll controller and animation
     _scrollController = ScrollController();
     _scrollController.addListener(_scrollListener);
 
@@ -404,45 +431,30 @@ class MyState extends State<AccountPage>
       duration: const Duration(milliseconds: 300),
     );
 
-    // Set session page
     session['page'] = "3";
 
     WidgetsBinding.instance.addObserver(this);
     _audioHandler = const MyApp().called();
 
-    // Initialize data
-    // Start initialization once and keep the future so UI can wait on it
     _initFuture = _initializeData();
-
-    // Ads removed
   }
 
-  // Initialize or reset static variables for clean state
   void _initializeStaticVariables() {
-    // Reset static variables if they appear to be from a previous user session
-    // This ensures clean state between different user logins
     imagePresent = '';
-    // Note: Don't clear name and email here as they're loaded in value() method
-    // This prevents flashing of empty values
   }
 
-  // Initialize all required data
   Future<void> _initializeData() async {
     _initializeStaticVariables();
     await loadd();
     await checkConn();
     await getSettings();
-    // Load user and token first
     await value();
 
-    // Fetch latest artist verification status from server
     await _fetchArtistVerifyStatus();
 
-    // Check user channel (keeps UI accurate regardless of verification)
     await checkUserChannel();
   }
 
-  // A single future used by the UI to wait for initial load
   late Future<void> _initFuture;
 
   void displayBottomSheet(BuildContext context) {
@@ -543,8 +555,6 @@ class MyState extends State<AccountPage>
     future.then((value) => closeModal(value));
   }
 
-  // Ads removed
-
   void showCustomDialog(BuildContext context) {
     showGeneralDialog(
       barrierLabel: "Barrier",
@@ -593,13 +603,10 @@ class MyState extends State<AccountPage>
                             audioHandler?.stop();
                             Logout().logout(context, token);
                             sharePrefs.removeValues();
-                            // Clear all cache data including images when logging out
                             await CacheManager.clearAllCacheIncludingImages();
 
-                            // Clear static variables to prevent data from persisting between accounts
                             imagePresent = '';
                             name = '';
-                            email = '';
                             artistStatus = 'P';
 
                             Navigator.of(context).pushAndRemoveUntil(
@@ -672,8 +679,6 @@ class MyState extends State<AccountPage>
     );
   }
 
-  /// Fetch artist verification status from backend and update local state.
-  /// Uses the existing Presenter which normalizes the status.
   Future<void> _fetchArtistVerifyStatus() async {
     try {
       if (token.isEmpty) {
@@ -686,16 +691,12 @@ class MyState extends State<AccountPage>
       );
 
       if (resp.data != null) {
-        // The model provides a compatibility getter `verifyStatus` which
-        // returns legacy values (A, P, R, N). Use that so existing code
-        // that expects 'A' / 'P' continues to work.
         artistStatus = resp.data!.verifyStatus;
       } else {
-        // If no data, treat as not requested
         artistStatus = 'N';
       }
     } catch (e) {
-      // Keep previous status on error; optionally log later
+      if (kDebugMode) print('Failed to fetch artist verify status: $e');
     }
 
     if (mounted) setState(() {});
@@ -703,7 +704,6 @@ class MyState extends State<AccountPage>
 
   @override
   Widget build(BuildContext context) {
-    // Set status bar style for modern look
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.white,
@@ -725,17 +725,14 @@ class MyState extends State<AccountPage>
         Expanded(
           child: Stack(
             children: [
-              // Background container - clean white
               Container(
                 height: MediaQuery.of(context).size.height,
                 width: MediaQuery.of(context).size.width,
                 color: Colors.white,
               ),
 
-              // Main scrollable content
               _buildMainScrollableContent(),
 
-              // Animated header
               _buildAnimatedHeader(),
             ],
           ),
@@ -774,131 +771,79 @@ class MyState extends State<AccountPage>
     return StreamBuilder<MediaItem?>(
       stream: _audioHandler!.mediaItem,
       builder: (context, snapshot) {
-        // Calculate proper bottom padding accounting for mini player and navigation
         final hasMiniPlayer = snapshot.hasData;
         final bottomPadding = hasMiniPlayer
             ? AppPadding.bottom(context, extra: 100.w)
             : AppPadding.bottom(context);
+        return FutureBuilder<void>(
+          future: _initFuture,
+          builder: (context, initSnap) {
+            if (initSnap.connectionState != ConnectionState.done) {
+              final media = MediaQuery.of(context);
+              return SizedBox(
+                height: media.size.height,
+                width: double.infinity,
+                child: Center(
+                  child: CircleLoader(
+                    size: 220.w,
+                    showBackground: false,
+                    showLogo: true,
+                  ),
+                ),
+              );
+            }
 
-        return RefreshIndicator(
-          onRefresh: () async {
-            await _initializeData();
+            return RefreshIndicator(
+              onRefresh: () async {
+                await _initializeData();
+              },
+              color: appColors().primaryColorApp,
+              backgroundColor: Colors.white,
+              displacement: MediaQuery.of(context).padding.top + 94.w,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 78.w,
+                    ),
+                    sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  ),
+
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSizes.contentHorizontalPadding,
+                      0,
+                      AppSizes.contentHorizontalPadding,
+                      bottomPadding,
+                    ),
+                    sliver: _buildContentSliver(),
+                  ),
+                ],
+              ),
+            );
           },
-          color: appColors().primaryColorApp,
-          backgroundColor: Colors.white,
-          displacement: MediaQuery.of(context).padding.top + 94.w,
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              // Top padding for header
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 78.w,
-                ),
-                sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
-              ),
-
-              // Main content
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSizes.contentHorizontalPadding,
-                  0,
-                  AppSizes.contentHorizontalPadding,
-                  bottomPadding, // Proper padding for main nav and mini player
-                ),
-                sliver: _buildContentSliver(),
-              ),
-            ],
-          ),
         );
       },
     );
   }
 
   Widget _buildContentSliver() {
-    return SliverToBoxAdapter(
-      child: FutureBuilder<dynamic>(
-        // Wait for the one-time initialization future so channel data
-        // and settings are available before building the UI.
-        future: _initFuture,
-        builder: (context, projectSnap) {
-          if (projectSnap.connectionState == ConnectionState.done) {
-            return _buildAccountContent();
-          } else {
-            return _buildLoadingWidget();
-          }
-        },
-      ),
-    );
+    return SliverToBoxAdapter(child: _buildAccountContent());
   }
 
   Widget _buildAccountContent() {
     return Column(
       children: [
-        // Modern Profile Section
         _buildModernProfileSection(),
 
-        // Subscription Section (moved outside profile container)
-        // if (hasPre) ...[
-        //   SizedBox(height: 20.w),
-        //   GestureDetector(
-        //     onTap: () {
-        //       Navigator.push(
-        //         context,
-        //         MaterialPageRoute(
-        //           builder: (context) => const SubscriptionPlans(),
-        //           settings: const RouteSettings(
-        //             name: '/AccountPage/SubscriptionPlans',
-        //           ),
-        //         ),
-        //       );
-        //     },
-        //     child: Container(
-        //       margin: EdgeInsets.symmetric(horizontal: 4.w),
-        //       width: double.infinity,
-        //       padding: EdgeInsets.all(16.w),
-        //       decoration: BoxDecoration(
-        //         color: appColors().primaryColorApp,
-        //         borderRadius: BorderRadius.circular(16.w),
-        //       ),
-        //       child: Row(
-        //         children: [
-        //           Icon(
-        //             Icons.workspace_premium,
-        //             color: Colors.white,
-        //             size: 24.w,
-        //           ),
-        //           SizedBox(width: 12.w),
-        //           Expanded(
-        //             child: Text(
-        //               'Subscription Plans',
-        //               style: TextStyle(
-        //                 fontSize: AppSizes.fontMedium,
-        //                 fontWeight: FontWeight.w600,
-        //                 color: Colors.white,
-        //                 fontFamily: 'Poppins',
-        //               ),
-        //             ),
-        //           ),
-        //           Icon(
-        //             Icons.arrow_forward_ios,
-        //             color: Colors.white,
-        //             size: 16.w,
-        //           ),
-        //         ],
-        //       ),
-        //     ),
-        //   ),
-        // ],
         SizedBox(height: 20.w),
 
-        // Menu Items Section
         _buildMenuItemsSection(),
 
-        //Version Info
         SizedBox(height: 20.w),
         Text(
           Platform.isAndroid
@@ -934,21 +879,15 @@ class MyState extends State<AccountPage>
       ),
       child: Column(
         children: [
-          // Profile Image and Info
           Row(
             children: [
-              // Profile Image
               Container(
                 width: 80.w,
                 height: 80.w,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: appColors().primaryColorApp.withOpacity(0.3),
-                  // Only use a DecorationImage when we successfully prepared
-                  // image bytes (_profileImageProvider). Avoid creating a
-                  // NetworkImage here: if the server returned 404 we prefer
-                  // to show the local fallback icon instead of attempting
-                  // another network load which may be cached as a 404.
+
                   image: (_profileImageProvider != null)
                       ? DecorationImage(
                           image: _profileImageProvider!,
@@ -967,7 +906,6 @@ class MyState extends State<AccountPage>
 
               SizedBox(width: 16.w),
 
-              // User Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,7 +922,6 @@ class MyState extends State<AccountPage>
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    // Artist Status Badge
                     if (artistStatus == 'A')
                       Container(
                         padding: EdgeInsets.symmetric(
@@ -1009,7 +946,6 @@ class MyState extends State<AccountPage>
                 ),
               ),
 
-              // Edit Button
               GestureDetector(
                 onTap: () async {
                   final result = await Navigator.push(
@@ -1020,13 +956,10 @@ class MyState extends State<AccountPage>
                     ),
                   );
 
-                  // If the profile edit returned true (successful update), reload settings
-                  // which will refresh imagePresent and cause the UI to rebuild with the new image.
                   if (result == true) {
                     try {
                       await _initializeData();
                     } catch (e) {
-                      // Fallback: at least call getSettings to refresh the page
                       await getSettings();
                     }
                   }
@@ -1046,9 +979,6 @@ class MyState extends State<AccountPage>
 
   Widget _buildMenuItemsSection() {
     final menuItems = [
-      // Show "Request as Artist" when the user is not approved.
-      // artistStatus uses legacy values from the verification API:
-      // 'A' = approved/verified, 'P' = pending, 'R' = rejected, 'N' = not requested.
       if (artistStatus != 'A')
         ModernMenuItem(
           icon: Icons.library_music_outlined,
@@ -1066,52 +996,17 @@ class MyState extends State<AccountPage>
             );
           },
         ),
-      // if (model.data.artist_verify_status == 'A')
-      //   ModernMenuItem(
-      //     icon: Icons.library_music_outlined,
-      //     title: 'Artist Dashboard',
-      //     iconColor: const Color(0xFFFF6B47),
-      //     onTap: () {
-      //       Navigator.push(
-      //         context,
-      //         MaterialPageRoute(
-      //           builder:
-      //               (context) => AllCategoryByName(_audioHandler, "My Songs"),
-      //           settings: const RouteSettings(name: '/AccountPage/MySongs'),
-      //         ),
-      //       );
-      //     },
-      //   ),
-      // ModernMenuItem(
-      //   icon: Icons.article_outlined,
-      //   title: 'Blogs',
-      //   iconColor: const Color(0xFFFF6B47),
-      //   onTap: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (context) => const Blog(),
-      //         settings: const RouteSettings(arguments: 'afterlogin'),
-      //       ),
-      //     );
-      //   },
-      // ),
-      // Show the Create Channel / Your Channel option always in the menu.
-      // If the user is not an approved artist, tapping it will prompt them
-      // to request artist verification first.
+
       ModernMenuItem(
         icon: hasChannel
             ? Icons.video_library_outlined
             : Icons.video_call_outlined,
-        // If user is not verified, always show 'Create Channel' as the title
-        // to prompt the verification flow when tapped. If verified, show
-        // 'Your Channel' when they already have one.
+
         title: artistStatus != 'A'
             ? 'Create Channel'
             : (hasChannel ? 'Your Channel' : 'Create Channel'),
         iconColor: appColors().primaryColorApp,
         onTap: () async {
-          // If not approved, show a dialog prompting to request artist verification
           if (artistStatus != 'A') {
             showDialog<void>(
               context: context,
@@ -1143,7 +1038,6 @@ class MyState extends State<AccountPage>
                           ),
                         );
 
-                        // After returning from the verification screen, refresh status and UI
                         await _fetchArtistVerifyStatus();
                         await checkUserChannel();
                       },
@@ -1156,7 +1050,6 @@ class MyState extends State<AccountPage>
             return;
           }
 
-          // If approved, proceed with existing channel flow
           if (hasChannel && channelData != null) {
             final channel = ChannelModel.fromJson(channelData!);
             final result = await Navigator.push(
@@ -1192,34 +1085,6 @@ class MyState extends State<AccountPage>
         },
       ),
 
-      // ModernMenuItem(
-      //   icon: Icons.history,
-      //   title: 'Purchase History',
-      //   iconColor: const Color(0xFFFF6B47),
-      //   onTap: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (context) => const PurchaseHistory(),
-      //         settings: const RouteSettings(arguments: 'his'),
-      //       ),
-      //     );
-      //   },
-      // ),
-      // ModernMenuItem(
-      //   icon: Icons.language_outlined,
-      //   title: 'Change Language',
-      //   iconColor: const Color(0xFFFF6B47),
-      //   onTap: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (context) => LanguageChoose(''),
-      //         settings: const RouteSettings(arguments: 'fromDrawer'),
-      //       ),
-      //     );
-      //   },
-      // ),
       ModernMenuItem(
         icon: Icons.music_note_outlined,
         title: 'Change Favorite Genres',
@@ -1232,7 +1097,6 @@ class MyState extends State<AccountPage>
               settings: const RouteSettings(arguments: 'fromDrawer'),
             ),
           );
-          // Refresh the account page when returning from favorite genres
           if (mounted) {
             await _initializeData();
           }
@@ -1329,7 +1193,6 @@ class MyState extends State<AccountPage>
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.w),
           child: Row(
             children: [
-              // Icon Container
               Container(
                 width: 44.w,
                 height: 44.w,
@@ -1342,7 +1205,6 @@ class MyState extends State<AccountPage>
 
               SizedBox(width: 16.w),
 
-              // Title
               Expanded(
                 child: Text(
                   item.title,
@@ -1355,7 +1217,6 @@ class MyState extends State<AccountPage>
                 ),
               ),
 
-              // Arrow Icon
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16.w,
@@ -1392,7 +1253,6 @@ class MyState extends State<AccountPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icon container with background
                 Container(
                   width: 80.w,
                   height: 80.w,
@@ -1409,7 +1269,6 @@ class MyState extends State<AccountPage>
 
                 SizedBox(height: 24.h),
 
-                // Title
                 Text(
                   'Are You Sure, You Want to\nLogout?',
                   textAlign: TextAlign.center,
@@ -1424,10 +1283,8 @@ class MyState extends State<AccountPage>
 
                 SizedBox(height: 32.h),
 
-                // Buttons
                 Row(
                   children: [
-                    // Cancel button
                     Expanded(
                       child: Container(
                         height: 48.h,
@@ -1463,7 +1320,6 @@ class MyState extends State<AccountPage>
 
                     SizedBox(width: 16.w),
 
-                    // Yes button
                     Expanded(
                       child: Container(
                         height: 48.h,
@@ -1476,13 +1332,10 @@ class MyState extends State<AccountPage>
                             audioHandler?.stop();
                             Logout().logout(context, token);
                             sharePrefs.removeValues();
-                            // Clear all cache data including images when logging out
                             await CacheManager.clearAllCacheIncludingImages();
 
-                            // Clear static variables to prevent data from persisting between accounts
                             imagePresent = '';
                             name = '';
-                            email = '';
                             artistStatus = 'P';
 
                             Navigator.of(context).pushAndRemoveUntil(
@@ -1521,7 +1374,6 @@ class MyState extends State<AccountPage>
     );
   }
 
-  // For Delete Account Dialog
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog<void>(
       context: context,
@@ -1546,7 +1398,6 @@ class MyState extends State<AccountPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icon container with background
                 Container(
                   width: 80.w,
                   height: 80.w,
@@ -1563,7 +1414,6 @@ class MyState extends State<AccountPage>
 
                 SizedBox(height: 24.h),
 
-                // Title
                 Text(
                   'Are You Sure, You Want to\nDelete your account?',
                   textAlign: TextAlign.center,
@@ -1578,7 +1428,6 @@ class MyState extends State<AccountPage>
 
                 SizedBox(height: 16.h),
 
-                // Warning text
                 Text(
                   'This action cannot be undone. All your data will be permanently deleted.',
                   textAlign: TextAlign.center,
@@ -1592,10 +1441,8 @@ class MyState extends State<AccountPage>
 
                 SizedBox(height: 32.h),
 
-                // Buttons
                 Row(
                   children: [
-                    // Cancel button
                     Expanded(
                       child: Container(
                         height: 48.h,
@@ -1631,7 +1478,6 @@ class MyState extends State<AccountPage>
 
                     SizedBox(width: 16.w),
 
-                    // Delete button
                     Expanded(
                       child: Container(
                         height: 48.h,
@@ -1641,7 +1487,6 @@ class MyState extends State<AccountPage>
                         ),
                         child: TextButton(
                           onPressed: () async {
-                            // Delete account logic from Delete.dart
                             int res = await Logout().deleteApi(
                               context,
                               token,
@@ -1649,7 +1494,6 @@ class MyState extends State<AccountPage>
                             );
                             if (res == 1) {
                               sharePrefs.removeValues();
-                              // Clear all cache data including images when deleting account
                               await CacheManager.clearAllCacheIncludingImages();
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
@@ -1659,7 +1503,6 @@ class MyState extends State<AccountPage>
                                 (Route<dynamic> route) => false,
                               );
                             } else {
-                              // Show error toast
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -1698,16 +1541,6 @@ class MyState extends State<AccountPage>
     );
   }
 
-  Widget _buildLoadingWidget() {
-    return SizedBox(
-      height: 400.w,
-      child: Center(
-        child: CircularProgressIndicator(color: appColors().primaryColorApp),
-      ),
-    );
-  }
-
-  // Add scroll listener for header animation
   void _scrollListener() {
     if (!_scrollController.hasClients) return;
 

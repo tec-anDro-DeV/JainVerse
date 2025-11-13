@@ -68,7 +68,7 @@ class _CircleLoaderState extends State<CircleLoader>
       ),
     );
 
-    _logoAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+    _logoAnimation = Tween<double>(begin: 0.65, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.6, 1.0, curve: Curves.easeInOut),
@@ -95,10 +95,9 @@ class _CircleLoaderState extends State<CircleLoader>
     return Container(
       width: widget.showBackground ? double.infinity : null,
       height: widget.showBackground ? double.infinity : null,
-      color:
-          widget.showBackground
-              ? (widget.backgroundColor ?? Colors.white.withOpacity(0.8))
-              : null,
+      color: widget.showBackground
+          ? (widget.backgroundColor ?? Colors.white.withOpacity(0.8))
+          : null,
       child: Center(
         child: SizedBox(
           width: outerCircleSize,

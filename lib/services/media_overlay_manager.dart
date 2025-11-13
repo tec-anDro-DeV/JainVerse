@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:developer' as developer;
 import 'package:jainverse/ThemeMain/sizes.dart';
 
 /// Types of overlays that may affect layout (audio mini-player, video mini-player, none)
@@ -37,11 +38,23 @@ class MediaOverlayManager {
         (type == MediaOverlayType.audioMini
             ? AppSizes.audioMiniPlayerHeight
             : AppSizes.videoMiniPlayerHeight);
+    developer.log(
+      '[MediaOverlayManager] showMiniPlayer: height=$h, type=$type',
+    );
     miniPlayerHeight.value = h;
+    developer.log(
+      '[MediaOverlayManager] showMiniPlayer: miniPlayerHeight now=${miniPlayerHeight.value}',
+    );
   }
 
   void hideMiniPlayer() {
+    developer.log(
+      '[MediaOverlayManager] hideMiniPlayer: clearing mini player height (was=${miniPlayerHeight.value})',
+    );
     overlayType.value = MediaOverlayType.none;
     miniPlayerHeight.value = 0.0;
+    developer.log(
+      '[MediaOverlayManager] hideMiniPlayer: miniPlayerHeight now=${miniPlayerHeight.value}',
+    );
   }
 }
