@@ -83,10 +83,10 @@ class VideoControlPanel extends ConsumerWidget {
           iconColor: effectiveTextColor,
           accentColor: effectiveAccentColor,
           showShuffle: false, // Hide shuffle for video
-          iconSize: 38.w,
+          iconSize: 50.w,
           // Make repeat and volume icons smaller than the primary controls
-          repeatIconSize: 28.w,
-          volumeIconSize: 28.w,
+          repeatIconSize: 40.w,
+          volumeIconSize: 40.w,
           // Make play/pause a bit larger on video full-screen for better tap/visibility
           playPauseIconSize: 60.w,
           volumeEnabled: videoState.isReady,

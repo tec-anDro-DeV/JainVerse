@@ -81,6 +81,27 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
     _listenToMediaChanges();
     _initializeSlideAnimation();
     _setupIOSDownloadCallback();
+    // Ensure status bar matches initial theme/background
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemUI(_themeService.currentColorScheme);
+    });
+  }
+
+  /// Update system UI (status bar) to match current theme colors.
+  void _updateSystemUI(ColorScheme? scheme) {
+    final statusBarColor = scheme?.primary ?? appColors().primaryColorApp;
+
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: statusBarColor,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        SystemChrome.setSystemUIOverlayStyle(overlayStyle);
+      } catch (_) {}
+    });
   }
 
   void _initializeServices() {
@@ -112,12 +133,10 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
       vsync: this,
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0.0, 1.0),
-    ).animate(
-      CurvedAnimation(parent: _slideController, curve: _animationCurve),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0.0, 1.0)).animate(
+          CurvedAnimation(parent: _slideController, curve: _animationCurve),
+        );
   }
 
   void _toggleQueueOverlay() {
@@ -755,9 +774,16 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
                         _themeService.backgroundAnimation ??
                         kAlwaysCompleteAnimation,
                     builder: (context, child) {
+                      // Update status bar to match animated theme when it changes
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _updateSystemUI(_themeService.currentColorScheme);
+                      });
+
                       return Container(
                         decoration: _themeService.buildBackgroundDecoration(),
                         child: SafeArea(
+                          // Allow background to extend to status bar
+                          top: false,
                           bottom: false, // Remove bottom padding
                           child: GestureDetector(
                             onPanStart: _onPanStart,
@@ -767,9 +793,11 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
                             child: AnimatedBuilder(
                               animation: _slideAnimation,
                               builder: (context, child) {
-                                final progress = (_dragDistance /
-                                        _maxDragDistance)
-                                    .clamp(0.0, 1.0);
+                                final progress =
+                                    (_dragDistance / _maxDragDistance).clamp(
+                                      0.0,
+                                      1.0,
+                                    );
                                 final fadeOpacity = (1.0 - (progress * 0.3))
                                     .clamp(0.7, 1.0);
 
@@ -804,13 +832,10 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
                                           child: ModernControlPanel(
                                             mediaItem: mediaItem,
                                             audioHandler: widget.audioHandler,
-                                            colorScheme:
-                                                _themeService
-                                                    .currentColorScheme,
-                                            onFavoriteToggle:
-                                                () => _handleKeepSong(
-                                                  favoritesHook,
-                                                ),
+                                            colorScheme: _themeService
+                                                .currentColorScheme,
+                                            onFavoriteToggle: () =>
+                                                _handleKeepSong(favoritesHook),
                                             onShare: _handleShare,
                                             onDownload: _handleDownload,
                                             onAddToPlaylist:
@@ -892,51 +917,48 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
     _currentOverlayEntry = null;
 
     final overlayEntry = OverlayEntry(
-      builder:
-          (context) => Positioned(
-            top: MediaQuery.of(context).padding.top + 45.w,
-            left: 16,
-            right: 16,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 45.w,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 1,
+                  offset: Offset(0, 2),
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 1,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+              ],
+            ),
+            child: Center(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: Center(
-                  child: Text(
-                    message,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
+        ),
+      ),
     );
 
     overlay.insert(overlayEntry);
     _currentOverlayEntry = overlayEntry;
 
     // Auto-dismiss after 3 seconds for download messages, 2 seconds for others
-    final dismissDuration =
-        isDownload ? const Duration(seconds: 3) : const Duration(seconds: 2);
+    final dismissDuration = isDownload
+        ? const Duration(seconds: 3)
+        : const Duration(seconds: 2);
     Future.delayed(dismissDuration, () {
       if (_currentOverlayEntry == overlayEntry) {
         if (overlayEntry.mounted) {

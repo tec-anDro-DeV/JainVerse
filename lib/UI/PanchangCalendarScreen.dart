@@ -146,6 +146,78 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
     super.dispose();
   }
 
+  /// Returns the active Choghadiya label for today (or null if none).
+  /// Uses `panchangData['choghadiya']` which contains `day` and `night`
+  /// slot lists with `start` and `end` times in "hh:mm AM/PM" format.
+  String? _getActiveChoghadiyaForToday() {
+    if (panchangData == null) return null;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sel = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    if (sel != today) return null; // only for today's date
+
+    final choghadiya = panchangData!['choghadiya'];
+    if (choghadiya == null) return null;
+
+    List<dynamic> daySlots = List<dynamic>.from(choghadiya['day'] ?? []);
+    List<dynamic> nightSlots = List<dynamic>.from(choghadiya['night'] ?? []);
+
+    DateTime _parse(String timeStr, DateTime baseDate) {
+      try {
+        final parts = timeStr.split(' ');
+        final hm = parts[0].split(':');
+        int hour = int.parse(hm[0]);
+        final minute = int.parse(hm[1]);
+        final period = parts.length > 1 ? parts[1] : 'AM';
+        if (period == 'PM' && hour != 12) hour += 12;
+        if (period == 'AM' && hour == 12) hour = 0;
+        return DateTime(
+          baseDate.year,
+          baseDate.month,
+          baseDate.day,
+          hour,
+          minute,
+        );
+      } catch (e) {
+        // fallback: return baseDate at midnight so comparisons fail safely
+        return DateTime(baseDate.year, baseDate.month, baseDate.day);
+      }
+    }
+
+    // Check day slots (sunrise..sunset) on the same day
+    for (final slot in daySlots) {
+      final start = _parse(slot['start'] ?? '', today);
+      var end = _parse(slot['end'] ?? '', today);
+      if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
+        end = end.add(const Duration(days: 1));
+      }
+      if (now.isAfter(start) && now.isBefore(end) ||
+          now.isAtSameMomentAs(start)) {
+        return slot['choghadiya']?.toString();
+      }
+    }
+
+    // Check night slots (sunset..next sunrise) - may cross midnight
+    for (final slot in nightSlots) {
+      final start = _parse(slot['start'] ?? '', today);
+      var end = _parse(slot['end'] ?? '', today);
+      if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
+        end = end.add(const Duration(days: 1));
+      }
+      if (now.isAfter(start) && now.isBefore(end) ||
+          now.isAtSameMomentAs(start)) {
+        return slot['choghadiya']?.toString();
+      }
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors();
@@ -371,6 +443,62 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
                     ),
                   ),
                   SizedBox(height: 4.w),
+                  // Show active Choghadiya only for today's date
+                  Builder(
+                    builder: (context) {
+                      final active = _getActiveChoghadiyaForToday();
+                      if (active == null) return SizedBox(height: 4.w);
+
+                      final chogColors = {
+                        'Amrit': Colors.green,
+                        'Shubh': Colors.green,
+                        'Labh': Colors.green,
+                        'Chal': Colors.green,
+                        'Rog': Colors.red,
+                        'Udveg': Colors.red,
+                        'Kaal': Colors.red,
+                      };
+
+                      final Color color =
+                          chogColors[active] ?? colors.gray[500]!;
+
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: 6.w),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10.w,
+                            vertical: 6.w,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(16.w),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8.w,
+                                height: 8.w,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Text(
+                                active,
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 12.w,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

@@ -49,9 +49,8 @@ class ModernVisualArea extends StatelessWidget {
         else
           Positioned.fill(
             child: Container(
-              color:
-                  Colors
-                      .black, // Changed from orange or any other color to black
+              color: Colors
+                  .black, // Changed from orange or any other color to black
             ),
           ),
 
@@ -95,9 +94,11 @@ class ModernVisualArea extends StatelessWidget {
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final double topPadding = MediaQuery.of(context).padding.top;
     return Container(
-      height: 56.w,
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      // Increase height to include status bar area so icons are not obscured
+      height: 56.w + topPadding,
+      padding: EdgeInsets.fromLTRB(16.w, topPadding, 16.w, 0),
       child: Row(
         children: [
           GestureDetector(

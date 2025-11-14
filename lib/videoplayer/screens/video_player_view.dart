@@ -721,7 +721,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(2.w, 12.h, 2.w, bottomPadding + 24.h),
+      padding: EdgeInsets.fromLTRB(2.w, 20.h, 2.w, bottomPadding + 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

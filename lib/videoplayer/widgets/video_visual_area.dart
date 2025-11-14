@@ -211,6 +211,90 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
     if (mounted) setState(() {});
   }
 
+  /// Handle single-tap down while in the continuation mode (after two
+  /// double-taps). This allows single taps to keep incrementing the skip
+  /// amount by +10s once the user has performed two double-tap gestures.
+  void _handleTapDown(TapDownDetails details, dynamic videoNotifier) {
+    final dx = details.globalPosition.dx;
+    final width = MediaQuery.of(context).size.width;
+    final isLeft = dx < width / 2;
+    final videoState = ref.read(videoPlayerProvider);
+
+    if (isLeft) {
+      // Only allow single-tap continuation after at least two double-taps
+      // have already been performed. This avoids interfering with normal
+      // single-tap controls and double-tap detection.
+      if (_accumulatedTapsLeft >= 2) {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (_) {}
+
+        _accumulatedTapsLeft++;
+        _showLeftOverlay = true;
+
+        // Keep controls suppressed while user is in the skip interaction
+        try {
+          final videoNotifierLocal = ref.read(videoPlayerProvider.notifier);
+          if (_previousControlsVisible == null) {
+            final prev = ref.read(videoPlayerProvider).showControls;
+            _previousControlsVisible = prev;
+          }
+          videoNotifierLocal.hideControls();
+        } catch (_) {}
+        _suppressRegularControls = true;
+
+        _leftTapWindowTimer?.cancel();
+        _leftTapWindowTimer = Timer(_tapWindow, () => _clearLeftAccumulation());
+
+        try {
+          final base = _leftBasePosition ?? videoState.position;
+          final seconds = _accumulatedTapsLeft * 10;
+          final target = base - Duration(seconds: seconds);
+          final clamped = target < Duration.zero ? Duration.zero : target;
+          videoNotifier.seekTo(clamped);
+        } catch (_) {}
+
+        if (mounted) setState(() {});
+      }
+    } else {
+      if (_accumulatedTapsRight >= 2) {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (_) {}
+
+        _accumulatedTapsRight++;
+        _showRightOverlay = true;
+
+        try {
+          final videoNotifierLocal = ref.read(videoPlayerProvider.notifier);
+          if (_previousControlsVisible == null) {
+            final prev = ref.read(videoPlayerProvider).showControls;
+            _previousControlsVisible = prev;
+          }
+          videoNotifierLocal.hideControls();
+        } catch (_) {}
+        _suppressRegularControls = true;
+
+        _rightTapWindowTimer?.cancel();
+        _rightTapWindowTimer = Timer(
+          _tapWindow,
+          () => _clearRightAccumulation(),
+        );
+
+        try {
+          final base = _rightBasePosition ?? videoState.position;
+          final seconds = _accumulatedTapsRight * 10;
+          final duration = videoState.duration;
+          final target = base + Duration(seconds: seconds);
+          final clamped = target > duration ? duration : target;
+          videoNotifier.seekTo(clamped);
+        } catch (_) {}
+
+        if (mounted) setState(() {});
+      }
+    }
+  }
+
   @override
   void dispose() {
     _leftTapWindowTimer?.cancel();
@@ -411,7 +495,7 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: -28.h,
+              bottom: -36.h,
               child: IgnorePointer(
                 ignoring: false,
                 child: Center(
@@ -451,8 +535,9 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
                           textColor: widget.theme?.textColor ?? Colors.white,
                           onSeek: (pos) async {
                             try {
-                              if (controller != null)
+                              if (controller != null) {
                                 await controller.seekTo(pos);
+                              }
                             } catch (_) {}
                           },
                           enabled: true,
@@ -518,7 +603,10 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
     // Forward taps to the notifier so controls toggle consistently.
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTap: () => videoNotifier.toggleControls(),
+      onTapDown: (details) => _handleTapDown(details, videoNotifier),
+      onTap: () {
+        if (!_suppressRegularControls) videoNotifier.toggleControls();
+      },
       onDoubleTapDown: (details) =>
           _handleDoubleTapDown(details, videoNotifier),
       child: Center(

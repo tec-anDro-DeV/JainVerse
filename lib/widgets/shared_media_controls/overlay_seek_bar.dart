@@ -52,7 +52,9 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
   // simple haptic debounce when scrubbing keyframes
   int? _lastHapticSecond;
 
-  static final double _barHeight = 56.w; // total widget height
+  // Increased total widget height to give a larger, easier-to-hit area
+  // while keeping the visible track unchanged. Improves tap/drag reliability.
+  static final double _barHeight = 84.h; // total widget height (hit area)
 
   @override
   void initState() {
@@ -129,7 +131,14 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
           onHover: (_) {},
           onEnter: (_) {},
           child: GestureDetector(
+            // Prevent vertical drags from bubbling to parent scroll views by
+            // handling vertical drag gestures here. We only act on
+            // horizontal drags for seeking; vertical drags are captured
+            // (to stop scroll) but not used.
             behavior: HitTestBehavior.translucent,
+            onVerticalDragStart: (_) {},
+            onVerticalDragUpdate: (_) {},
+            onVerticalDragEnd: (_) {},
             onTapDown: (details) {
               // compute local fraction and seek
               final box = context.findRenderObject() as RenderBox?;
@@ -201,18 +210,15 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
                                     alignment: Alignment.centerLeft,
                                     children: [
                                       Container(
-                                        height: 4.h,
+                                        height: 6.h,
                                         decoration: BoxDecoration(
-                                          color: backgroundColor,
-                                          borderRadius: BorderRadius.circular(
-                                            4.w,
-                                          ),
+                                          color: Colors.grey[700],
                                         ),
                                       ),
                                       FractionallySizedBox(
                                         widthFactor: buffered,
                                         child: Container(
-                                          height: 4.h,
+                                          height: 6.h,
                                           decoration: BoxDecoration(
                                             color: backgroundColor.withOpacity(
                                               0.6,
@@ -226,12 +232,9 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
                                       FractionallySizedBox(
                                         widthFactor: played,
                                         child: Container(
-                                          height: 4.h,
+                                          height: 6.h,
                                           decoration: BoxDecoration(
                                             color: progressColor,
-                                            borderRadius: BorderRadius.circular(
-                                              4.w,
-                                            ),
                                           ),
                                         ),
                                       ),
@@ -240,8 +243,10 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
                                       LayoutBuilder(
                                         builder: (context, bc) {
                                           final width = bc.maxWidth;
-                                          final thumbSize = 44.w;
-                                          final dotSize = 12.w;
+                                          // Larger hit-target so users can tap and drag
+                                          // comfortably, especially near edges.
+                                          final thumbSize = 56.w;
+                                          final dotSize = 15.w;
                                           // Position the hit-target such that its
                                           // center equals `played * width`. Instead
                                           // of clamping the left edge (which caused
@@ -259,24 +264,80 @@ class _OverlaySeekBarState extends State<OverlaySeekBar>
                                             -thumbSize / 2,
                                             width - (thumbSize / 2),
                                           );
+                                          // Make the visible thumb draggable by wrapping
+                                          // the hit-target in a GestureDetector that
+                                          // calculates the seek fraction using the
+                                          // LayoutBuilder's width. This keeps drag
+                                          // behavior reliable even when the thumb
+                                          // partially overflows the track.
                                           return Transform.translate(
                                             offset: Offset(left, 0),
-                                            child: SizedBox(
-                                              width: thumbSize,
-                                              height: thumbSize,
-                                              child: Center(
-                                                child: Container(
-                                                  width: dotSize,
-                                                  height: dotSize,
-                                                  decoration: BoxDecoration(
-                                                    color: handleColor,
-                                                    shape: BoxShape.circle,
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black26,
-                                                        blurRadius: 2.r,
-                                                      ),
-                                                    ],
+                                            child: GestureDetector(
+                                              behavior:
+                                                  HitTestBehavior.translucent,
+                                              // Capture vertical drags on the thumb so
+                                              // parent scroll views don't steal the
+                                              // gesture when the user intends to seek.
+                                              onVerticalDragStart: (_) {},
+                                              onVerticalDragUpdate: (_) {},
+                                              onVerticalDragEnd: (_) {},
+                                              onHorizontalDragStart: (_) {
+                                                _lastHapticSecond = null;
+                                              },
+                                              onHorizontalDragUpdate:
+                                                  (DragUpdateDetails details) {
+                                                    final box =
+                                                        context.findRenderObject()
+                                                            as RenderBox?;
+                                                    if (box == null) return;
+                                                    final w = width;
+                                                    if (w <= 0) return;
+                                                    final local = box
+                                                        .globalToLocal(
+                                                          details
+                                                              .globalPosition,
+                                                        );
+                                                    final dx = local.dx.clamp(
+                                                      0.0,
+                                                      w,
+                                                    );
+                                                    final frac = (dx / w).clamp(
+                                                      0.0,
+                                                      1.0,
+                                                    );
+                                                    setState(() {
+                                                      _dragValue = frac;
+                                                    });
+                                                    _maybeHapticForFraction(
+                                                      frac,
+                                                    );
+                                                  },
+                                              onHorizontalDragEnd: (_) {
+                                                final frac =
+                                                    (_dragValue ?? played)
+                                                        .clamp(0.0, 1.0);
+                                                _seekToFraction(frac);
+                                                setState(
+                                                  () => _dragValue = null,
+                                                );
+                                              },
+                                              child: SizedBox(
+                                                width: thumbSize,
+                                                height: thumbSize,
+                                                child: Center(
+                                                  child: Container(
+                                                    width: dotSize,
+                                                    height: dotSize,
+                                                    decoration: BoxDecoration(
+                                                      color: handleColor,
+                                                      shape: BoxShape.circle,
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black26,
+                                                          blurRadius: 2.r,
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
