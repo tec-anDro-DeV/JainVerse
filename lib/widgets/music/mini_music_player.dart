@@ -240,10 +240,19 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         developer.log(
           '[MiniMusicPlayer] _showMiniPlayer: calling MediaOverlayManager.showMiniPlayer(height=${_MiniPlayerConfig.height})',
         );
-        MediaOverlayManager.instance.showMiniPlayer(
-          height: _MiniPlayerConfig.height,
-          type: MediaOverlayType.audioMini,
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          try {
+            MediaOverlayManager.instance.showMiniPlayer(
+              height: _MiniPlayerConfig.height,
+              type: MediaOverlayType.audioMini,
+            );
+          } catch (e) {
+            developer.log(
+              '[MiniMusicPlayer] deferred showMiniPlayer error: $e',
+            );
+          }
+        });
         developer.log(
           '[MiniMusicPlayer] _showMiniPlayer: MediaOverlayManager updated',
         );
@@ -287,7 +296,16 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         developer.log(
           '[MiniMusicPlayer] _hideMiniPlayer: calling MediaOverlayManager.hideMiniPlayer()',
         );
-        MediaOverlayManager.instance.hideMiniPlayer();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          try {
+            MediaOverlayManager.instance.hideMiniPlayer();
+          } catch (e) {
+            developer.log(
+              '[MiniMusicPlayer] deferred hideMiniPlayer error: $e',
+            );
+          }
+        });
         developer.log(
           '[MiniMusicPlayer] _hideMiniPlayer: MediaOverlayManager hid mini player',
         );

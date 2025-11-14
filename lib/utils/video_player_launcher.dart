@@ -21,11 +21,11 @@ Future<void> launchVideoPlayer(
   List<String>? playlist,
   int? playlistIndex,
 }) async {
-  // Ensure any active music playback is fully stopped before launching video
+  // Ensure any active music playback is stopped, but don't block navigation.
   try {
-    await MusicManager.instance.stopAndDisposeAll(
-      reason: 'video-player-launch',
-    );
+    MusicManager.instance
+        .stopAndDisposeAll(reason: 'video-player-launch')
+        .catchError((_) {});
   } catch (_) {}
 
   // Get the ProviderContainer to access Riverpod providers
@@ -39,59 +39,47 @@ Future<void> launchVideoPlayer(
   final subtitle = videoSubtitle ?? videoItem?.channelName;
   final thumbnail = thumbnailUrl ?? videoItem?.thumbnailUrl;
 
-  // Pre-cache thumbnail (if present) so VideoPlayerView background does not
-  // show a white flash while the image downloads. We keep a short timeout so
-  // navigation isn't blocked indefinitely on slow networks.
+  // Kick off pre-cache of the thumbnail (if present) but don't await it.
+  // Blocking here harms perceived navigation performance on slow networks.
   if (thumbnail != null && thumbnail.isNotEmpty) {
     try {
-      await precacheImage(
+      precacheImage(
         NetworkImage(thumbnail),
         context,
-      ).timeout(const Duration(milliseconds: 1200));
-    } catch (_) {
-      // Ignore errors/timeouts - we'll fall back to theme gradient in the view
-    }
+      ).timeout(const Duration(milliseconds: 1200)).catchError((_) {});
+    } catch (_) {}
   }
-  // Try to extract a theme from the thumbnail synchronously (short timeout)
-  // and apply the overlay style immediately before navigation. This helps
-  // prevent the system status bar from showing the previous route's color.
-  try {
-    if (thumbnail != null && thumbnail.isNotEmpty) {
-      final theme = await VideoPlayerThemeService()
+
+  // Try to extract a theme from the thumbnail, but do it asynchronously
+  // without blocking navigation. When the theme is ready we'll apply the
+  // overlay style; failures or timeouts are ignored.
+  if (thumbnail != null && thumbnail.isNotEmpty) {
+    try {
+      VideoPlayerThemeService()
           .generateThemeFromThumbnail(thumbnailUrl: thumbnail, context: context)
-          .timeout(const Duration(milliseconds: 900));
-
-      final statusBarColor = theme.primaryColor;
-      final statusBarIsLight =
-          ThemeData.estimateBrightnessForColor(statusBarColor) ==
-          Brightness.light;
-      final overlay = SystemUiOverlayStyle(
-        statusBarColor: statusBarColor,
-        statusBarIconBrightness: statusBarIsLight
-            ? Brightness.dark
-            : Brightness.light,
-        statusBarBrightness: statusBarIsLight
-            ? Brightness.light
-            : Brightness.dark,
-      );
-
-      // Apply right before navigation to increase likelihood the system will
-      // honor it for the incoming route.
-      try {
-        SystemChrome.setSystemUIOverlayStyle(overlay);
-      } catch (_) {}
-    }
-  } catch (_) {
-    // Ignore extraction failures/timeouts and continue to navigate.
+          .timeout(const Duration(milliseconds: 900))
+          .then((theme) {
+            try {
+              final statusBarColor = theme.primaryColor;
+              final statusBarIsLight =
+                  ThemeData.estimateBrightnessForColor(statusBarColor) ==
+                  Brightness.light;
+              final overlay = SystemUiOverlayStyle(
+                statusBarColor: statusBarColor,
+                statusBarIconBrightness: statusBarIsLight
+                    ? Brightness.dark
+                    : Brightness.light,
+                statusBarBrightness: statusBarIsLight
+                    ? Brightness.light
+                    : Brightness.dark,
+              );
+              SystemChrome.setSystemUIOverlayStyle(overlay);
+            } catch (_) {}
+          })
+          .catchError((_) {});
+    } catch (_) {}
   }
   final id = videoId.isNotEmpty ? videoId : (videoItem?.id.toString() ?? '');
-
-  // Best-effort prefetch for replacement navigation as well
-  try {
-    container
-        .read(videoPlayerProvider.notifier)
-        .prefetchVideo(videoUrl: videoUrl, videoId: id);
-  } catch (_) {}
 
   // Best-effort: prefetch video controller in background so the full-screen
   // player can attach quickly when the route opens. This is non-blocking.
@@ -105,10 +93,13 @@ Future<void> launchVideoPlayer(
   // intermediate white frame during route transition. Use the root navigator
   // so the video player is shown as a top-level route and doesn't inherit
   // intermediate UI from nested navigators.
+  debugPrint(
+    'VIDEO_NAV_START push id:$id time:${DateTime.now().millisecondsSinceEpoch}',
+  );
   Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder(
       opaque: true,
-      transitionDuration: const Duration(milliseconds: 220),
+      transitionDuration: Duration.zero,
       pageBuilder: (context, animation, secondaryAnimation) => VideoPlayerView(
         videoUrl: videoUrl,
         videoId: id,
@@ -127,6 +118,9 @@ Future<void> launchVideoPlayer(
       },
     ),
   );
+  debugPrint(
+    'VIDEO_NAV_AFTER_PUSH id:$id time:${DateTime.now().millisecondsSinceEpoch}',
+  );
 }
 
 /// Helper function to replace current route with video player
@@ -142,11 +136,11 @@ Future<void> replaceWithVideoPlayer(
   List<String>? playlist,
   int? playlistIndex,
 }) async {
-  // Ensure any active music playback is fully stopped before launching video
+  // Ensure any active music playback is stopped, but don't block navigation.
   try {
-    await MusicManager.instance.stopAndDisposeAll(
-      reason: 'video-player-replace',
-    );
+    MusicManager.instance
+        .stopAndDisposeAll(reason: 'video-player-replace')
+        .catchError((_) {});
   } catch (_) {}
 
   // Get the ProviderContainer to access Riverpod providers
@@ -160,22 +154,26 @@ Future<void> replaceWithVideoPlayer(
   final subtitle = videoSubtitle ?? videoItem?.channelName;
   final thumbnail = thumbnailUrl ?? videoItem?.thumbnailUrl;
 
-  // Pre-cache thumbnail before replacing route to avoid initial white flash
+  // Kick off pre-cache of the thumbnail before replacing the route, but
+  // don't await it so navigation remains snappy on slow networks.
   if (thumbnail != null && thumbnail.isNotEmpty) {
     try {
-      await precacheImage(
+      precacheImage(
         NetworkImage(thumbnail),
         context,
-      ).timeout(const Duration(milliseconds: 1200));
+      ).timeout(const Duration(milliseconds: 1200)).catchError((_) {});
     } catch (_) {}
   }
   final id = videoId.isNotEmpty ? videoId : (videoItem?.id.toString() ?? '');
 
   // Replace current route with new video player using a fade transition
+  debugPrint(
+    'VIDEO_NAV_START replace id:$id time:${DateTime.now().millisecondsSinceEpoch}',
+  );
   Navigator.of(context).pushReplacement(
     PageRouteBuilder(
       opaque: true,
-      transitionDuration: const Duration(milliseconds: 220),
+      transitionDuration: Duration.zero,
       pageBuilder: (context, animation, secondaryAnimation) => VideoPlayerView(
         videoUrl: videoUrl,
         videoId: id,
@@ -193,5 +191,8 @@ Future<void> replaceWithVideoPlayer(
         return FadeTransition(opacity: animation, child: child);
       },
     ),
+  );
+  debugPrint(
+    'VIDEO_NAV_AFTER_REPLACE id:$id time:${DateTime.now().millisecondsSinceEpoch}',
   );
 }

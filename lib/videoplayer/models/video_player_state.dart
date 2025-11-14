@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:jainverse/videoplayer/models/video_item.dart';
 
 /// Represents the current state of the video player
 @immutable
@@ -18,6 +19,8 @@ class VideoPlayerState {
   final String? currentVideoTitle;
   final String? currentVideoSubtitle;
   final String? thumbnailUrl;
+  // Authoritative metadata for the current video (persisted across minimize/restore)
+  final VideoItem? currentVideoItem;
   // Channel metadata (used for showing avatar/subscribe in mini/full UI)
   final int? channelId;
   final String? channelAvatarUrl;
@@ -48,6 +51,7 @@ class VideoPlayerState {
     this.currentVideoTitle,
     this.currentVideoSubtitle,
     this.thumbnailUrl,
+    this.currentVideoItem,
     this.channelId,
     this.channelAvatarUrl,
     this.isLoading = false,
@@ -72,6 +76,7 @@ class VideoPlayerState {
     String? currentVideoTitle,
     String? currentVideoSubtitle,
     String? thumbnailUrl,
+    VideoItem? currentVideoItem,
     int? channelId,
     String? channelAvatarUrl,
     bool? isLoading,
@@ -97,6 +102,7 @@ class VideoPlayerState {
       currentVideoTitle: currentVideoTitle ?? this.currentVideoTitle,
       currentVideoSubtitle: currentVideoSubtitle ?? this.currentVideoSubtitle,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      currentVideoItem: currentVideoItem ?? this.currentVideoItem,
       channelId: channelId ?? this.channelId,
       channelAvatarUrl: channelAvatarUrl ?? this.channelAvatarUrl,
       isLoading: isLoading ?? this.isLoading,
@@ -148,6 +154,7 @@ class VideoPlayerState {
         other.currentVideoTitle == currentVideoTitle &&
         other.currentVideoSubtitle == currentVideoSubtitle &&
         other.thumbnailUrl == thumbnailUrl &&
+        other.currentVideoItem == currentVideoItem &&
         other.channelId == channelId &&
         other.channelAvatarUrl == channelAvatarUrl &&
         other.isLoading == isLoading &&
@@ -172,6 +179,7 @@ class VideoPlayerState {
         currentVideoTitle.hashCode ^
         currentVideoSubtitle.hashCode ^
         thumbnailUrl.hashCode ^
+        currentVideoItem.hashCode ^
         isLoading.hashCode ^
         errorMessage.hashCode ^
         repeatMode.hashCode ^

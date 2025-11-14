@@ -41,6 +41,9 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
   bool? _isSubscribed;
   int? _currentUserId;
 
+  // Track last-known mini player visibility to avoid redundant overlay updates
+  bool? _lastHasMiniPlayer;
+
   @override
   void initState() {
     super.initState();
@@ -322,14 +325,21 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
         // Check if mini player is visible (music is playing)
         final hasMiniPlayer = snapshot.hasData;
 
-        // Sync overlay manager so layout elsewhere can react
-        if (hasMiniPlayer) {
-          MediaOverlayManager.instance.showMiniPlayer(
-            type: MediaOverlayType.audioMini,
-          );
-        } else {
-          MediaOverlayManager.instance.hideMiniPlayer();
-        }
+        // Schedule overlay visibility updates after the current frame to
+        // avoid calling ValueNotifier changes while widgets are being built.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_lastHasMiniPlayer == hasMiniPlayer) return;
+          _lastHasMiniPlayer = hasMiniPlayer;
+
+          if (hasMiniPlayer) {
+            MediaOverlayManager.instance.showMiniPlayer(
+              type: MediaOverlayType.audioMini,
+            );
+          } else {
+            MediaOverlayManager.instance.hideMiniPlayer();
+          }
+        });
 
         // Compute bottom padding centrally (adds an extra 25.w margin)
         final bottomPadding = AppPadding.bottom(context) + 25.w;

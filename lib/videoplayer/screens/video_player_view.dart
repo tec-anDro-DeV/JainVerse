@@ -116,6 +116,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
   void initState() {
     super.initState();
+    debugPrint(
+      'VIDEO_PLAYER_INIT_STATE videoId:${widget.videoId} time:${DateTime.now().millisecondsSinceEpoch}',
+    );
     // We don't attempt to capture the prior overlay style (not reliably
     // available across platforms). Instead we restore a safe default on exit.
 
@@ -124,7 +127,12 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // the thumbnail-derived theme is ready.
     _theme = VideoPlayerTheme.defaultTheme();
     _updateSystemUI(_theme!);
-    Future.microtask(() => _ensureAutoRotate(resetOrientationState: true));
+    // Defer orientation changes until after the first frame so any
+    // platform channel calls (which can be slow on some devices) do not
+    // delay the initial render.
+    // Previously this ran in a microtask which could execute before the
+    // first frame and add ~200-300ms delay. We'll run it in the
+    // post-frame callback below.
 
     // Initialize drag animation controller
     _dragAnimationController = AnimationController(
@@ -157,6 +165,12 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // the background so the user perceives the player as opening instantly.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      debugPrint(
+        'VIDEO_PLAYER_FIRST_FRAME_CALLBACK videoId:${widget.videoId} time:${DateTime.now().millisecondsSinceEpoch}',
+      );
+      // Ensure auto-rotate/setup runs after the first frame to avoid
+      // blocking the initial render with platform channel calls.
+      _ensureAutoRotate(resetOrientationState: true);
 
       _initializeVideoPlayer();
       // Notify global state manager to hide mini players/navigation while full player is shown
@@ -242,12 +256,22 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // Check if widget is still mounted
     if (!mounted) return;
 
+    debugPrint(
+      'VIDEO_PLAYER_INITIALIZE_START videoId:${widget.videoId} time:${DateTime.now().millisecondsSinceEpoch}',
+    );
+
     try {
-      await MusicManager.instance.stopAndDisposeAll(
-        reason: 'video-player-view-init',
-      );
+      MusicManager.instance
+          .stopAndDisposeAll(reason: 'video-player-view-init')
+          .catchError((e) {
+            debugPrint(
+              '[VideoPlayerView] Failed to stop music before init: $e',
+            );
+          });
     } catch (e) {
-      debugPrint('[VideoPlayerView] Failed to stop music before init: $e');
+      debugPrint(
+        '[VideoPlayerView] Failed to start music stop before init: $e',
+      );
     }
 
     final videoNotifier = ref.read(videoPlayerProvider.notifier);
@@ -300,6 +324,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           channelAvatarUrl: widget.channelAvatarUrl,
           playlist: widget.playlist,
           playlistIndex: widget.playlistIndex,
+          videoItem: widget.videoItem,
         ),
       );
     }
@@ -501,6 +526,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       thumbnailUrl: item.thumbnailUrl,
       channelId: item.channelId,
       channelAvatarUrl: item.channelImageUrl,
+      videoItem: item,
     );
 
     if (!mounted) return;
@@ -767,7 +793,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       videoState.currentVideoTitle ?? widget.title ?? '',
                   // pass the originating VideoItem (may be null) so the sheet
                   // can render description, views, createdAt etc.
-                  videoItem: widget.videoItem,
+                  videoItem: videoState.currentVideoItem ?? widget.videoItem,
                   // pass explicit channel id so the sheet can listen/update
                   // even when widget.videoItem is null (e.g. after minimize)
                   channelId: widget.channelId ?? videoState.channelId,
@@ -831,6 +857,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             Builder(
               builder: (context) {
                 final likeState =
+                    videoState.currentVideoItem?.like ??
                     LikeDislikeStateManager().getLikeState(currentVideoIdInt) ??
                     0;
                 final isReported = ReportStateManager().isReported(
@@ -845,7 +872,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       onLike: () => _handleLikePressed(currentVideoIdInt),
                       onDislike: () => _handleDislikePressed(currentVideoIdInt),
                       totalLikes:
-                          _localTotalLikes ?? widget.videoItem?.totalLikes,
+                          _localTotalLikes ??
+                          videoState.currentVideoItem?.totalLikes ??
+                          widget.videoItem?.totalLikes,
                       onReport: isReported
                           ? null
                           : () => _handleReportPressed(
@@ -1523,24 +1552,43 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   /// Optimistic like handler
   Future<void> _handleLikePressed(int videoId) async {
     final manager = LikeDislikeStateManager();
-    final previous = manager.getLikeState(videoId) ?? 0;
+    // Prefer provider-held like state; fall back to global manager if missing.
+    final videoState = ref.read(videoPlayerProvider);
+    final videoNotifier = ref.read(videoPlayerProvider.notifier);
+    final currentItem = videoState.currentVideoItem;
+    final previous = currentItem?.like ?? manager.getLikeState(videoId) ?? 0;
     final newState = previous == 1 ? 0 : 1;
 
-    // Determine a reasonable base like count from the originating VideoItem
-    // or previously stored local count.
-    final base = widget.videoItem?.totalLikes ?? _localTotalLikes ?? 0;
+    // Capture a base like count from the authoritative source (provider)
+    // falling back to the incoming widget or local cache.
+    final base =
+        currentItem?.totalLikes ??
+        widget.videoItem?.totalLikes ??
+        _localTotalLikes ??
+        0;
     int updatedLikes = base;
 
-    if (previous == 1 && newState != 1) {
-      updatedLikes = base - 1;
-      if (updatedLikes < 0) updatedLikes = 0;
-    } else if (previous != 1 && newState == 1) {
-      updatedLikes = base + 1;
+    // Compute delta safely for all state transitions
+    int delta = 0;
+    if (newState == 1) {
+      // Moving to liked
+      if (previous == 1) delta = -1; // toggling off
+      if (previous == 0) delta = 1; // neutral -> like
+      if (previous == 2) delta = 1; // dislike -> like
+    } else if (newState == 0) {
+      // Moving to neutral
+      if (previous == 1) delta = -1; // unlike
     }
 
-    // Optimistically update global state and local UI count so lists/screens
-    // update immediately.
+    updatedLikes = base + delta;
+    if (updatedLikes < 0) updatedLikes = 0;
+
+    // Optimistically update global manager and provider-held item
     manager.updateLikeState(videoId, newState);
+    videoNotifier.updateCurrentVideoItem(
+      like: newState,
+      totalLikes: updatedLikes,
+    );
     if (mounted) {
       setState(() {
         _localTotalLikes = updatedLikes;
@@ -1554,8 +1602,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       );
 
       if (!success) {
-        // rollback both global state and local UI count
+        // rollback both global state and provider/local UI count
         manager.updateLikeState(videoId, previous);
+        videoNotifier.updateCurrentVideoItem(like: previous, totalLikes: base);
         if (mounted) {
           setState(() {
             _localTotalLikes = base;
@@ -1568,6 +1617,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     } catch (e) {
       // rollback
       manager.updateLikeState(videoId, previous);
+      videoNotifier.updateCurrentVideoItem(like: previous, totalLikes: base);
       if (mounted) {
         setState(() {
           _localTotalLikes = base;
@@ -1582,20 +1632,39 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   /// Optimistic dislike handler
   Future<void> _handleDislikePressed(int videoId) async {
     final manager = LikeDislikeStateManager();
-    final previous = manager.getLikeState(videoId) ?? 0;
+    final videoState = ref.read(videoPlayerProvider);
+    final videoNotifier = ref.read(videoPlayerProvider.notifier);
+    final currentItem = videoState.currentVideoItem;
+    final previous = currentItem?.like ?? manager.getLikeState(videoId) ?? 0;
     final newState = previous == 2 ? 0 : 2;
 
-    final base = widget.videoItem?.totalLikes ?? _localTotalLikes ?? 0;
+    // Base like count from provider (authoritative) or fallback
+    final base =
+        currentItem?.totalLikes ??
+        widget.videoItem?.totalLikes ??
+        _localTotalLikes ??
+        0;
     int updatedLikes = base;
 
-    // If we're moving away from a liked state, decrement the like count.
-    if (previous == 1 && newState != 1) {
-      updatedLikes = base - 1;
-      if (updatedLikes < 0) updatedLikes = 0;
+    // Compute delta: if moving away from liked state, decrement.
+    int delta = 0;
+    if (newState == 2) {
+      // Setting dislike: if previously liked, remove one like
+      if (previous == 1) delta = -1;
+    } else if (newState == 0) {
+      // Removing dislike: no change unless previous was liked (handled above)
+      if (previous == 1) delta = -1;
     }
 
-    // Optimistically update
+    updatedLikes = base + delta;
+    if (updatedLikes < 0) updatedLikes = 0;
+
+    // Optimistically update global manager and provider-held item
     manager.updateLikeState(videoId, newState);
+    videoNotifier.updateCurrentVideoItem(
+      like: newState,
+      totalLikes: updatedLikes,
+    );
     if (mounted) {
       setState(() {
         _localTotalLikes = updatedLikes;
@@ -1611,6 +1680,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       if (!success) {
         // rollback
         manager.updateLikeState(videoId, previous);
+        videoNotifier.updateCurrentVideoItem(like: previous, totalLikes: base);
         if (mounted) {
           setState(() {
             _localTotalLikes = base;
@@ -1622,6 +1692,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       }
     } catch (e) {
       manager.updateLikeState(videoId, previous);
+      videoNotifier.updateCurrentVideoItem(like: previous, totalLikes: base);
       if (mounted) {
         setState(() {
           _localTotalLikes = base;

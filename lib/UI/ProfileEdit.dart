@@ -856,7 +856,15 @@ class myState extends State<ProfileEdit> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Prevent back navigation during loading
+        // If keyboard is visible, close the keyboard instead of popping
+        // the route. This prevents keyboards that send a back/dismiss
+        // event (some Android keyboards) from closing the screen.
+        if (MediaQuery.of(context).viewInsets.bottom > 0) {
+          FocusScope.of(context).unfocus();
+          return false; // don't pop
+        }
+
+        // Otherwise, allow pop only when not loading
         return !_isLoading;
       },
       child: Scaffold(

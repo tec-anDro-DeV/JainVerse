@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/services/media_overlay_manager.dart';
@@ -13,20 +11,19 @@ import 'package:jainverse/widgets/common/app_header.dart';
 import 'package:jainverse/widgets/user_channel/banner_section.dart';
 import 'package:jainverse/widgets/user_channel/info_card.dart';
 import 'package:jainverse/widgets/user_channel/edit_form.dart';
-import 'package:jainverse/widgets/user_channel/my_videos_section.dart';
 import 'package:jainverse/models/channel_model.dart';
-import 'package:jainverse/presenters/channel_presenter.dart';
+// Channel network/caching handled by ChannelService
+import 'package:jainverse/services/channel_service.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/UI/ChannelSettings.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/my_videos_service.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
-import 'package:jainverse/videoplayer/widgets/video_card.dart';
-import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
+// moved: MyVideosSection and video card widgets now used from `user_channel_videos.dart`
 import 'package:jainverse/videoplayer/screens/video_player_view.dart';
-import 'package:jainverse/utils/image_compressor.dart';
 import 'package:jainverse/utils/crash_prevention_helper.dart';
-import 'package:jainverse/utils/image_optimizer.dart';
+import 'package:jainverse/UI/user_channel_image_helper.dart';
+import 'package:jainverse/UI/user_channel_videos.dart';
 
 class UserChannel extends StatefulWidget {
   final ChannelModel channel;
@@ -38,7 +35,7 @@ class UserChannel extends StatefulWidget {
 }
 
 class _UserChannelState extends State<UserChannel>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
 
@@ -67,45 +64,17 @@ class _UserChannelState extends State<UserChannel>
   /// Converts an [XFile] (or a path that might be a content:// URI) into a
   /// local temporary File with a file:// path that native crop libraries can
   /// safely open. Returns null on failure.
-  Future<File?> _xFileToLocalFile(XFile xfile, {String? prefix}) async {
-    try {
-      // If the path is a content URI (Android), read the bytes and write to tmp
-      final rawPath = xfile.path;
-      if (rawPath.startsWith('content://')) {
-        final bytes = await xfile.readAsBytes();
-        final tmp = await getTemporaryDirectory();
-        final out = File(
-          '${tmp.path}/${prefix ?? 'img'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-        await out.writeAsBytes(bytes);
-        return out;
-      }
-
-      final f = File(rawPath);
-      if (await f.exists()) return f;
-
-      // Fallback: try reading bytes and writing to temp
-      try {
-        final bytes = await xfile.readAsBytes();
-        final tmp = await getTemporaryDirectory();
-        final out = File(
-          '${tmp.path}/${prefix ?? 'img'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-        await out.writeAsBytes(bytes);
-        return out;
-      } catch (e) {
-        return null;
-      }
-    } catch (e) {
-      return null;
-    }
-  }
 
   // Form validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   // Store updated channel data
   late ChannelModel _currentChannel;
+  // Channel loading / caching state
+  bool _isLoadingChannel = true;
+  bool _usedCache = false;
+
+  // Note: channel fetching and caching delegated to `ChannelService`
 
   // My Videos state
   final MyVideosService _myVideosService = MyVideosService();
@@ -113,14 +82,11 @@ class _UserChannelState extends State<UserChannel>
   bool _isLoadingVideos = true;
   String? _videosError;
 
-  // Helper getters for blocked/unblocked videos
-  List<VideoItem> get _blockedVideos {
-    return _myVideos.where((v) => (v.block ?? 0) == 1).toList();
-  }
+  // Track last-known mini player visibility to avoid redundant overlay updates
+  bool? _lastHasMiniPlayer;
 
-  List<VideoItem> get _unblockedVideos {
-    return _myVideos.where((v) => (v.block ?? 0) != 1).toList();
-  }
+  // Helper getters for blocked/unblocked videos
+  // (blocked/unblocked lists are handled inside the videos widget)
 
   @override
   void initState() {
@@ -152,6 +118,40 @@ class _UserChannelState extends State<UserChannel>
 
     // Load my videos
     _loadMyVideos();
+
+    // Begin loading fresh channel data (will use cache then revalidate)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadChannelOnOpen());
+
+    // Observe app lifecycle to revalidate when app resumes
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      final ModalRoute? route = ModalRoute.of(context);
+      if (route != null) routeObserver.subscribe(this, route);
+    } catch (e) {}
+  }
+
+  @override
+  void didPopNext() {
+    // Returned to this route -> revalidate channel (coalesced)
+    _loadChannelOnOpen();
+  }
+
+  @override
+  void didPush() {
+    // Screen pushed -> ensure we fetch
+    _loadChannelOnOpen();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadChannelOnOpen();
+    }
   }
 
   Future<void> _loadMyVideos() async {
@@ -176,6 +176,14 @@ class _UserChannelState extends State<UserChannel>
 
   @override
   void dispose() {
+    // This dispose block performs the heavy cleanup and runs after the
+    // lightweight unsubscribe above.
+    try {
+      routeObserver.unsubscribe(this);
+    } catch (_) {}
+    try {
+      WidgetsBinding.instance.removeObserver(this);
+    } catch (_) {}
     _slideController.dispose();
     _nameController.dispose();
     _handleController.dispose();
@@ -195,6 +203,11 @@ class _UserChannelState extends State<UserChannel>
   }
 
   void _toggleEditMode() {
+    // Close keyboard when toggling edit mode
+    try {
+      FocusScope.of(context).unfocus();
+    } catch (_) {}
+
     setState(() {
       if (_isEditMode) {
         // Cancel edit - reset controllers
@@ -399,14 +412,21 @@ class _UserChannelState extends State<UserChannel>
         maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final local = await _xFileToLocalFile(pickedFile, prefix: 'profile');
+        final local = await UserChannelImageHelper.xFileToLocalFile(
+          pickedFile,
+          prefix: 'profile',
+        );
         if (local == null) {
           _showErrorSnackbar('Failed to access captured image');
           return;
         }
         // Warn user if the picked image is very large and allow cancel
-        if (!await _checkImageSizeAndWarn(local)) return;
-        final cropped = await _cropImage(local);
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+          return;
+        final cropped = await UserChannelImageHelper.cropProfileImage(
+          context,
+          local,
+        );
         if (cropped != null) {
           setState(() => _selectedImage = cropped);
         }
@@ -426,14 +446,21 @@ class _UserChannelState extends State<UserChannel>
         maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final local = await _xFileToLocalFile(pickedFile, prefix: 'profile');
+        final local = await UserChannelImageHelper.xFileToLocalFile(
+          pickedFile,
+          prefix: 'profile',
+        );
         if (local == null) {
           _showErrorSnackbar('Failed to access selected image');
           return;
         }
         // Warn user about very large images (may blow native cropper memory)
-        if (!await _checkImageSizeAndWarn(local)) return;
-        final cropped = await _cropImage(local);
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+          return;
+        final cropped = await UserChannelImageHelper.cropProfileImage(
+          context,
+          local,
+        );
         if (cropped != null) setState(() => _selectedImage = cropped);
       }
     } catch (e) {
@@ -451,14 +478,21 @@ class _UserChannelState extends State<UserChannel>
         maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final local = await _xFileToLocalFile(pickedFile, prefix: 'banner');
+        final local = await UserChannelImageHelper.xFileToLocalFile(
+          pickedFile,
+          prefix: 'banner',
+        );
         if (local == null) {
           _showErrorSnackbar('Failed to access captured banner image');
           return;
         }
         // Warn user about very large banner images
-        if (!await _checkImageSizeAndWarn(local)) return;
-        final cropped = await _cropBannerImage(local);
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+          return;
+        final cropped = await UserChannelImageHelper.cropBannerImage(
+          context,
+          local,
+        );
         if (cropped != null) {
           setState(() => _selectedBannerImage = cropped);
         }
@@ -477,14 +511,21 @@ class _UserChannelState extends State<UserChannel>
         maxHeight: 1080,
       );
       if (pickedFile != null) {
-        final local = await _xFileToLocalFile(pickedFile, prefix: 'banner');
+        final local = await UserChannelImageHelper.xFileToLocalFile(
+          pickedFile,
+          prefix: 'banner',
+        );
         if (local == null) {
           _showErrorSnackbar('Failed to access selected banner image');
           return;
         }
         // Warn user about very large banner images
-        if (!await _checkImageSizeAndWarn(local)) return;
-        final cropped = await _cropBannerImage(local);
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+          return;
+        final cropped = await UserChannelImageHelper.cropBannerImage(
+          context,
+          local,
+        );
         if (cropped != null) {
           setState(() => _selectedBannerImage = cropped);
         }
@@ -494,181 +535,13 @@ class _UserChannelState extends State<UserChannel>
     }
   }
 
-  /// Warn user if the selected image file is very large (>10MB by default).
-  /// Returns true if user chooses to proceed, false if they cancel.
-  Future<bool> _checkImageSizeAndWarn(File file) async {
-    try {
-      final size = await file.length();
-      final sizeMB = size / (1024 * 1024);
-
-      if (sizeMB > 10) {
-        final proceed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Large Image Detected'),
-            content: Text(
-              'This image is ${sizeMB.toStringAsFixed(1)} MB. '
-              'Large images may cause issues. We recommend using smaller images.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Continue Anyway'),
-              ),
-            ],
-          ),
-        );
-
-        return proceed == true;
-      }
-      return true;
-    } catch (e) {
-      // If anything goes wrong with size checking, allow operation to continue
-      return true;
-    }
-  }
-
-  Future<File?> _cropImage(File imageFile) async {
-    try {
-      // Downscale / optimize input before passing to native cropper to avoid
-      // native bitmap OOMs on large images/low-memory devices.
-      File source = imageFile;
-      try {
-        // Use aggressive pre-crop optimizer (smaller safe size) before native cropper
-        final pre = await ImageOptimizer.optimizeProfileForCropping(source);
-        if (pre != null) source = pre;
-      } catch (_) {}
-
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: source.path,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        // Limit output and compress to prevent very large images
-        maxWidth: 1080,
-        maxHeight: 1080,
-        compressQuality: 85,
-        compressFormat: ImageCompressFormat.jpg,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Image',
-            toolbarColor: appColors().primaryColorApp,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: true,
-          ),
-          IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: true),
-        ],
-      );
-
-      if (croppedFile != null) {
-        final file = File(croppedFile.path);
-
-        // Prefer the pure-Dart optimizer first; fallback to platform compressor
-        try {
-          final optimized = await ImageOptimizer.optimizeProfileImage(file);
-          if (optimized != null) {
-            // Clear Flutter image caches & give native side a moment to free
-            CrashPreventionHelper.cleanupImageCache();
-            PaintingBinding.instance.imageCache.clear();
-            PaintingBinding.instance.imageCache.clearLiveImages();
-            // small delay to let native/freeing occur
-            await Future.delayed(const Duration(milliseconds: 200));
-            return optimized;
-          }
-        } catch (_) {}
-
-        final compressed = await ImageCompressor.compressImage(file);
-        final resultFile = compressed ?? file;
-
-        // Clear caches and pause briefly to reduce native/GPU memory pressure
-        try {
-          CrashPreventionHelper.cleanupImageCache();
-          PaintingBinding.instance.imageCache.clear();
-          PaintingBinding.instance.imageCache.clearLiveImages();
-        } catch (_) {}
-        await Future.delayed(const Duration(milliseconds: 200));
-
-        return resultFile;
-      }
-    } catch (e) {
-      _showErrorSnackbar('Error cropping image: $e');
-    }
-    return null;
-  }
-
-  Future<File?> _cropBannerImage(File imageFile) async {
-    try {
-      // Pre-optimize source before passing to native cropper
-      File source = imageFile;
-      try {
-        // Use aggressive pre-crop optimizer for banners to reduce native memory use
-        final pre = await ImageOptimizer.optimizeBannerForCropping(source);
-        if (pre != null) source = pre;
-      } catch (_) {}
-
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: source.path,
-        aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
-        // Limit output and compress
-        maxWidth: 1920,
-        maxHeight: 1080,
-        compressQuality: 85,
-        compressFormat: ImageCompressFormat.jpg,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Banner Image',
-            toolbarColor: appColors().primaryColorApp,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.ratio16x9,
-            lockAspectRatio: true,
-          ),
-          IOSUiSettings(title: 'Crop Banner', aspectRatioLockEnabled: true),
-        ],
-      );
-
-      if (croppedFile != null) {
-        final file = File(croppedFile.path);
-
-        try {
-          final optimized = await ImageOptimizer.optimizeBannerImage(file);
-          if (optimized != null) {
-            CrashPreventionHelper.cleanupImageCache();
-            PaintingBinding.instance.imageCache.clear();
-            PaintingBinding.instance.imageCache.clearLiveImages();
-            await Future.delayed(const Duration(milliseconds: 200));
-            return optimized;
-          }
-        } catch (_) {}
-
-        final compressed = await ImageCompressor.compressBannerImage(file);
-        final resultFile = compressed ?? file;
-
-        try {
-          CrashPreventionHelper.cleanupImageCache();
-          PaintingBinding.instance.imageCache.clear();
-          PaintingBinding.instance.imageCache.clearLiveImages();
-        } catch (_) {}
-        await Future.delayed(const Duration(milliseconds: 200));
-
-        return resultFile;
-      }
-    } catch (e) {
-      _showErrorSnackbar('Error cropping banner: $e');
-    }
-    return null;
-  }
-
   Future<void> _updateChannel() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isUpdating = true);
-    final presenter = ChannelPresenter();
 
     try {
-      final response = await presenter.updateChannel(
+      final response = await ChannelService.instance.updateChannel(
         name: _nameController.text.trim(),
         handle: _handleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -703,23 +576,75 @@ class _UserChannelState extends State<UserChannel>
   /// Fetches latest channel data from server and updates local state/UI.
   Future<void> _refreshChannel() async {
     try {
-      final presenter = ChannelPresenter();
-      final resp = await presenter.getChannel();
-      if (resp['status'] == true && resp['data'] != null) {
-        final fresh = ChannelModel.fromJson(resp['data']);
-        setState(() {
-          _currentChannel = fresh;
-          // Also sync controllers so if user re-enters edit mode they see latest values
-          _nameController.text = fresh.name;
-          _handleController.text = fresh.handle;
-          _descriptionController.text = fresh.description;
-        });
-      } else {
-        // If fetching fails, show a non-blocking error but keep current state
-        _showErrorSnackbar(resp['msg'] ?? 'Failed to refresh channel');
-      }
+      final fresh = await ChannelService.instance.fetchChannelAndCache(
+        widget.channel.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentChannel = fresh;
+        // Also sync controllers so if user re-enters edit mode they see latest values
+        _nameController.text = fresh.name;
+        _handleController.text = fresh.handle;
+        _descriptionController.text = fresh.description;
+      });
     } catch (e) {
       _showErrorSnackbar('Error refreshing channel: $e');
+    }
+  }
+
+  /// Loads channel on screen open. Shows cached value immediately when available
+  /// and revalidates from network. `force` forces a network fetch.
+  Future<void> _loadChannelOnOpen({bool force = false}) async {
+    final int cacheKey = widget.channel.id;
+
+    if (!force) {
+      final cached = ChannelService.instance.getCachedIfFresh(cacheKey);
+      if (cached != null) {
+        setState(() {
+          _currentChannel = cached;
+          _isLoadingChannel = false;
+          _usedCache = true;
+        });
+
+        // Revalidate in background and update UI when it completes
+        ChannelService.instance
+            .fetchChannelAndCache(cacheKey)
+            .then((fresh) {
+              if (!mounted) return;
+              setState(() {
+                _currentChannel = fresh;
+                _isLoadingChannel = false;
+                _usedCache = false;
+              });
+            })
+            .catchError((_) {});
+
+        return;
+      }
+    }
+
+    // No usable cache -> fetch now (show skeleton for channel parts)
+    setState(() {
+      _isLoadingChannel = true;
+      _usedCache = false;
+    });
+
+    try {
+      final fresh = await ChannelService.instance.fetchChannelAndCache(
+        cacheKey,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentChannel = fresh;
+        _isLoadingChannel = false;
+        _usedCache = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingChannel = false;
+      });
+      _showErrorSnackbar('Failed to load channel: $e');
     }
   }
 
@@ -803,14 +728,20 @@ class _UserChannelState extends State<UserChannel>
           // Calculate proper bottom padding accounting for mini player and navigation
           final hasMiniPlayer = snapshot.hasData;
 
-          // Sync overlay manager with audio stream so other widgets can react.
-          if (hasMiniPlayer) {
-            MediaOverlayManager.instance.showMiniPlayer(
-              type: MediaOverlayType.audioMini,
-            );
-          } else {
-            MediaOverlayManager.instance.hideMiniPlayer();
-          }
+          // Schedule overlay updates after build to avoid ValueNotifier changes
+          // during the build phase which can cause FlutterError.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_lastHasMiniPlayer == hasMiniPlayer) return;
+            _lastHasMiniPlayer = hasMiniPlayer;
+            if (hasMiniPlayer) {
+              MediaOverlayManager.instance.showMiniPlayer(
+                type: MediaOverlayType.audioMini,
+              );
+            } else {
+              MediaOverlayManager.instance.hideMiniPlayer();
+            }
+          });
 
           final bottomPadding = hasMiniPlayer
               ? AppPadding.bottom(context, extra: 100.w)
@@ -823,51 +754,131 @@ class _UserChannelState extends State<UserChannel>
               child: SafeArea(
                 child: Form(
                   key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        // Banner image section with profile picture overlay
-                        _buildBannerSection(),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      // Dismiss keyboard when tapping outside input fields
+                      try {
+                        FocusScope.of(context).unfocus();
+                      } catch (_) {}
+                    },
+                    child: RefreshIndicator(
+                      onRefresh: () async =>
+                          await _loadChannelOnOpen(force: true),
+                      color: appColors().primaryColorApp,
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            // Banner image section with profile picture overlay
+                            _buildBannerOrPlaceholder(),
+                            // Show a non-blocking cached/stale indicator when using cache
+                            if (_usedCache)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: 8.w,
+                                  left: 24.w,
+                                  right: 24.w,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 6.w,
+                                          horizontal: 12.w,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            8.w,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.history,
+                                              size: 16.w,
+                                              color: Colors.orange.shade700,
+                                            ),
+                                            SizedBox(width: 8.w),
+                                            Expanded(
+                                              child: Text(
+                                                'Showing recent cached data — refreshing…',
+                                                style: TextStyle(
+                                                  fontSize: 12.sp,
+                                                  color: Colors.orange.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: BoxConstraints.tight(
+                                                Size(28.w, 28.w),
+                                              ),
+                                              icon: Icon(
+                                                Icons.refresh,
+                                                size: 18.w,
+                                                color:
+                                                    appColors().primaryColorApp,
+                                              ),
+                                              onPressed: () =>
+                                                  _loadChannelOnOpen(
+                                                    force: true,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-                        // Content section with padding
-                        Padding(
-                          padding: EdgeInsets.only(
-                            left: 24.w,
-                            right: 24.w,
-                            bottom: bottomPadding,
-                          ),
-                          child: Column(
-                            children: [
-                              // Action Buttons (only in non-edit mode)
-                              if (!_isEditMode) _buildCustomizeButton(),
+                            // Content section with padding
+                            Padding(
+                              padding: EdgeInsets.only(
+                                left: 24.w,
+                                right: 24.w,
+                                bottom: bottomPadding,
+                              ),
+                              child: Column(
+                                children: [
+                                  // Action Buttons (only in non-edit mode)
+                                  if (!_isEditMode) _buildCustomizeButton(),
 
-                              if (!_isEditMode) SizedBox(height: 24.w),
+                                  if (!_isEditMode) SizedBox(height: 24.w),
 
-                              // Channel Info Card or Edit Form
-                              if (_isEditMode)
-                                _buildEditForm()
-                              else
-                                _buildInfoCard(),
+                                  // Channel Info Card or Edit Form
+                                  if (_isEditMode)
+                                    _buildEditForm()
+                                  else if (_isLoadingChannel && !_usedCache)
+                                    _buildChannelSkeleton()
+                                  else
+                                    _buildInfoCard(),
 
-                              // My Videos + Blocked Videos Sections (only in non-edit mode)
-                              // Render unblocked (My Videos) first, then blocked videos below.
-                              if (!_isEditMode) ...[
-                                SizedBox(height: 32.w),
-                                // My Videos (unblocked)
-                                _buildMyVideosSection(),
-                                // If there are blocked videos, add spacing then show them below
-                                if (_blockedVideos.isNotEmpty)
+                                  // My Videos + Blocked Videos Sections (only in non-edit mode)
+                                  // Moved into a separate widget for clarity and file size.
+                                  if (!_isEditMode) ...[
+                                    SizedBox(height: 32.w),
+                                    UserChannelVideosSection(
+                                      videos: _myVideos,
+                                      isLoading: _isLoadingVideos,
+                                      error: _videosError,
+                                      onRetry: _loadMyVideos,
+                                      onTap: _openVideoPlayer,
+                                      onMenuAction: (action, video) =>
+                                          _handleVideoAction(action, video),
+                                    ),
+                                  ],
+
                                   SizedBox(height: 24.w),
-                                if (_blockedVideos.isNotEmpty)
-                                  _buildBlockedVideosSection(),
-                              ],
-
-                              SizedBox(height: 24.w),
-                            ],
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -889,6 +900,46 @@ class _UserChannelState extends State<UserChannel>
       avatarSelectedImage: _selectedImage,
       avatarImageUrl: _currentChannel.imageUrl,
       onPickImage: _pickImage,
+    );
+  }
+
+  Widget _buildBannerOrPlaceholder() {
+    if (_isLoadingChannel && !_usedCache) {
+      return SizedBox(
+        width: double.infinity,
+        height: 180.w,
+        child: Center(
+          child: CircularProgressIndicator(color: appColors().primaryColorApp),
+        ),
+      );
+    }
+    return _buildBannerSection();
+  }
+
+  Widget _buildChannelSkeleton() {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.w),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6.w),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 18.w, width: 200.w, color: Colors.grey[300]),
+          SizedBox(height: 12.w),
+          Container(height: 14.w, width: 120.w, color: Colors.grey[300]),
+          SizedBox(height: 12.w),
+          Container(
+            height: 64.w,
+            width: double.infinity,
+            color: Colors.grey[200],
+          ),
+        ],
+      ),
     );
   }
 
@@ -952,8 +1003,8 @@ class _UserChannelState extends State<UserChannel>
         if (value.trim().length < 3) {
           return 'Handle must be at least 3 characters';
         }
-        if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value.trim())) {
-          return 'Handle can only contain letters, numbers, and underscores';
+        if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value.trim())) {
+          return 'Handle can only contain letters, numbers, underscores, and dashes';
         }
         return null;
       },
@@ -1029,6 +1080,14 @@ class _UserChannelState extends State<UserChannel>
     int? maxLines,
     bool? expands,
   }) {
+    // Decide effective line configuration:
+    // - If a minLines is provided (e.g. description), allow multiline by
+    //   leaving maxLines null so the field can grow. For other fields,
+    //   enforce single-line by setting maxLines = 1.
+    final bool _expands = expands ?? false;
+    final int? _minLines = minLines;
+    final int? _maxLines = (minLines != null) ? null : (maxLines ?? 1);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1046,9 +1105,9 @@ class _UserChannelState extends State<UserChannel>
           focusNode: focusNode,
           validator: validator,
           maxLength: maxLength,
-          minLines: minLines,
-          maxLines: maxLines,
-          expands: expands ?? false,
+          minLines: _minLines,
+          maxLines: _maxLines,
+          expands: _expands,
           style: TextStyle(fontSize: 16.sp, color: appColors().colorTextHead),
           decoration: InputDecoration(
             hintText: hint,
@@ -1171,110 +1230,7 @@ class _UserChannelState extends State<UserChannel>
     }
   }
 
-  /// Build the My Videos section
-  Widget _buildMyVideosSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.video_library_outlined,
-                  size: 24.w,
-                  color: appColors().primaryColorApp,
-                ),
-                SizedBox(width: 12.w),
-                Text(
-                  'My Videos',
-                  style: TextStyle(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w700,
-                    color: appColors().colorTextHead,
-                  ),
-                ),
-              ],
-            ),
-            if (_unblockedVideos.isNotEmpty)
-              Text(
-                '${_unblockedVideos.length} ${_unblockedVideos.length == 1 ? 'video' : 'videos'}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
-        ),
-
-        SizedBox(height: 16.w),
-
-        MyVideosSection(
-          videos: _unblockedVideos,
-          isLoading: _isLoadingVideos,
-          error: _videosError,
-          onRetry: _loadMyVideos,
-          onTap: _openVideoPlayer,
-          onMenuAction: (action, video) => _handleVideoAction(action, video),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadingVideos() {
-    return Column(
-      children: List.generate(
-        3,
-        (index) => Padding(
-          padding: EdgeInsets.only(bottom: 16.w),
-          child: const VideoCardSkeleton(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Container(
-      padding: EdgeInsets.all(32.w),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(12.w),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.error_outline, size: 48.w, color: Colors.red.shade400),
-          SizedBox(height: 16.w),
-          Text(
-            'Failed to load videos',
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.red.shade700,
-            ),
-          ),
-          SizedBox(height: 8.w),
-          Text(
-            _videosError ?? 'Unknown error',
-            style: TextStyle(fontSize: 13.sp, color: Colors.red.shade600),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 16.w),
-          ElevatedButton.icon(
-            onPressed: _loadMyVideos,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Videos section moved to `UserChannelVideosSection` in separate file.
 
   void _openVideoPlayer(VideoItem video) {
     // If video is blocked, show reason instead of opening player
@@ -1331,68 +1287,6 @@ class _UserChannelState extends State<UserChannel>
           ],
         );
       },
-    );
-  }
-
-  /// Blocked Videos section
-  Widget _buildBlockedVideosSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.block, size: 24.w, color: Colors.redAccent),
-                SizedBox(width: 12.w),
-                Text(
-                  'Blocked Videos',
-                  style: TextStyle(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w700,
-                    color: appColors().colorTextHead,
-                  ),
-                ),
-              ],
-            ),
-            if (_blockedVideos.isNotEmpty)
-              Text(
-                '${_blockedVideos.length} ${_blockedVideos.length == 1 ? 'video' : 'videos'}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
-        ),
-
-        SizedBox(height: 16.w),
-
-        // Render blocked videos list
-        _buildBlockedVideosList(),
-      ],
-    );
-  }
-
-  Widget _buildBlockedVideosList() {
-    if (_isLoadingVideos) return _buildLoadingVideos();
-    if (_videosError != null) return _buildErrorState();
-
-    return Column(
-      children: _blockedVideos.map((video) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 16.w),
-          child: VideoCard(
-            item: video,
-            onTap: () => _openVideoPlayer(video),
-            showPopupMenu: true,
-            blockedReason: video.reason ?? 'Blocked by moderation',
-            onMenuAction: (action) => _handleVideoAction(action, video),
-          ),
-        );
-      }).toList(),
     );
   }
 

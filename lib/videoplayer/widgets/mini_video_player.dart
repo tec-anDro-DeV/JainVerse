@@ -6,6 +6,8 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:video_player/video_player.dart';
 import '../managers/video_player_state_provider.dart';
 import '../screens/video_player_view.dart';
+import '../managers/like_dislike_state_manager.dart';
+import '../managers/subscription_state_manager.dart';
 import 'package:jainverse/services/media_overlay_manager.dart';
 
 /// Configuration constants for the mini video player
@@ -146,10 +148,14 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
       HapticFeedback.lightImpact();
       // Inform global overlay manager so layout/padding can update
       try {
-        MediaOverlayManager.instance.showMiniPlayer(
-          height: _MiniVideoPlayerConfig.height,
-          type: MediaOverlayType.videoMini,
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            MediaOverlayManager.instance.showMiniPlayer(
+              height: _MiniVideoPlayerConfig.height,
+              type: MediaOverlayType.videoMini,
+            );
+          } catch (_) {}
+        });
       } catch (_) {}
     }
   }
@@ -171,7 +177,11 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
       });
       // Inform overlay manager that the mini player is hidden
       try {
-        MediaOverlayManager.instance.hideMiniPlayer();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            MediaOverlayManager.instance.hideMiniPlayer();
+          } catch (_) {}
+        });
       } catch (_) {}
     }
   }
@@ -402,6 +412,37 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
   @override
   Widget build(BuildContext context) {
     final videoState = ref.watch(videoPlayerProvider);
+    // Keep global managers in sync with the authoritative provider-held VideoItem
+    try {
+      final currentItem = videoState.currentVideoItem;
+      if (currentItem != null) {
+        // Sync like/dislike global manager
+        if (currentItem.like != null) {
+          final globalLike = LikeDislikeStateManager().getLikeState(
+            currentItem.id,
+          );
+          if (globalLike != currentItem.like) {
+            LikeDislikeStateManager().updateLikeState(
+              currentItem.id,
+              currentItem.like!,
+            );
+          }
+        }
+
+        // Sync subscription manager
+        if (currentItem.channelId != null && currentItem.subscribed != null) {
+          final globalSub = SubscriptionStateManager().getSubscriptionState(
+            currentItem.channelId!,
+          );
+          if (globalSub != currentItem.subscribed) {
+            SubscriptionStateManager().updateSubscriptionState(
+              currentItem.channelId!,
+              currentItem.subscribed!,
+            );
+          }
+        }
+      }
+    } catch (_) {}
     final shouldShow = videoState.showMiniPlayer && videoState.isMinimized;
 
     final buildSummary =

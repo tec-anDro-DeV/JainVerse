@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import '../models/video_player_state.dart';
+import '../models/video_item.dart';
 
 /// State notifier for managing video player state
 class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
@@ -52,6 +53,7 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     int? playlistIndex,
     int? channelId,
     String? channelAvatarUrl,
+    VideoItem? videoItem,
     // Try to auto-start playback after initialization. Set to false when you only want to preload.
     bool autoPlay = true,
     // internal retry counter for transient platform errors
@@ -70,6 +72,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         currentVideoTitle: title,
         currentVideoSubtitle: subtitle,
         thumbnailUrl: thumbnailUrl,
+        // Prefer explicit VideoItem passed by caller; otherwise keep existing
+        currentVideoItem: videoItem ?? state.currentVideoItem,
         channelId: channelId,
         channelAvatarUrl: channelAvatarUrl,
         playlist: playlist,
@@ -153,6 +157,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         // ensure channel metadata remains present after init
         channelId: channelId ?? state.channelId,
         channelAvatarUrl: channelAvatarUrl ?? state.channelAvatarUrl,
+        // If caller provided a VideoItem earlier in the init, prefer it; otherwise preserve existing
+        currentVideoItem: videoItem ?? state.currentVideoItem,
       );
 
       // Start position update timer
@@ -694,6 +700,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         currentVideoTitle: null,
         currentVideoSubtitle: null,
         thumbnailUrl: null,
+        // Clear the authoritative VideoItem when fully disposing playback
+        currentVideoItem: null,
         channelId: null,
         channelAvatarUrl: null,
         isPlaying: false,
@@ -748,6 +756,35 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       }
       _disposeCompleter = null;
     }
+  }
+
+  /// Replace or set the current authoritative VideoItem in state.
+  void setCurrentVideoItem(VideoItem? item) {
+    state = state.copyWith(currentVideoItem: item);
+  }
+
+  /// Update fields of the current VideoItem (merge). No-op when none present.
+  void updateCurrentVideoItem({
+    int? like,
+    int? totalLikes,
+    int? totalViews,
+    bool? subscribed,
+    int? report,
+    int? block,
+    String? reason,
+  }) {
+    final current = state.currentVideoItem;
+    if (current == null) return;
+    final updated = current.copyWith(
+      like: like ?? current.like,
+      totalLikes: totalLikes ?? current.totalLikes,
+      totalViews: totalViews ?? current.totalViews,
+      subscribed: subscribed ?? current.subscribed,
+      report: report ?? current.report,
+      block: block ?? current.block,
+      reason: reason ?? current.reason,
+    );
+    state = state.copyWith(currentVideoItem: updated);
   }
 }
 

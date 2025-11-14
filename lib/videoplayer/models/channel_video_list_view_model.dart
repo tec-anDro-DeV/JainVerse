@@ -10,6 +10,10 @@ import '../services/channel_video_service.dart';
 class ChannelVideoListViewModel extends ChangeNotifier {
   final ChannelVideoService _service;
 
+  // Tracks whether this ViewModel has been disposed to avoid calling
+  // `notifyListeners()` after disposal (which throws a FlutterError).
+  bool _isDisposed = false;
+
   List<VideoItem> items = [];
   bool isLoading = false;
   bool hasError = false;
@@ -43,7 +47,7 @@ class ChannelVideoListViewModel extends ChangeNotifier {
     isLoading = true;
     hasError = false;
     errorMessage = '';
-    notifyListeners();
+    if (!_isDisposed) notifyListeners();
 
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
@@ -82,13 +86,14 @@ class ChannelVideoListViewModel extends ChangeNotifier {
       errorMessage = e.toString();
     } finally {
       isLoading = false;
-      notifyListeners();
+      if (!_isDisposed) notifyListeners();
     }
   }
 
   @override
   void dispose() {
     _cancelToken?.cancel();
+    _isDisposed = true;
     super.dispose();
   }
 }
