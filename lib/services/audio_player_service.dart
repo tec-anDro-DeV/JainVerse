@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import 'dart:developer' as _developer;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -12,6 +12,36 @@ import 'package:jainverse/utils/BackgroundAudioManager.dart';
 // import 'package:fluttertoast/fluttertoast.dart';  // Comment out: unused import after removing toast messages
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
+
+// Local wrapper that preserves only error-level logs.
+// This lets existing `developer.log(...)` calls remain unchanged
+// while suppressing non-error logs (DEBUG/INFO/WARN).
+// ignore: camel_case_types
+class developer {
+  // Matches common `developer.log` usages in this file.
+  static void log(
+    String message, {
+    String? name,
+    int? level,
+    DateTime? time,
+    Zone? zone,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    // Forward only error logs or messages explicitly marked as [ERROR]
+    if (error != null || message.startsWith('[ERROR')) {
+      _developer.log(
+        message,
+        name: name ?? '',
+        level: level ?? 0,
+        time: time,
+        zone: zone,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+}
 
 /// Queue state for managing audio queue
 class QueueState {
@@ -115,7 +145,10 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       BehaviorSubject.seeded(<MediaItem>[]);
 
   final _player = AudioPlayer();
-  late final ConcatenatingAudioSource _playlist = ConcatenatingAudioSource(
+  // Make the playlist replaceable so we can recover from concurrent
+  // modification races in just_audio (addStream) by swapping in a fresh
+  // ConcatenatingAudioSource when clear() repeatedly fails.
+  late ConcatenatingAudioSource _playlist = ConcatenatingAudioSource(
     children: [],
   );
 
@@ -1106,7 +1139,42 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
           await Future.delayed(const Duration(milliseconds: 120));
           continue;
         }
-        rethrow;
+        // If we've exhausted retries, attempt a safer recovery by
+        // replacing the player's audio source with a fresh, empty
+        // ConcatenatingAudioSource instance. This avoids the addStream
+        // race inside just_audio which can leave the old playlist in a
+        // bad state.
+        try {
+          developer.log(
+            '[WARN][AudioPlayerHandlerImpl] _safeClearPlaylist: replacing playlist after failed clear',
+            name: 'AudioPlayerHandlerImpl',
+          );
+
+          // Create a fresh playlist and set it on the player. Also update
+          // our reference so subsequent operations operate on the new
+          // instance.
+          final newPlaylist = ConcatenatingAudioSource(children: []);
+          _playlist = newPlaylist;
+
+          // Replace the audio source on the player. Use preload=false to
+          // avoid network activity during this repair step.
+          await _player
+              .setAudioSource(newPlaylist, preload: false)
+              .timeout(const Duration(seconds: 3));
+
+          developer.log(
+            '[DEBUG][AudioPlayerHandlerImpl] _safeClearPlaylist: replaced playlist successfully',
+            name: 'AudioPlayerHandlerImpl',
+          );
+          return;
+        } catch (inner) {
+          developer.log(
+            '[ERROR][AudioPlayerHandlerImpl] _safeClearPlaylist: failed to replace playlist: $inner',
+            name: 'AudioPlayerHandlerImpl',
+            error: inner,
+          );
+          rethrow;
+        }
       }
     }
   }

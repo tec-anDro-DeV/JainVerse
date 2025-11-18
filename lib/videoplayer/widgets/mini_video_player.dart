@@ -23,7 +23,7 @@ class _MiniVideoPlayerConfig {
   static double get spacing => 10.w;
   // previewSize removed — preview now sized dynamically as 30% of card width
   static double get playButtonSize => 46.w;
-  static double get playIconSize => 36.w;
+  static double get playIconSize => 37.w;
   static double get progressBarHeight => 6.w;
 }
 
@@ -787,7 +787,8 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
         height: _MiniVideoPlayerConfig.playButtonSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: appColors().primaryColorApp,
+          color: Colors.transparent,
+          border: Border.all(color: appColors().primaryColorApp, width: 2.w),
         ),
         child: Center(
           child: videoState.isLoading
@@ -806,7 +807,7 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
                   size: _MiniVideoPlayerConfig.playIconSize,
-                  color: Colors.white,
+                  color: appColors().primaryColorApp,
                 ),
         ),
       ),
@@ -822,9 +823,10 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
       child: Container(
         width: 30.w,
         height: 30.w,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black12,
+          color: Colors.transparent,
+          border: Border.all(color: Colors.black26, width: 1.w),
         ),
         child: Icon(Icons.close_outlined, size: 20.w, color: Colors.black),
       ),

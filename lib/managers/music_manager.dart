@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import 'dart:developer' as _developer;
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
@@ -15,6 +15,35 @@ import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart'; // for queue operation lock
+
+// Local wrapper that preserves only error-level logs.
+// This lets existing `developer.log(...)` calls remain unchanged
+// while suppressing non-error logs (DEBUG/INFO/WARN).
+// ignore: camel_case_types
+class developer {
+  static void log(
+    String message, {
+    String? name,
+    int? level,
+    DateTime? time,
+    Zone? zone,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    // Forward only error logs or messages explicitly marked as [ERROR]
+    if (error != null || message.startsWith('[ERROR')) {
+      _developer.log(
+        message,
+        name: name ?? '',
+        level: level ?? 0,
+        time: time,
+        zone: zone,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+}
 
 // Simple cache entry for single-music fetches to dedupe in-flight requests
 class _SingleMusicCacheEntry {

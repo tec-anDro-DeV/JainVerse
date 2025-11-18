@@ -18,7 +18,7 @@ import '../videoplayer/managers/video_player_state_provider.dart';
 import '../videoplayer/widgets/mini_video_player.dart';
 import '../widgets/music/mini_music_player.dart';
 import '../widgets/offline_mode_prompt.dart';
-import 'package:jainverse/services/media_overlay_manager.dart';
+// media overlay manager no longer used directly here; padding handled by AppPadding
 import 'HomeDiscover.dart';
 import 'MyLibrary.dart';
 import 'Search.dart';
@@ -175,36 +175,19 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                       return Stack(
                         children: [
                           // Tab content with separate navigators (only first 3 tabs are navigable)
-                          // Wrap TabBarView with ValueListenableBuilder so only main
-                          // navigation content is padded when mini-players appear.
-                          ValueListenableBuilder<double>(
-                            valueListenable:
-                                MediaOverlayManager.instance.miniPlayerHeight,
-                            builder: (context, overlayHeight, child) {
-                              // Apply only the overlay height as bottom padding so
-                              // the main content is pushed up when a mini-player
-                              // appears. We avoid applying global padding to the
-                              // entire app so modals and full-screen routes are
-                              // unaffected.
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: overlayHeight),
-                                child: child,
-                              );
-                            },
-                            child: TabBarView(
-                              controller: _tabController,
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: [
-                                _buildTabNavigator(0, const HomeDiscover()),
-                                _buildTabNavigator(1, const MyLibrary()),
-                                _buildTabNavigator(2, Search("")),
-                                // 4th tab now shows the Panchang calendar screen
-                                _buildTabNavigator(
-                                  3,
-                                  const PanchangCalendarScreen(),
-                                ),
-                              ],
-                            ),
+                          TabBarView(
+                            controller: _tabController,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _buildTabNavigator(0, const HomeDiscover()),
+                              _buildTabNavigator(1, const MyLibrary()),
+                              _buildTabNavigator(2, Search("")),
+                              // 4th tab now shows the Panchang calendar screen
+                              _buildTabNavigator(
+                                3,
+                                const PanchangCalendarScreen(),
+                              ),
+                            ],
                           ),
 
                           // Bottom navigation bar - Hide when full player is visible

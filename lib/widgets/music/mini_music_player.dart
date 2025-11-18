@@ -122,6 +122,11 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   // Interactive seeking state for the progress bar
   double? _interactiveSeekingMs;
   bool _isInteractingWithProgress = false;
+  // When true, outer horizontal-swipe-to-dismiss gestures should be ignored
+  // because the user started an inner progress-bar seek interaction.
+  bool _ignoreOuterDrag = false;
+  // Haptic debounce for scrubbing
+  int? _lastHapticSecond;
 
   @override
   void initState() {
@@ -426,6 +431,20 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   }
 
   void _onHorizontalDragStart(DragStartDetails details) {
+    // If the drag started inside the progress bar area, ignore the outer
+    // swipe-to-dismiss behavior so the inner seek interaction can handle it.
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      if (box != null) {
+        final local = box.globalToLocal(details.globalPosition);
+        final progressHitHeight = (_MiniPlayerConfig.progressBarHeight + 48.w);
+        if (local.dy >= box.size.height - progressHitHeight) {
+          _ignoreOuterDrag = true;
+          return;
+        }
+      }
+    } catch (_) {}
+
     if (_dragAnimationController?.isAnimating ?? false) {
       _dragAnimationController!.stop();
     }
@@ -436,6 +455,8 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   }
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    if (_ignoreOuterDrag) return;
+
     _rawHorizontalDragOffset += details.delta.dx;
     final mapped = _mapDragWithResistance(_rawHorizontalDragOffset);
 
@@ -445,6 +466,12 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   }
 
   void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_ignoreOuterDrag) {
+      // Clear the flag so future outer drags work again.
+      _ignoreOuterDrag = false;
+      return;
+    }
+
     final rawAbs = _rawHorizontalDragOffset.abs();
     final velocityAbs = details.velocity.pixelsPerSecond.dx.abs();
 
@@ -995,49 +1022,67 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           final paddingH = _MiniPlayerConfig.paddingHorizontal;
           final innerTrackWidth = (width - (2 * paddingH)).clamp(0.0, width);
 
-          void performSeekFromOffset(Offset localPos) {
-            final dx = localPos.dx.clamp(0.0, width);
-            final ratio = width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
-            final targetMs = (ratio * maxValue).round();
-            final target = Duration(milliseconds: targetMs);
-
-            // Prefer the MusicManager wrapper; fallback to audioHandler.
-            try {
-              widget.musicManager.seek(target);
-            } catch (e) {
-              try {
-                widget.musicManager.audioHandler?.seek(target);
-              } catch (_) {}
-            }
-
-            // Update immediate UI cache for responsiveness
-            MiniMusicPlayer.mainPosition = targetMs.toDouble();
-            _refreshNotifier.value = _refreshNotifier.value + 1;
-          }
-
           return Stack(
             children: [
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTapDown: (details) {
-                  performSeekFromOffset(details.localPosition);
+                  // compute local fraction relative to the inner track (account for padding)
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box == null) return;
+                  final local = box.globalToLocal(details.globalPosition);
+                  final dx = (local.dx - _MiniPlayerConfig.paddingHorizontal)
+                      .clamp(0.0, innerTrackWidth);
+                  final frac = innerTrackWidth > 0
+                      ? (dx / innerTrackWidth)
+                      : 0.0;
+                  final targetMs = (frac * maxValue).round();
+                  final target = Duration(milliseconds: targetMs);
+                  try {
+                    widget.musicManager.seek(target);
+                  } catch (_) {
+                    widget.musicManager.audioHandler?.seek(target);
+                  }
+                  // update cached UI quickly
+                  MiniMusicPlayer.mainPosition = targetMs.toDouble();
+                  _refreshNotifier.value = _refreshNotifier.value + 1;
                 },
                 onHorizontalDragStart: (details) {
+                  // Begin interactive seek; prevent outer swipe-to-dismiss
                   setState(() {
                     _isInteractingWithProgress = true;
+                    _ignoreOuterDrag = true;
                     // initialize with the current value
                     _interactiveSeekingMs = value;
+                    _lastHapticSecond = null;
                   });
                 },
                 onHorizontalDragUpdate: (details) {
-                  final dx = details.localPosition.dx.clamp(0.0, width);
-                  final ratio = width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
-                  final seekMs = (ratio * maxValue).toDouble();
+                  // Compute fraction relative to inner track (account for padding)
+                  final localDx =
+                      details.localPosition.dx -
+                      _MiniPlayerConfig.paddingHorizontal;
+                  final dx = localDx.clamp(0.0, innerTrackWidth);
+                  final frac = innerTrackWidth <= 0
+                      ? 0.0
+                      : (dx / innerTrackWidth).clamp(0.0, 1.0);
+                  final seekMs = (frac * maxValue).toDouble();
                   setState(() {
+                    // Only update the interactive visual value; avoid touching
+                    // global cached position to prevent jumpy updates from
+                    // concurrent position stream events.
                     _interactiveSeekingMs = seekMs;
-                    MiniMusicPlayer.mainPosition = seekMs;
                   });
-                  _refreshNotifier.value = _refreshNotifier.value + 1;
+
+                  // Haptic feedback when crossing integer seconds
+                  try {
+                    final seconds = (frac * (maxValue / 1000)).round();
+                    if (_lastHapticSecond == null ||
+                        _lastHapticSecond != seconds) {
+                      HapticFeedback.selectionClick();
+                      _lastHapticSecond = seconds;
+                    }
+                  } catch (_) {}
                 },
                 onHorizontalDragEnd: (details) {
                   if (_interactiveSeekingMs != null) {
@@ -1049,10 +1094,15 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
                     } catch (e) {
                       widget.musicManager.audioHandler?.seek(target);
                     }
+                    // Update cached state for fallback/rendering
+                    MiniMusicPlayer.mainPosition = _interactiveSeekingMs!
+                        .toDouble();
+                    _refreshNotifier.value = _refreshNotifier.value + 1;
                   }
                   setState(() {
                     _isInteractingWithProgress = false;
                     _interactiveSeekingMs = null;
+                    _ignoreOuterDrag = false;
                   });
                 },
                 child: Container(

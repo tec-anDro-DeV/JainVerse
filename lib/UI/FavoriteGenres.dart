@@ -19,6 +19,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
+import 'package:jainverse/services/media_overlay_manager.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -472,11 +473,22 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                                                 return shortest >= 600 ? 4 : 2;
                                               }
 
+                                              // Compute grid bottom padding so we don't
+                                              // double-reserve space for the mini-player.
+                                              final double _overlayH =
+                                                  MediaOverlayManager
+                                                      .instance
+                                                      .miniPlayerHeight
+                                                      .value;
+                                              final double _gridBottom =
+                                                  AppPadding.bottom(context) -
+                                                  _overlayH;
+
                                               return GridView.builder(
                                                 padding: EdgeInsets.only(
-                                                  bottom: AppPadding.bottom(
-                                                    context,
-                                                  ),
+                                                  bottom: _gridBottom > 0
+                                                      ? _gridBottom
+                                                      : 0,
                                                 ),
                                                 scrollDirection: Axis.vertical,
                                                 itemCount: data.length,
@@ -694,7 +706,7 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
                           Padding(
                             padding: (() {
                               return EdgeInsets.only(
-                                bottom: AppPadding.bottom(context, extra: 50.w),
+                                bottom: AppPadding.bottom(context, extra: 15.w),
                                 left: 24.w,
                                 right: 24.w,
                                 top: 16.w,
