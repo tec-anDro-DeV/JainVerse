@@ -3,9 +3,15 @@ package com.jainverse.app
 import android.content.Context
 import android.content.Intent
 import android.app.ActivityManager
+import android.annotation.TargetApi
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.NonNull
@@ -16,13 +22,26 @@ import android.content.pm.ActivityInfo
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.view.KeyEvent
+import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
+import android.util.Rational
 import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
+import android.content.res.Configuration
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.RenderMode
+import kotlin.math.max
+import kotlin.math.min
 
 class MainActivity: AudioServiceFragmentActivity() {
     private val CHANNEL = "com.jainverse.background_audio"
+    private val PIP_CHANNEL = "com.jainverse.pip"
+    private val ACTION_PIP_TOGGLE = "com.jainverse.action.PIP_TOGGLE"
+    private val REQUEST_PIP_TOGGLE = 101
+    private val pipExitHandler = Handler(Looper.getMainLooper())
+    private var pipExitRunnable: Runnable? = null
+    private var pipExitPending: Boolean = false
+    private var wasInPictureInPictureMode: Boolean = false
     
     // FIX: Use TextureView instead of SurfaceView to prevent crashes after UCrop
     override fun getRenderMode(): RenderMode {
@@ -31,6 +50,7 @@ class MainActivity: AudioServiceFragmentActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private lateinit var audioManager: AudioManager
     private lateinit var methodChannel: MethodChannel
+    private lateinit var pipChannel: MethodChannel
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
@@ -45,6 +65,154 @@ class MainActivity: AudioServiceFragmentActivity() {
             }
         }
     }
+
+    private fun isPipSupported(): Boolean {
+        return VERSION.SDK_INT >= VERSION_CODES.O &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    }
+
+    private fun enterPictureInPictureModeCompat(isPlaying: Boolean, aspectRatio: Double?): Boolean {
+        if (!isPipSupported() || VERSION.SDK_INT < VERSION_CODES.O) return false
+        return try {
+            lastKnownIsPlaying = isPlaying
+            if (aspectRatio != null) {
+                lastKnownAspectRatio = aspectRatio
+            }
+            val params = buildPictureInPictureParams(isPlaying, aspectRatio)
+            enterPictureInPictureMode(params)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun updatePictureInPictureParams(isPlaying: Boolean, aspectRatio: Double?) {
+        if (VERSION.SDK_INT < VERSION_CODES.O) return
+        if (!isInPictureInPictureMode) return
+        lastKnownIsPlaying = isPlaying
+        if (aspectRatio != null) {
+            lastKnownAspectRatio = aspectRatio
+        }
+        try {
+            setPictureInPictureParams(buildPictureInPictureParams(isPlaying, aspectRatio))
+        } catch (_: Exception) {
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private fun buildPictureInPictureParams(isPlaying: Boolean, aspectRatio: Double?): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder()
+        builder.setAspectRatio(buildAspectRatio(aspectRatio ?: lastKnownAspectRatio))
+        if (VERSION.SDK_INT >= VERSION_CODES.S) {
+                builder.setAutoEnterEnabled(false)
+            }
+            // Only expose the play/pause toggle action in PiP; the platform
+            // provides a default close affordance and we avoid adding a
+            // duplicate close action here.
+            builder.setActions(listOf(createToggleAction(isPlaying)))
+        return builder.build()
+    }
+
+    private fun buildAspectRatio(ratio: Double): Rational {
+        val sanitized = max(0.1, min(ratio, 4.0))
+        val numerator = max(1, (sanitized * 1000).toInt())
+        return Rational(numerator, 1000)
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private fun createToggleAction(isPlaying: Boolean): RemoteAction {
+        val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val title = if (isPlaying) "Pause" else "Play"
+        val pendingIntent = createPendingIntent(ACTION_PIP_TOGGLE, REQUEST_PIP_TOGGLE)
+        return RemoteAction(Icon.createWithResource(this, iconRes), title, title, pendingIntent)
+    }
+
+    // Close action removed: rely on platform-provided close affordance.
+
+    private fun createPendingIntent(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(action).setPackage(packageName)
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        return PendingIntent.getBroadcast(this, requestCode, intent, flags)
+    }
+
+    private fun exitPictureInPicture() {
+        if (VERSION.SDK_INT >= VERSION_CODES.N && isInPictureInPictureMode) {
+            try {
+                moveTaskToBack(false)
+                finish()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun notifyPipState(isInPip: Boolean) {
+        if (::pipChannel.isInitialized) {
+            pipChannel.invokeMethod("onPipStateChanged", mapOf("isInPip" to isInPip))
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        notifyPipState(isInPictureInPictureMode)
+
+        if (isInPictureInPictureMode) {
+            cancelPendingPipExitClassification()
+        } else if (wasInPictureInPictureMode) {
+            schedulePipExitClassification()
+        }
+
+        wasInPictureInPictureMode = isInPictureInPictureMode
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pipExitPending) {
+            cancelPendingPipExitClassification()
+        }
+    }
+
+    private fun schedulePipExitClassification() {
+        cancelPendingPipExitClassification()
+        pipExitPending = true
+        pipExitRunnable = Runnable {
+            pipExitPending = false
+            if (!::pipChannel.isInitialized) {
+                return@Runnable
+            }
+
+            if (hasWindowFocus()) {
+                pipChannel.invokeMethod("onPipExpanded", null)
+            } else {
+                pipChannel.invokeMethod("onPipClosed", null)
+            }
+        }
+        pipExitRunnable?.let {
+            pipExitHandler.postDelayed(it, 350)
+        }
+    }
+
+    private fun cancelPendingPipExitClassification() {
+        pipExitRunnable?.let { pipExitHandler.removeCallbacks(it) }
+        pipExitRunnable = null
+        pipExitPending = false
+    }
+
+    private val pipActionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                ACTION_PIP_TOGGLE -> {
+                    if (::pipChannel.isInitialized) {
+                        pipChannel.invokeMethod(
+                            "onAction",
+                            mapOf("action" to "togglePlayback")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var lastKnownAspectRatio: Double = 16.0 / 9.0
+    private var lastKnownIsPlaying: Boolean = false
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -75,6 +243,41 @@ class MainActivity: AudioServiceFragmentActivity() {
             }
             else -> result.notImplemented()
         }
+    }
+
+    pipChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PIP_CHANNEL)
+    pipChannel.setMethodCallHandler { call, result ->
+        when (call.method) {
+            "isPictureInPictureSupported" -> {
+                result.success(isPipSupported())
+            }
+            "enterPictureInPicture" -> {
+                val isPlaying = call.argument<Boolean>("isPlaying") ?: false
+                val aspectRatio = call.argument<Double>("aspectRatio")
+                val entered = enterPictureInPictureModeCompat(isPlaying, aspectRatio)
+                result.success(entered)
+            }
+            "updatePlaybackState" -> {
+                val isPlaying = call.argument<Boolean>("isPlaying") ?: false
+                val aspectRatio = call.argument<Double>("aspectRatio")
+                updatePictureInPictureParams(isPlaying, aspectRatio)
+                result.success(null)
+            }
+            "exitPictureInPicture" -> {
+                exitPictureInPicture()
+                result.success(null)
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    val pipFilter = IntentFilter().apply {
+        addAction(ACTION_PIP_TOGGLE)
+    }
+    if (VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
+        registerReceiver(pipActionReceiver, pipFilter, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+        registerReceiver(pipActionReceiver, pipFilter)
     }
 
         // Register the enhanced audio visualizer plugin
@@ -270,6 +473,10 @@ class MainActivity: AudioServiceFragmentActivity() {
             audioManager.abandonAudioFocus(audioFocusChangeListener)
         } catch (e: Exception) { }
         releaseWakeLock()
+        try {
+            unregisterReceiver(pipActionReceiver)
+        } catch (_: Exception) {
+        }
         super.onDestroy()
     }
 }

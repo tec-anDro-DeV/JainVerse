@@ -30,6 +30,7 @@ import 'package:session_storage/session_storage.dart';
 import 'ThemeMain/appColors.dart';
 import 'UI/MainNavigation.dart';
 import 'UI/SplashScreen.dart';
+import 'videoplayer/widgets/video_pip_overlay.dart';
 
 AudioPlayerHandler? _audioHandler;
 const String home = '/';
@@ -360,7 +361,7 @@ class _ImageCacheObserver extends WidgetsBindingObserver {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   /// Return the current global audio handler instance (non-nullable).
@@ -375,7 +376,8 @@ class MyApp extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return MultiProvider(
       providers: [
         // Global Favorites Provider
@@ -398,6 +400,8 @@ class MyApp extends StatelessWidget {
         color: appColors().colorBackground,
         debugShowCheckedModeBanner: false,
         theme: AppSettings.define(),
+        builder: (context, child) =>
+            VideoPipOverlay(child: child ?? const SizedBox.shrink()),
         // Add route handling for proper navigation
         onGenerateRoute: (settings) {
           // Handle navigation to specific tabs

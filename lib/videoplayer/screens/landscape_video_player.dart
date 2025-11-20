@@ -39,7 +39,8 @@ class LandscapeVideoPlayer extends ConsumerStatefulWidget {
       _LandscapeVideoPlayerState();
 }
 
-class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
+class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer>
+    with WidgetsBindingObserver {
   bool _showControls = true;
   Timer? _hideControlsTimer;
   bool _isInitialized = false;
@@ -56,6 +57,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   // Stable base positions to avoid races with async controller updates.
   Duration? _leftBasePosition;
   Duration? _rightBasePosition;
+  bool _autoPipRequestedForLifecycle = false;
 
   // Safe check to see if a controller is initialized without throwing when
   // the controller has been disposed concurrently.
@@ -91,6 +93,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializePlayer();
     _setLandscapeOrientation();
     _startHideTimer();
@@ -98,9 +101,28 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideControlsTimer?.cancel();
     unawaited(_restoreOrientation());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      _autoPipRequestedForLifecycle = false;
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_autoPipRequestedForLifecycle) return;
+      _autoPipRequestedForLifecycle = true;
+      unawaited(_attemptAutoEnterPiP());
+    }
   }
 
   void _setLandscapeOrientation() {
@@ -148,6 +170,19 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer> {
     try {
       await OrientationHelper.setAll();
     } catch (_) {}
+  }
+
+  Future<void> _attemptAutoEnterPiP() async {
+    try {
+      final notifier = ref.read(videoPlayerProvider.notifier);
+      final entered = await notifier.autoEnterPictureInPictureIfNeeded();
+      if (!entered) {
+        _autoPipRequestedForLifecycle = false;
+      }
+    } catch (e) {
+      debugPrint('[LandscapeVideoPlayer] Failed to auto-start PiP: $e');
+      _autoPipRequestedForLifecycle = false;
+    }
   }
 
   Future<void> _initializePlayer() async {

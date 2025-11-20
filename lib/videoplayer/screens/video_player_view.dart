@@ -70,7 +70,7 @@ class VideoPlayerView extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
-    with TickerProviderStateMixin, RouteAware {
+    with TickerProviderStateMixin, RouteAware, WidgetsBindingObserver {
   VideoPlayerTheme? _theme;
   // Track which thumbnail URLs we've precached to avoid redundant work
   final Set<String> _precachedThumbnails = <String>{};
@@ -88,6 +88,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   bool _routeAwareSubscribed = false;
   bool _routeIsActive = true;
   Future<void>? _pendingAutoRotate;
+  bool _autoPipRequestedForLifecycle = false;
 
   // Drag gesture state
   late AnimationController _dragAnimationController;
@@ -119,6 +120,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     debugPrint(
       'VIDEO_PLAYER_INIT_STATE videoId:${widget.videoId} time:${DateTime.now().millisecondsSinceEpoch}',
     );
+    WidgetsBinding.instance.addObserver(this);
     // We don't attempt to capture the prior overlay style (not reliably
     // available across platforms). Instead we restore a safe default on exit.
 
@@ -242,6 +244,26 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     _routeIsActive = false;
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      _autoPipRequestedForLifecycle = false;
+      return;
+    }
+
+    if (!_routeIsActive) return;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_autoPipRequestedForLifecycle) return;
+      _autoPipRequestedForLifecycle = true;
+      unawaited(_attemptAutoEnterPiP());
+    }
+  }
+
   // Safe check to see if a controller is initialized without throwing when
   // the controller is disposed concurrently.
   bool controllerIsInitializedSafely(VideoPlayerController? c) {
@@ -327,6 +349,27 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
           videoItem: widget.videoItem,
         ),
       );
+    }
+  }
+
+  Future<void> _attemptAutoEnterPiP() async {
+    try {
+      final videoState = ref.read(videoPlayerProvider);
+      if (!videoState.isReady) return;
+      if (!videoState.isPlaying) return;
+      if (videoState.isMinimized || videoState.isInPictureInPicture) return;
+
+      final notifier = ref.read(videoPlayerProvider.notifier);
+      final supportsPiP = await notifier.isPictureInPictureSupported();
+      if (!supportsPiP) return;
+
+      final entered = await notifier.enterPictureInPicture(autoTriggered: true);
+      if (!entered) {
+        _autoPipRequestedForLifecycle = false;
+      }
+    } catch (e) {
+      debugPrint('[VideoPlayerView] Failed to auto-start PiP: $e');
+      _autoPipRequestedForLifecycle = false;
     }
   }
 
@@ -1120,6 +1163,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   @override
   void dispose() {
     debugPrint('[VideoPlayerView] dispose() called');
+    WidgetsBinding.instance.removeObserver(this);
 
     if (_routeAwareSubscribed) {
       try {
@@ -1354,6 +1398,23 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     final videoState = ref.watch(videoPlayerProvider);
     final videoNotifier = ref.read(videoPlayerProvider.notifier);
     final theme = _theme ?? VideoPlayerTheme.defaultTheme();
+
+    if (videoState.isInPictureInPicture) {
+      final controller = videoState.controller;
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: controller != null && controllerIsInitializedSafely(controller)
+              ? AspectRatio(
+                  aspectRatio: controller.value.aspectRatio == 0
+                      ? 16 / 9
+                      : controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
+                )
+              : const SizedBox.shrink(),
+        ),
+      );
+    }
 
     // Apply status bar style using extracted primary color
     final statusBarColor = theme.primaryColor;

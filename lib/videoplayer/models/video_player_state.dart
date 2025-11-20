@@ -33,6 +33,7 @@ class VideoPlayerState {
   // Mini player state
   final bool isMinimized;
   final bool showMiniPlayer;
+  final bool isInPictureInPicture;
 
   const VideoPlayerState({
     this.controller,
@@ -59,6 +60,7 @@ class VideoPlayerState {
     this.repeatMode = false,
     this.playlist,
     this.currentIndex,
+    this.isInPictureInPicture = false,
   });
 
   VideoPlayerState copyWith({
@@ -86,6 +88,7 @@ class VideoPlayerState {
     int? currentIndex,
     bool? isMinimized,
     bool? showMiniPlayer,
+    bool? isInPictureInPicture,
   }) {
     return VideoPlayerState(
       controller: controller ?? this.controller,
@@ -112,6 +115,7 @@ class VideoPlayerState {
       currentIndex: currentIndex ?? this.currentIndex,
       isMinimized: isMinimized ?? this.isMinimized,
       showMiniPlayer: showMiniPlayer ?? this.showMiniPlayer,
+      isInPictureInPicture: isInPictureInPicture ?? this.isInPictureInPicture,
     );
   }
 
@@ -160,7 +164,8 @@ class VideoPlayerState {
         other.isLoading == isLoading &&
         other.errorMessage == errorMessage &&
         other.repeatMode == repeatMode &&
-        other.currentIndex == currentIndex;
+        other.currentIndex == currentIndex &&
+        other.isInPictureInPicture == isInPictureInPicture;
   }
 
   @override
@@ -183,6 +188,7 @@ class VideoPlayerState {
         isLoading.hashCode ^
         errorMessage.hashCode ^
         repeatMode.hashCode ^
-        currentIndex.hashCode;
+        currentIndex.hashCode ^
+        isInPictureInPicture.hashCode;
   }
 }

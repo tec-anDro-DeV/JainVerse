@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import '../models/video_player_state.dart';
 import '../models/video_item.dart';
+import '../services/video_pip_service.dart';
 
 /// State notifier for managing video player state
 class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
@@ -39,8 +40,83 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   /// are owned by the notifier until consumed or disposed.
   final Map<String, VideoPlayerController> _preloadedControllers = {};
 
+  final VideoPipService _pipService = VideoPipService.instance;
+  bool _pipCallbacksRegistered = false;
+  bool? _lastPipPlaybackState;
+  bool _restoreMiniPlayerAfterPip = false;
+  bool _awaitingManualResumeAfterSystemPipClose = false;
+  bool _autoPiPAttemptInProgress = false;
+
   @override
-  VideoPlayerState build() => const VideoPlayerState();
+  VideoPlayerState build() {
+    _registerPipCallbacks();
+    return const VideoPlayerState();
+  }
+
+  void _registerPipCallbacks() {
+    if (_pipCallbacksRegistered) return;
+
+    _pipService.registerCallbacks(
+      PictureInPictureCallbacks(
+        onTogglePlayPause: () => togglePlayPause(),
+        onStateChanged: _handlePipStateChanged,
+        onClosed: _handlePipClosed,
+      ),
+    );
+    _pipCallbacksRegistered = true;
+
+    ref.onDispose(() {
+      _pipCallbacksRegistered = false;
+      _pipService.clearCallbacks();
+    });
+  }
+
+  void _handlePipStateChanged(bool isInPip) {
+    state = state.copyWith(isInPictureInPicture: isInPip);
+    if (!isInPip) {
+      _lastPipPlaybackState = null;
+      _restoreMiniPlayerIfNeeded();
+    }
+  }
+
+  /// Handle PiP window closed via system close button
+  Future<void> _handlePipClosed() async {
+    debugPrint('[VideoPlayer] PiP closed via system button - pausing playback');
+    _awaitingManualResumeAfterSystemPipClose = true;
+    await _pauseAfterSystemPipClose();
+  }
+
+  Future<void> _pauseAfterSystemPipClose() async {
+    final controller = state.controller;
+    if (controller != null) {
+      try {
+        await controller.pause();
+      } catch (_) {
+        // Ignore controller pause failures; we'll keep state paused regardless
+      }
+    }
+
+    state = state.copyWith(isPlaying: false);
+    _cancelControlsTimer();
+    _notifyPipPlaybackChange(false);
+  }
+
+  void _restoreMiniPlayerIfNeeded() {
+    if (!_restoreMiniPlayerAfterPip) return;
+    final hasActiveVideo =
+        state.controller != null || state.currentVideoId != null;
+    if (!hasActiveVideo) {
+      _restoreMiniPlayerAfterPip = false;
+      return;
+    }
+
+    _restoreMiniPlayerAfterPip = false;
+    state = state.copyWith(
+      isMinimized: true,
+      showMiniPlayer: true,
+      isFullScreen: false,
+    );
+  }
 
   /// Initialize video player with a video URL
   Future<void> initializeVideo({
@@ -61,6 +137,7 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   }) async {
     const int maxRetries = 1;
     try {
+      _awaitingManualResumeAfterSystemPipClose = false;
       // Capture any existing controller and immediately remove it from state so
       // the UI hides the previous video right away (shows loading overlay).
       final existingController = state.controller;
@@ -406,12 +483,26 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
 
     // Guard: don't update if controller is disposed
     try {
+      if (_awaitingManualResumeAfterSystemPipClose &&
+          controller.value.isPlaying) {
+        debugPrint(
+          '[VideoPlayer] Enforcing paused state after system PiP close',
+        );
+        unawaited(_pauseAfterSystemPipClose());
+        return;
+      }
+
+      final wasPlaying = state.isPlaying;
       state = state.copyWith(
         isPlaying: controller.value.isPlaying,
         isBuffering: controller.value.isBuffering,
         isCompleted: controller.value.position >= controller.value.duration,
         volume: controller.value.volume,
       );
+
+      if (wasPlaying != state.isPlaying) {
+        _notifyPipPlaybackChange(state.isPlaying);
+      }
 
       // Auto-repeat if enabled and video completed
       if (state.isCompleted && state.repeatMode) {
@@ -445,6 +536,67 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     });
   }
 
+  Future<bool> enterPictureInPicture({bool autoTriggered = false}) async {
+    if (state.isInPictureInPicture) return true;
+
+    final controller = state.controller;
+    if (controller == null) return false;
+
+    final isReady =
+        _isControllerActive && controller.value.isInitialized && state.isReady;
+    if (!isReady) return false;
+
+    if (autoTriggered && !state.isPlaying) return false;
+
+    final success = await _pipService.enterPictureInPicture(
+      state,
+      autoTriggered: autoTriggered,
+    );
+
+    if (success) {
+      _restoreMiniPlayerAfterPip = state.isMinimized || state.showMiniPlayer;
+      state = state.copyWith(
+        isInPictureInPicture: true,
+        isMinimized: false,
+        showMiniPlayer: false,
+      );
+      _notifyPipPlaybackChange(state.isPlaying);
+    }
+
+    return success;
+  }
+
+  /// Attempt to auto-enter PiP when backgrounding or similar lifecycle events.
+  /// Returns true when a PiP session was entered, false otherwise.
+  Future<bool> autoEnterPictureInPictureIfNeeded() async {
+    if (_autoPiPAttemptInProgress) return false;
+
+    final currentState = state;
+    if (currentState.isInPictureInPicture) return false;
+    if (!currentState.isReady) return false;
+    if (!currentState.isPlaying) return false;
+
+    _autoPiPAttemptInProgress = true;
+    try {
+      final supportsPiP = await isPictureInPictureSupported();
+      if (!supportsPiP) return false;
+      return await enterPictureInPicture(autoTriggered: true);
+    } finally {
+      _autoPiPAttemptInProgress = false;
+    }
+  }
+
+  Future<bool> isPictureInPictureSupported() {
+    return _pipService.isPictureInPictureSupported();
+  }
+
+  void _notifyPipPlaybackChange(bool isPlaying) {
+    if (!_pipCallbacksRegistered) return;
+    if (_lastPipPlaybackState == isPlaying) return;
+    _lastPipPlaybackState = isPlaying;
+    unawaited(_pipService.updatePlaybackState(isPlaying));
+  }
+
   /// Play video
   Future<void> play() async {
     final controller = state.controller;
@@ -453,10 +605,15 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         !_isControllerActive)
       return;
 
+    if (_awaitingManualResumeAfterSystemPipClose) {
+      _awaitingManualResumeAfterSystemPipClose = false;
+    }
+
     try {
       await controller.play();
       state = state.copyWith(isPlaying: true);
       _resetControlsTimer();
+      _notifyPipPlaybackChange(true);
     } catch (e) {
       // Controller was disposed during play - ignore
     }
@@ -475,9 +632,41 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       state = state.copyWith(isPlaying: false);
       _cancelControlsTimer();
       showControls();
+      _notifyPipPlaybackChange(false);
     } catch (e) {
       // Controller was disposed during pause - ignore
     }
+  }
+
+  /// Ensure the mini player enters a true paused state when the app backgrounds.
+  Future<void> pauseForMiniPlayerLifecycle() async {
+    final controller = state.controller;
+    if (controller == null || !_isControllerActive) return;
+    if (!(state.isMinimized || state.showMiniPlayer)) return;
+    if (state.isInPictureInPicture) return;
+
+    bool controllerInitialized = false;
+    bool controllerIsPlaying = false;
+    try {
+      controllerInitialized = controller.value.isInitialized;
+      controllerIsPlaying = controller.value.isPlaying;
+    } catch (_) {
+      controllerInitialized = false;
+      controllerIsPlaying = false;
+    }
+
+    final shouldPauseState = state.isPlaying || controllerIsPlaying;
+    if (!shouldPauseState) return;
+
+    if (controllerInitialized) {
+      try {
+        await controller.pause();
+      } catch (_) {}
+    }
+
+    state = state.copyWith(isPlaying: false);
+    _cancelControlsTimer();
+    _notifyPipPlaybackChange(false);
   }
 
   /// Toggle play/pause
@@ -645,6 +834,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   Future<void> closeMiniPlayer() async {
     debugPrint('[VideoPlayer] Closing mini player');
     state = state.copyWith(showMiniPlayer: false, isMinimized: false);
+    unawaited(_pipService.exitPictureInPicture());
+    _lastPipPlaybackState = null;
+    _restoreMiniPlayerAfterPip = false;
 
     // Stop video after a brief delay to allow animation to complete
     await Future.delayed(const Duration(milliseconds: 300));
@@ -720,7 +912,12 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         repeatMode: false,
         playlist: null,
         currentIndex: null,
+        isInPictureInPicture: false,
       );
+
+      _lastPipPlaybackState = null;
+      _restoreMiniPlayerAfterPip = false;
+      unawaited(_pipService.exitPictureInPicture());
 
       // If there is an existing controller instance, remove its listeners and
       // synchronously attempt to pause and dispose it so native resources are

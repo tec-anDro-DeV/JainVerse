@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../managers/video_player_state_provider.dart';
 import '../screens/video_player_view.dart';
 import '../managers/like_dislike_state_manager.dart';
@@ -23,7 +26,7 @@ class _MiniVideoPlayerConfig {
   static double get spacing => 10.w;
   // previewSize removed — preview now sized dynamically as 30% of card width
   static double get playButtonSize => 46.w;
-  static double get playIconSize => 37.w;
+  static double get playIconSize => 22.w;
   static double get progressBarHeight => 6.w;
 }
 
@@ -41,7 +44,7 @@ class MiniVideoPlayer extends ConsumerStatefulWidget {
 }
 
 class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // Animation controllers
   late AnimationController _slideAnimationController;
   late AnimationController _fadeAnimationController;
@@ -54,6 +57,8 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
   String? _lastBuildSummary;
   String? _lastVisibilityAction;
   String? _lastRenderDecision;
+  bool _lifecyclePauseRequested = false;
+  bool _autoPipRequestedForLifecycle = false;
 
   // Swipe dismiss state
   // raw drag (1:1 with finger) and displayed offset (after resistance mapping)
@@ -88,6 +93,7 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeAnimations();
   }
 
@@ -188,10 +194,67 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _slideAnimationController.dispose();
     _fadeAnimationController.dispose();
     _dragAnimationController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _lifecyclePauseRequested = false;
+      _autoPipRequestedForLifecycle = false;
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      if (_autoPipRequestedForLifecycle) return;
+      _autoPipRequestedForLifecycle = true;
+      unawaited(_attemptMiniPlayerAutoPiP());
+    }
+  }
+
+  void _pauseMiniPlayerForLifecycle() {
+    if (_lifecyclePauseRequested) return;
+    final videoState = ref.read(videoPlayerProvider);
+    final shouldHandle =
+        videoState.isMinimized &&
+        videoState.showMiniPlayer &&
+        !videoState.isInPictureInPicture;
+    if (!shouldHandle) return;
+
+    final notifier = ref.read(videoPlayerProvider.notifier);
+    _lifecyclePauseRequested = true;
+    notifier.pauseForMiniPlayerLifecycle();
+  }
+
+  Future<void> _attemptMiniPlayerAutoPiP() async {
+    try {
+      final videoState = ref.read(videoPlayerProvider);
+      final shouldAttemptPiP =
+          videoState.showMiniPlayer || videoState.isMinimized;
+      if (!shouldAttemptPiP) {
+        _pauseMiniPlayerForLifecycle();
+        return;
+      }
+
+      final notifier = ref.read(videoPlayerProvider.notifier);
+      final entered = await notifier.autoEnterPictureInPictureIfNeeded();
+      if (!entered) {
+        _pauseMiniPlayerForLifecycle();
+      }
+    } catch (e) {
+      debugPrint('[MiniVideoPlayer] Failed to auto-enter PiP: $e');
+      _pauseMiniPlayerForLifecycle();
+    } finally {
+      _autoPipRequestedForLifecycle = false;
+    }
   }
 
   // Safely check if a controller is initialized without throwing if it's disposed
@@ -412,6 +475,10 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
   @override
   Widget build(BuildContext context) {
     final videoState = ref.watch(videoPlayerProvider);
+
+    if (videoState.isInPictureInPicture) {
+      return const SizedBox.shrink();
+    }
     // Keep global managers in sync with the authoritative provider-held VideoItem
     try {
       final currentItem = videoState.currentVideoItem;
@@ -558,11 +625,6 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
 
                       // Play/Pause button
                       _buildPlayPauseButton(videoState, videoNotifier),
-
-                      SizedBox(width: 8.w),
-
-                      // Close button
-                      _buildCloseButton(videoNotifier),
                     ],
                   ),
                 ),
@@ -788,7 +850,7 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.transparent,
-          border: Border.all(color: appColors().primaryColorApp, width: 2.w),
+          border: Border.all(color: Colors.black26, width: 1.w),
         ),
         child: Center(
           child: videoState.isLoading
@@ -796,39 +858,18 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
                   width: _MiniVideoPlayerConfig.playIconSize,
                   height: _MiniVideoPlayerConfig.playIconSize,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.w,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      appColors().primaryColorApp,
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black38),
                   ),
                 )
-              : Icon(
+              : SvgPicture.asset(
                   videoState.isPlaying
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  size: _MiniVideoPlayerConfig.playIconSize,
-                  color: appColors().primaryColorApp,
+                      ? 'assets/icons/pause_icon.svg'
+                      : 'assets/icons/play_icon.svg',
+                  width: _MiniVideoPlayerConfig.playIconSize,
+                  height: _MiniVideoPlayerConfig.playIconSize,
+                  fit: BoxFit.contain,
                 ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCloseButton(videoNotifier) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        _dismissMiniPlayer();
-      },
-      child: Container(
-        width: 30.w,
-        height: 30.w,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.transparent,
-          border: Border.all(color: Colors.black26, width: 1.w),
-        ),
-        child: Icon(Icons.close_outlined, size: 20.w, color: Colors.black),
       ),
     );
   }
