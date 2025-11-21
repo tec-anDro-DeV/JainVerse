@@ -27,6 +27,8 @@ class PanchangCalendarWidget extends StatefulWidget {
 class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
   late DateTime displayedMonth;
   late PageController _pageController;
+  // Whether the current time (now) is in an auspicious Choghadiya
+  bool _isNowAuspicious = false;
 
   @override
   void initState() {
@@ -37,6 +39,8 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
       1,
     );
     _pageController = PageController(initialPage: 0);
+    // Compute auspicious state once at init
+    _computeAuspiciousNow();
   }
 
   @override
@@ -56,6 +60,13 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
           1,
         );
       });
+    }
+
+    // Recompute auspicious status if location/timezone or other props change
+    if (widget.latitude != oldWidget.latitude ||
+        widget.longitude != oldWidget.longitude ||
+        widget.timezone != oldWidget.timezone) {
+      _computeAuspiciousNow();
     }
   }
 
@@ -154,6 +165,91 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
 
   bool _isCurrentMonth(DateTime date) {
     return date.month == displayedMonth.month;
+  }
+
+  void _computeAuspiciousNow() {
+    try {
+      final now = DateTime.now();
+      final panchangService = PanchangService(
+        date: DateTime(now.year, now.month, now.day),
+        latitude: widget.latitude,
+        longitude: widget.longitude,
+        timezone: widget.timezone,
+      );
+
+      final panchang = panchangService.getPanchang();
+      final choghadiya = panchang['choghadiya'] as Map<String, dynamic>?;
+      if (choghadiya == null) {
+        setState(() => _isNowAuspicious = false);
+        return;
+      }
+
+      // Helper to parse time strings like "hh:mm AM/PM"
+      DateTime _parse(String timeStr, DateTime baseDate) {
+        try {
+          final parts = timeStr.split(' ');
+          final hm = parts[0].split(':');
+          int hour = int.parse(hm[0]);
+          final minute = int.parse(hm[1]);
+          final period = parts.length > 1 ? parts[1] : 'AM';
+          if (period == 'PM' && hour != 12) hour += 12;
+          if (period == 'AM' && hour == 12) hour = 0;
+          return DateTime(
+            baseDate.year,
+            baseDate.month,
+            baseDate.day,
+            hour,
+            minute,
+          );
+        } catch (e) {
+          return DateTime(baseDate.year, baseDate.month, baseDate.day);
+        }
+      }
+
+      // Search for active choghadiya in day and night lists
+      final nowTime = DateTime.now();
+
+      List<dynamic> daySlots = List<dynamic>.from(choghadiya['day'] ?? []);
+      List<dynamic> nightSlots = List<dynamic>.from(choghadiya['night'] ?? []);
+
+      String? activeName;
+
+      for (final slot in daySlots) {
+        final start = _parse(slot['start'] ?? '', nowTime);
+        var end = _parse(slot['end'] ?? '', nowTime);
+        if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
+          end = end.add(const Duration(days: 1));
+        }
+        if ((nowTime.isAfter(start) && nowTime.isBefore(end)) ||
+            nowTime.isAtSameMomentAs(start)) {
+          activeName = slot['choghadiya']?.toString();
+          break;
+        }
+      }
+
+      if (activeName == null) {
+        for (final slot in nightSlots) {
+          final start = _parse(slot['start'] ?? '', nowTime);
+          var end = _parse(slot['end'] ?? '', nowTime);
+          if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
+            end = end.add(const Duration(days: 1));
+          }
+          if ((nowTime.isAfter(start) && nowTime.isBefore(end)) ||
+              nowTime.isAtSameMomentAs(start)) {
+            activeName = slot['choghadiya']?.toString();
+            break;
+          }
+        }
+      }
+
+      final auspicious = <String>{'Amrit', 'Shubh', 'Labh', 'Chal'};
+      setState(() {
+        _isNowAuspicious =
+            activeName != null && auspicious.contains(activeName);
+      });
+    } catch (e) {
+      setState(() => _isNowAuspicious = false);
+    }
   }
 
   /// Get Tithi data for a specific date
@@ -274,93 +370,116 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
 
               return GestureDetector(
                 onTap: () => widget.onDateSelected(date),
-                child: Container(
-                  // Make each cell fill the grid cell with no inner padding
-                  padding: EdgeInsets.zero,
-                  margin: EdgeInsets.zero,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? colors.primaryColorApp[50]
-                        : isToday
-                        ? colors.primaryColorApp[50]!.withOpacity(0.2)
-                        : Colors.transparent,
-                    // Remove rounded corners so borders meet cleanly
-                    borderRadius: BorderRadius.zero,
-                    // Add thin internal border for contiguous grid look
-                    border: Border.all(
-                      color: appColors().primaryColorApp.withOpacity(0.5),
-                      width: 0.5.w,
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Small Gregorian date on top
-                        Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            color: isSelected
-                                ? colors.white[50]
-                                : isCurrentMonth
-                                ? colors.colorText[50]
-                                : colors.gray[400],
-                            fontSize: 12.w,
-                            fontWeight: isSelected || isToday
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
+                child: Stack(
+                  children: [
+                    Container(
+                      // Make each cell fill the grid cell with no inner padding
+                      padding: EdgeInsets.zero,
+                      margin: EdgeInsets.zero,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colors.primaryColorApp[50]
+                            : isToday
+                            ? colors.primaryColorApp[50]!.withOpacity(0.2)
+                            : Colors.transparent,
+                        // Remove rounded corners so borders meet cleanly
+                        borderRadius: BorderRadius.zero,
+                        // Add thin internal border for contiguous grid look
+                        border: Border.all(
+                          color: appColors().primaryColorApp.withOpacity(0.5),
+                          width: 0.5.w,
                         ),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Small Gregorian date on top
+                            Text(
+                              '${date.day}',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? colors.white[50]
+                                    : isCurrentMonth
+                                    ? colors.colorText[50]
+                                    : colors.gray[400],
+                                fontSize: 12.w,
+                                fontWeight: isSelected || isToday
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
 
-                        // Only show tithi number (big) when available and in current month.
-                        if (tithi != null &&
-                            tithi['number'] != null &&
-                            isCurrentMonth)
-                          Padding(
-                            padding: EdgeInsets.only(top: 4.w),
-                            child: Builder(
-                              builder: (context) {
-                                final numVal = tithi['number'] is int
-                                    ? tithi['number'] as int
-                                    : int.tryParse(
-                                            tithi['number'].toString(),
-                                          ) ??
-                                          0;
+                            // Only show tithi number (big) when available and in current month.
+                            if (tithi != null &&
+                                tithi['number'] != null &&
+                                isCurrentMonth)
+                              Padding(
+                                padding: EdgeInsets.only(top: 4.w),
+                                child: Builder(
+                                  builder: (context) {
+                                    final numVal = tithi['number'] is int
+                                        ? tithi['number'] as int
+                                        : int.tryParse(
+                                                tithi['number'].toString(),
+                                              ) ??
+                                              0;
 
-                                // Display logic:
-                                // - Show 1-15 for Shukla Paksha (tithis 1-15)
-                                // - Show 1-14 for Krishna Paksha (tithis 16-29)
-                                // - Show 30 for Amavasya (tithi 30)
-                                int displayNumber;
-                                if (numVal == 30) {
-                                  // Special case: Amavasya shows as 30
-                                  displayNumber = 30;
-                                } else if (numVal > 15) {
-                                  // Krishna Paksha: show 1-14 (for tithis 16-29)
-                                  displayNumber = numVal - 15;
-                                } else {
-                                  // Shukla Paksha: show 1-15 (for tithis 1-15)
-                                  displayNumber = numVal;
-                                }
+                                    // Display logic:
+                                    // - Show 1-15 for Shukla Paksha (tithis 1-15)
+                                    // - Show 1-14 for Krishna Paksha (tithis 16-29)
+                                    // - Show 30 for Amavasya (tithi 30)
+                                    int displayNumber;
+                                    if (numVal == 30) {
+                                      // Special case: Amavasya shows as 30
+                                      displayNumber = 30;
+                                    } else if (numVal > 15) {
+                                      // Krishna Paksha: show 1-14 (for tithis 16-29)
+                                      displayNumber = numVal - 15;
+                                    } else {
+                                      // Shukla Paksha: show 1-15 (for tithis 1-15)
+                                      displayNumber = numVal;
+                                    }
 
-                                return Text(
-                                  displayNumber > 0
-                                      ? displayNumber.toString()
-                                      : '',
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? colors.white[50]
-                                        : colors.primaryColorApp[50],
-                                    fontSize: 18.w,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                );
-                              },
+                                    return Text(
+                                      displayNumber > 0
+                                          ? displayNumber.toString()
+                                          : '',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? colors.white[50]
+                                            : colors.primaryColorApp[50],
+                                        fontSize: 18.w,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Today indicator dot (top-left)
+                    if (isToday)
+                      Positioned(
+                        top: 4.w,
+                        left: 4.w,
+                        child: Container(
+                          width: 8.w,
+                          height: 8.w,
+                          decoration: BoxDecoration(
+                            color: _isNowAuspicious ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 0.5.w,
                             ),
                           ),
-                      ],
-                    ),
-                  ),
+                        ),
+                      ),
+                  ],
                 ),
               );
             },

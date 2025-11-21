@@ -108,7 +108,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   final List<LibraryItem> libraryItems = [
     LibraryItem(
       icon: Icons.queue_music_outlined,
-      title: 'Playlist',
+      title: 'Song Playlist',
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
@@ -123,12 +123,12 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     ),
     LibraryItem(
       icon: Icons.download_outlined,
-      title: 'Downloaded',
+      title: 'Downloaded Songs',
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
       icon: Icons.favorite_outline_outlined,
-      title: 'Favorites',
+      title: 'Favorite Songs',
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
@@ -143,7 +143,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     ),
     LibraryItem(
       icon: Icons.people_outlined,
-      title: 'Artist',
+      title: 'Artists',
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
@@ -544,12 +544,12 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     _isNavigatingBack = true;
 
     switch (title) {
-      case 'Playlist':
+      case 'Song Playlist':
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => const PlaylistScreen(),
-            settings: const RouteSettings(name: '/MyLibrary/playlist_screen'),
+            settings: const RouteSettings(name: '/MyLibrary/SongPlaylist'),
           ),
         );
         break;
@@ -573,21 +573,21 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           ),
         );
         break;
-      case 'Downloaded':
+      case 'Downloaded Songs':
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => const Download(),
-            settings: const RouteSettings(name: '/MyLibrary/Download'),
+            settings: const RouteSettings(name: '/MyLibrary/DownloadedSongs'),
           ),
         );
         break;
-      case 'Favorites':
+      case 'Favorite Songs':
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => Favorite('fav'),
-            settings: const RouteSettings(name: '/MyLibrary/Favorite'),
+            settings: const RouteSettings(name: '/MyLibrary/FavoriteSongs'),
           ),
         );
         break;
@@ -609,7 +609,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           ),
         );
         break;
-      case 'Artist':
+      case 'Artists':
         Navigator.push(
           context,
           MaterialPageRoute(

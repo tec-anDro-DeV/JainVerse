@@ -15,7 +15,6 @@ import 'package:jainverse/Presenter/AppSettingsPresenter.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/Logout.dart';
-import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
@@ -537,7 +536,7 @@ class _state extends State<HomeDiscover>
     }
   }
 
-  /// Show download message using the iOS overlay system (called from DownloadController)
+  /// Show download message using the iOS overlay system (calle0d from DownloadController)
   void _showDownloadMessageFromCallback(String message) {
     if (Platform.isIOS && mounted) {
       _showIOSDownloadMessage(message);
@@ -1536,30 +1535,6 @@ class _state extends State<HomeDiscover>
     );
   }
 
-  /*
-   * ALTERNATIVE FLEXIBLE HEIGHT APPROACH:
-   *
-   * Instead of using fixed heights, you can use IntrinsicHeight to let cards
-   * determine their own height naturally. This provides better responsiveness
-   * but requires more layout calculations. To implement this approach:
-   *
-   * 1. Replace ListView.builder with Row in _buildContentRow
-   * 2. Wrap the content in IntrinsicHeight widget
-   * 3. Use crossAxisAlignment: CrossAxisAlignment.stretch for consistent heights
-   *
-   * Example implementation:
-   *
-   * return IntrinsicHeight(
-   *   child: SingleChildScrollView(
-   *     scrollDirection: Axis.horizontal,
-   *     child: Row(
-   *       crossAxisAlignment: CrossAxisAlignment.stretch,
-   *       children: category.sub_category.map((item) => buildCard(item)).toList(),
-   *     ),
-   *   ),
-   * );
-   */
-
   // Helper method to build individual content items
   Widget _buildContentItem(
     DataCat category,
@@ -2037,31 +2012,9 @@ class _state extends State<HomeDiscover>
       );
 
       if (confirmed == true) {
-        // Show processing message
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: Text('Removing $itemName...'),
-        //     duration: Duration(seconds: 2),
-        //   ),
-        // );
-
-        // Here you would implement the actual API call to remove the item
-        // For now, we'll simulate it
         await Future.delayed(Duration(milliseconds: 500));
-
         print('✅ $itemType "$itemName" removed from library');
 
-        // Show success message
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: Text('$itemName removed successfully'),
-        //     backgroundColor: Colors.green,
-        //     duration: Duration(seconds: 2),
-        //   ),
-        // );
-
-        // TODO: Refresh the UI to reflect the removal
-        // You might want to call setState() or refresh the data
       }
     } catch (e) {
       print('❌ Error removing $itemType: $e');
