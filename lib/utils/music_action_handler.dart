@@ -9,8 +9,10 @@ import 'package:jainverse/UI/MusicEntryPoint.dart'; // Add access to global data
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart'; // Import favorites hook
 import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
+import 'package:jainverse/services/single_music_service.dart';
 import 'package:jainverse/utils/AppConstant.dart'; // Import for base URL constants
 import 'package:jainverse/utils/music_player_state_manager.dart'; // Import state manager
 import 'package:jainverse/utils/share_helper.dart';
@@ -121,31 +123,20 @@ class MusicActionHandler {
           callSource: 'MusicActionHandler.handlePlaySong.smartReplace',
         );
       } else {
-        // Song not in current list - play as single song
-        // Create minimal song data (may have limited functionality)
-        final minimalSong = DataMusic(
-          int.tryParse(songId) ?? 0, // id
-          '', // image - will be resolved
-          '', // audio - will be resolved by API
-          '3:00', // audio_duration - default
-          songName, // audio_title
-          _generateSlug(songName), // audio_slug
-          0, // audio_genre_id
-          '', // artist_id
-          'Unknown Artist', // artists_name
-          '', // audio_language
-          0, // listening_count
-          0, // is_featured
-          0, // is_trending
-          '', // created_at
-          0, // is_recommended
-          '0', // favourite
-          '', // download_price
-          '', // lyrics
-        );
+        // Song not in current list - fetch full metadata from API before playing
+        final singleMusicService = SingleMusicService();
+        final fetchedSong = await singleMusicService.fetchSingleMusic(songId);
+
+        if (fetchedSong == null) {
+          if (kDebugMode) {
+            print('❌ Unable to fetch song metadata for $songName ($songId)');
+          }
+          _showErrorSnackBar('Unable to load $songName');
+          return;
+        }
 
         await musicManager.replaceQueue(
-          musicList: [minimalSong],
+          musicList: [fetchedSong],
           startIndex: 0,
           pathImage: '',
           audioPath: '',
@@ -181,6 +172,50 @@ class MusicActionHandler {
         }
       } else {
         _showErrorSnackBar('Failed to play $songName');
+      }
+    }
+  }
+
+  /// Handle the new instant playback flow which plays a single item immediately
+  /// while the rest of the provided context queues up in the background.
+  Future<void> handleInstantPlay({
+    required SongPlaybackPayload payload,
+    List<SongPlaybackPayload> context = const [],
+    int contextIndex = 0,
+  }) async {
+    try {
+      HapticFeedback.mediumImpact();
+
+      final musicManager = MusicManager();
+      musicManager.autoCleanupStaleLocks();
+
+      await musicManager.playInstant(
+        payload: payload,
+        context: context,
+        contextIndex: contextIndex,
+      );
+
+      final stateManager = MusicPlayerStateManager();
+      stateManager.showMiniPlayerForMusicStart();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Instant play failed for ${payload.title}: $e');
+      }
+
+      final extrasId = payload.extras['audio_id']?.toString();
+      final fallbackId = (extrasId != null && extrasId.isNotEmpty)
+          ? extrasId
+          : payload.id;
+
+      if (fallbackId.isEmpty) {
+        _showErrorSnackBar('Failed to start ${payload.title}');
+        return;
+      }
+
+      try {
+        await handlePlaySong(fallbackId, payload.title);
+      } catch (_) {
+        _showErrorSnackBar('Failed to start ${payload.title}');
       }
     }
   }
@@ -649,30 +684,26 @@ class MusicActionHandler {
     late OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
-      builder:
-          (context) => Positioned(
-            top: MediaQuery.of(context).size.height * 0.1,
-            left: 20,
-            right: 20,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  message,
-                  style: TextStyle(color: Colors.white, fontSize: fontSize),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).size.height * 0.1,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              message,
+              style: TextStyle(color: Colors.white, fontSize: fontSize),
+              textAlign: TextAlign.center,
             ),
           ),
+        ),
+      ),
     );
 
     overlay.insert(overlayEntry);
@@ -687,13 +718,6 @@ class MusicActionHandler {
   bool get mounted => context.mounted;
 
   /// Helper method to generate slug from song name
-  String _generateSlug(String songName) {
-    return songName
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
-        .replaceAll(RegExp(r'\s+'), '-')
-        .trim();
-  }
 }
 
 /// Factory class to create MusicActionHandler instances

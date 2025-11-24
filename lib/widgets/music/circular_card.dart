@@ -34,13 +34,12 @@ class CircularCard extends StatelessWidget {
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.grey,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(responsiveSize / 2),
               image: DecorationImage(
-                image:
-                    imagePath.isEmpty
-                        ? const AssetImage('assets/images/song_placeholder.png')
-                        : NetworkImage(imagePath) as ImageProvider,
+                image: imagePath.isEmpty
+                    ? const AssetImage('assets/images/song_placeholder.png')
+                    : NetworkImage(imagePath) as ImageProvider,
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
               ),
@@ -66,10 +65,9 @@ class CircularCard extends StatelessWidget {
                 fontFamily: 'Poppins',
                 fontSize: AppSizes.fontNormal * 0.9, // Slightly smaller font
                 height: 1, // Reduced line height
-                color:
-                    (sharedPreThemeData.themeImageBack.isEmpty)
-                        ? appColors().colorText
-                        : appColors().colorText,
+                color: (sharedPreThemeData.themeImageBack.isEmpty)
+                    ? appColors().colorText
+                    : appColors().colorText,
               ),
             ),
           ),
@@ -91,10 +89,9 @@ class CircularCard extends StatelessWidget {
                   fontFamily: 'Poppins',
                   fontSize: AppSizes.fontSmall * 0.9, // Slightly smaller font
                   height: 1.1, // Reduced line height
-                  color:
-                      (sharedPreThemeData.themeImageBack.isEmpty)
-                          ? appColors().colorText
-                          : appColors().colorText,
+                  color: (sharedPreThemeData.themeImageBack.isEmpty)
+                      ? appColors().colorText
+                      : appColors().colorText,
                 ),
               ),
             ),

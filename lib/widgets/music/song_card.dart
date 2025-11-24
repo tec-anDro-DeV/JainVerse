@@ -146,7 +146,7 @@ class _SongCardState extends State<SongCard> with MusicCardLongPressHandler {
                       imageUrl: widget.imagePath,
                       width: side,
                       height: side,
-                      fit: BoxFit.contain,
+                      fit: BoxFit.cover,
                       alignment: Alignment.center,
                       borderRadius: BorderRadius.circular(borderRadius),
                       fallbackAsset: 'assets/images/song_placeholder.png',
@@ -177,10 +177,9 @@ class _SongCardState extends State<SongCard> with MusicCardLongPressHandler {
                       fontWeight: FontWeight.w500,
                       height: 1.1,
                       letterSpacing: -0.2,
-                      color:
-                          (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? appColors().colorText
-                              : appColors().colorText,
+                      color: (widget.sharedPreThemeData.themeImageBack.isEmpty)
+                          ? appColors().colorText
+                          : appColors().colorText,
                     ),
                   ),
                   if (widget.artistName != null &&
@@ -201,8 +200,8 @@ class _SongCardState extends State<SongCard> with MusicCardLongPressHandler {
                           height: 1.0, // Slightly reduced line height
                           color:
                               (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                                  ? appColors().colorText.withOpacity(0.7)
-                                  : appColors().colorText.withOpacity(0.7),
+                              ? appColors().colorText.withOpacity(0.7)
+                              : appColors().colorText.withOpacity(0.7),
                         ),
                       ),
                     ),

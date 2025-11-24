@@ -28,7 +28,7 @@ import 'package:session_storage/session_storage.dart';
 import '../main.dart';
 import '../widgets/common/app_header.dart';
 import '../widgets/music/history_card.dart';
-import '../widgets/music/music_section_header.dart';
+import '../widgets/music/home_section_header.dart';
 import '../widgets/music/popular_song_card.dart';
 import '../widgets/music/song_card.dart';
 import 'AccountPage.dart';
@@ -990,7 +990,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       ), // Reduced top and bottom margins
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 4.w),
-        child: MusicSectionHeader(
+        child: HomeSectionHeader(
           title: category.cat_name,
           sharedPreThemeData: sharedPreThemeData,
           onViewAllPressed: () {
@@ -1337,7 +1337,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         // History section header
         Container(
           margin: EdgeInsets.fromLTRB(7.w, 20.w, 7.w, 10.w),
-          child: MusicSectionHeader(
+          child: HomeSectionHeader(
             title: "History",
             sharedPreThemeData: sharedPreThemeData,
             onViewAllPressed: () {

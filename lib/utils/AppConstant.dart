@@ -23,6 +23,7 @@ class AppConstant {
   static const String API_SET_MUSIC_LANGUAGES = "setMusicLanguages";
   static const String API_GET_MUSIC_CATEGORIES = "musicCategories";
   static const String API_GET_MUSIC_BY_CATEGORY = "getMusicByCategory";
+  static const String API_HOME_LIST = "home_list";
   static const String API_SET_MUSIC_GENRE = "setMusicGenre";
   static const String API_MUSIC_GENRE = "musicGenre";
   static const String API_GET_SEARCH_MUSIC = "searchMusic";

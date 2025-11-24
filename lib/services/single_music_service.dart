@@ -158,8 +158,9 @@ class SingleMusicService {
   /// Convert SingleMusicResponse to DataMusic object
   DataMusic _convertToDataMusic(SingleMusicResponse response) {
     // Use the actual duration from API, fallback to default if empty
-    final duration =
-        response.audioDuration.isNotEmpty ? response.audioDuration : '3:00';
+    final duration = response.audioDuration.isNotEmpty
+        ? response.audioDuration
+        : '3:00';
 
     return DataMusic(
       response.id,
@@ -170,8 +171,8 @@ class SingleMusicService {
       response.audioSlug.isNotEmpty
           ? response.audioSlug
           : _generateSlug(
-            response.audioTitle,
-          ), // audio_slug (use from API or generate)
+              response.audioTitle,
+            ), // audio_slug (use from API or generate)
       0, // audio_genre_id (not provided by API)
       response.artistId, // artist_id (now from API)
       response.artistsName, // artists_name

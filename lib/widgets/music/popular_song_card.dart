@@ -107,10 +107,9 @@ class _PopularSongCardState extends State<PopularSongCard>
   }
 
   Color _getTextColor(double opacity) {
-    final baseColor =
-        (widget.sharedPreThemeData.themeImageBack.isEmpty)
-            ? appColors().colorText
-            : appColors().colorText;
+    final baseColor = (widget.sharedPreThemeData.themeImageBack.isEmpty)
+        ? appColors().colorText
+        : appColors().colorText;
     return baseColor.withOpacity(opacity);
   }
 
@@ -118,8 +117,9 @@ class _PopularSongCardState extends State<PopularSongCard>
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     // Use less width for the card by default so it appears narrower on tablets
-    final responsiveWidth =
-        widget.isCompact ? screenWidth * 0.86 : screenWidth * 0.70;
+    final responsiveWidth = widget.isCompact
+        ? screenWidth * 0.86
+        : screenWidth * 0.70;
     final margin = EdgeInsets.only(left: 10.w, right: 6.w);
     final padding = EdgeInsets.fromLTRB(16.w, 16.w, 16.w, 8.w);
 
@@ -260,24 +260,27 @@ class _PopularSongCardState extends State<PopularSongCard>
                   builder: (context) {
                     // Calculate available inner height of the card (account for padding)
                     final double verticalPadding = padding.top + padding.bottom;
-                    final double availableHeight = (widget.height -
-                            verticalPadding)
-                        .clamp(0.0, double.infinity);
+                    final double availableHeight =
+                        (widget.height - verticalPadding).clamp(
+                          0.0,
+                          double.infinity,
+                        );
 
                     // Derive a target width from a fraction of the card width
                     final double imageMaxWidth = constrainedWidth * 0.36;
 
                     // On small screens, prefer a larger minimum so the image doesn't look tiny
-                    final double screenWidthLocal =
-                        MediaQuery.of(context).size.width;
-                    final double minImageSize =
-                        screenWidthLocal < 360 ? 110.0 : 80.0;
+                    final double screenWidthLocal = MediaQuery.of(
+                      context,
+                    ).size.width;
+                    final double minImageSize = screenWidthLocal < 360
+                        ? 110.0
+                        : 80.0;
 
                     // Choose the smaller of the two so image fits inside the card height and width
-                    double imageSize =
-                        imageMaxWidth < availableHeight
-                            ? imageMaxWidth
-                            : availableHeight;
+                    double imageSize = imageMaxWidth < availableHeight
+                        ? imageMaxWidth
+                        : availableHeight;
 
                     // Clamp to reasonable bounds (logical pixels) to avoid extremes
                     imageSize = imageSize.clamp(minImageSize, 220.0);

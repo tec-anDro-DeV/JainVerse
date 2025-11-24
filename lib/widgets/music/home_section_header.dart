@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
-import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 
-class MusicSectionHeader extends StatelessWidget {
+class HomeSectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback onViewAllPressed;
   final ModelTheme sharedPreThemeData;
 
-  const MusicSectionHeader({
+  const HomeSectionHeader({
     super.key,
     required this.title,
     required this.onViewAllPressed,
@@ -20,7 +19,7 @@ class MusicSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(5.w, 8.w, 9.w, 10.w),
+      margin: EdgeInsets.fromLTRB(18.w, 5.w, 18.w, 5.w),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -31,16 +30,15 @@ class MusicSectionHeader extends StatelessWidget {
               fontFamily: 'Poppins',
               fontSize: AppSizes.fontMedium,
               fontWeight: FontWeight.w600,
-              color:
-                  (sharedPreThemeData.themeImageBack.isEmpty)
-                      ? appColors().colorText
-                      : appColors().colorText,
+              color: (sharedPreThemeData.themeImageBack.isEmpty)
+                  ? appColors().colorText
+                  : appColors().colorText,
             ),
           ),
           InkResponse(
             onTap: onViewAllPressed,
             child: Text(
-              'See all',
+              'View All',
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: AppSizes.fontSmall,

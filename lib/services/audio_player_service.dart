@@ -82,6 +82,8 @@ abstract class AudioPlayerHandler implements AudioHandler {
   ValueStream<double> get volume;
   Future<void> setVolume(double volume);
   ValueStream<double> get speed;
+  Future<void> playSingle(MediaItem mediaItem);
+  Future<void> playInstantContext(List<MediaItem> mediaItems);
 }
 
 /// Media library for organizing audio content with Android Auto support
@@ -1183,7 +1185,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   /// modification / addStream StateError. Uses small backoff between attempts.
   Future<void> _safeAddAllToPlaylist(
     List<AudioSource> sources, {
-    int maxAttempts = 4,
+    int maxAttempts = 10,
   }) async {
     int attempt = 0;
     while (true) {
@@ -1193,14 +1195,21 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       } catch (e) {
         attempt++;
         final msg = e.toString().toLowerCase();
-        if (attempt < maxAttempts &&
-            (msg.contains('addstream') ||
-                msg.contains('you cannot add items'))) {
+        final isConcurrentError =
+            msg.contains('addstream') ||
+            msg.contains('add stream') ||
+            msg.contains('you cannot add items');
+
+        if (attempt < maxAttempts && isConcurrentError) {
           developer.log(
             '[WARN][AudioPlayerHandlerImpl] _safeAddAllToPlaylist: concurrent modification detected, retry #$attempt',
             name: 'AudioPlayerHandlerImpl',
           );
-          await Future.delayed(const Duration(milliseconds: 120));
+          final baseDelay = 80 * attempt * attempt;
+          final clampedDelay = baseDelay < 80
+              ? 80
+              : (baseDelay > 800 ? 800 : baseDelay);
+          await Future.delayed(Duration(milliseconds: clampedDelay));
           continue;
         }
         rethrow;
@@ -1217,8 +1226,14 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
 
   @override
   Future<void> addQueueItems(List<MediaItem> mediaItems) async {
+    if (mediaItems.isEmpty) return;
     return _synchronizeQueueOperation(() async {
-      await _playlist.addAll(_itemsToSources(mediaItems));
+      await _safeAddAllToPlaylist(_itemsToSources(mediaItems));
+
+      final currentQueue = List<MediaItem>.from(queue.valueOrNull ?? []);
+      currentQueue.addAll(mediaItems);
+      _mediaLibrary.updateQueue(currentQueue);
+      super.queue.add(currentQueue);
     });
   }
 
@@ -1246,6 +1261,121 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
           );
         },
       );
+    });
+  }
+
+  @override
+  Future<void> playSingle(MediaItem mediaItem) async {
+    return _synchronizeQueueOperation(() async {
+      developer.log(
+        '[AudioPlayerHandlerImpl] Instant play requested for ${mediaItem.title}',
+        name: 'AudioPlayerHandlerImpl',
+      );
+
+      try {
+        if (_player.playing) {
+          await _player.stop().timeout(const Duration(seconds: 1));
+        }
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] Unable to stop player before instant play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      // Replace playlist with single source for immediate playback
+      await _safeClearPlaylist();
+      await _safeAddAllToPlaylist([_itemToSource(mediaItem)]);
+
+      try {
+        await _player
+            .setAudioSource(_playlist, preload: true)
+            .timeout(const Duration(seconds: 2));
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] setAudioSource failed during instant play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      // Announce the synthetic single-item queue so UI can update instantly
+      _mediaLibrary.updateQueue([mediaItem]);
+      super.queue.add([mediaItem]);
+      this.mediaItem.add(mediaItem);
+
+      try {
+        await _player.seek(Duration.zero, index: 0);
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] seek failed during instant play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      await _player.play();
+    });
+  }
+
+  @override
+  Future<void> playInstantContext(List<MediaItem> mediaItems) async {
+    if (mediaItems.isEmpty) return;
+    return _synchronizeQueueOperation(() async {
+      developer.log(
+        '[AudioPlayerHandlerImpl] Instant context play with ${mediaItems.length} items',
+        name: 'AudioPlayerHandlerImpl',
+      );
+
+      try {
+        if (_player.playing) {
+          await _player.stop().timeout(const Duration(seconds: 1));
+        }
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] Unable to stop player before instant context play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      await _safeClearPlaylist();
+      await _safeAddAllToPlaylist(_itemsToSources(mediaItems));
+
+      try {
+        await _player
+            .setAudioSource(
+              _playlist,
+              preload: true,
+              initialIndex: 0,
+              initialPosition: Duration.zero,
+            )
+            .timeout(const Duration(seconds: 3));
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] setAudioSource failed during instant context play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      final queueSnapshot = List<MediaItem>.from(mediaItems);
+      _mediaLibrary.updateQueue(queueSnapshot);
+      super.queue.add(queueSnapshot);
+      mediaItem.add(queueSnapshot.first);
+
+      try {
+        await _player.seek(Duration.zero, index: 0);
+      } catch (e) {
+        developer.log(
+          '[WARN][AudioPlayerHandlerImpl] seek failed during instant context play: $e',
+          name: 'AudioPlayerHandlerImpl',
+          error: e,
+        );
+      }
+
+      await _player.play();
     });
   }
 

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class CacheManager {
   static const String MUSIC_CATEGORIES_CACHE_KEY = 'music_categories_cache';
+  static const String HOME_CONTENT_CACHE_KEY = 'home_content_cache';
   static const String RECENT_SEARCHES_CACHE_KEY = 'recent_searches_cache';
   static const String CACHE_STATE_KEY = 'cache_state_key';
   static const String IMAGE_CACHE_KEY = 'image_cache_key';
@@ -405,8 +406,9 @@ class CacheManager {
 
       if (audioPath.isNotEmpty) {
         // Make sure audioPath ends with / for correct concatenation
-        String cleanAudioPath =
-            audioPath.endsWith('/') ? audioPath : '$audioPath/';
+        String cleanAudioPath = audioPath.endsWith('/')
+            ? audioPath
+            : '$audioPath/';
         audioUrl = '$baseUrl$cleanAudioPath$audioUrl';
       } else {
         // Fallback construction for legacy cached data - use proper audio path

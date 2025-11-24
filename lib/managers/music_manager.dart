@@ -8,6 +8,7 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/models/downloaded_music.dart';
+import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/single_music_service.dart';
 import 'package:jainverse/services/station_service.dart';
@@ -51,6 +52,8 @@ class _SingleMusicCacheEntry {
   final DateTime timestamp;
   _SingleMusicCacheEntry(this.future) : timestamp = DateTime.now();
 }
+
+enum InstantPlaybackPhase { idle, priming, queueWarmup }
 
 /// MusicManager is a singleton class that manages music playback state, queue operations,
 /// and acts as the central coordinator between UI components and the audio service.
@@ -161,6 +164,16 @@ class MusicManager extends ChangeNotifier {
   int? _currentIndex;
   MediaItem? _currentMediaItem;
   List<DataMusic> _originalMusicData = [];
+  final ValueNotifier<InstantPlaybackPhase> instantPlaybackPhase =
+      ValueNotifier(InstantPlaybackPhase.idle);
+  SongPlaybackPayload? _activeInstantPayload;
+  List<SongPlaybackPayload> _pendingInstantContext =
+      const <SongPlaybackPayload>[];
+  int _pendingInstantIndex = 0;
+  Future<void>? _instantWarmupFuture;
+  List<MediaItem> _preparedInstantQueue = const <MediaItem>[];
+  int _preparedInstantQueueIndex = 0;
+  int _instantWarmupToken = 0;
 
   // Enhanced queue management for Play Next / Add to Queue functionality
   final List<MediaItem> _playNextStack =
@@ -222,6 +235,13 @@ class MusicManager extends ChangeNotifier {
   int? get currentIndex => _currentIndex;
   MediaItem? get currentMediaItem => _currentMediaItem;
   List<DataMusic> get originalMusicData => _originalMusicData;
+  SongPlaybackPayload? get activeInstantPayload => _activeInstantPayload;
+  List<SongPlaybackPayload> get pendingInstantContext =>
+      List.unmodifiable(_pendingInstantContext);
+  int get pendingInstantIndex => _pendingInstantIndex;
+  List<MediaItem> get preparedInstantQueue =>
+      List.unmodifiable(_preparedInstantQueue);
+  int get preparedInstantQueueStartIndex => _preparedInstantQueueIndex;
 
   // Enhanced queue getters for Play Next / Add to Queue functionality
   List<MediaItem> get playNextStack => _playNextStack;
@@ -335,6 +355,151 @@ class MusicManager extends ChangeNotifier {
     // Start auto play monitoring if enabled
     if (_autoPlayEnabled && _repeatMode == AudioServiceRepeatMode.none) {
       _startAutoPlayMonitoring();
+    }
+  }
+
+  void _resetInstantPlaybackContext({
+    bool preserveActive = true,
+    bool resetPhase = true,
+  }) {
+    _instantWarmupToken++;
+    _instantWarmupFuture = null;
+    _pendingInstantContext = const <SongPlaybackPayload>[];
+    _pendingInstantIndex = 0;
+    _preparedInstantQueue = const <MediaItem>[];
+    _preparedInstantQueueIndex = 0;
+    if (!preserveActive) {
+      _activeInstantPayload = null;
+    }
+    if (resetPhase) {
+      instantPlaybackPhase.value = InstantPlaybackPhase.idle;
+    }
+  }
+
+  void _scheduleInstantQueueWarmup() {
+    if (_isDisposed) return;
+    if (_pendingInstantContext.isEmpty) {
+      _preparedInstantQueue = const <MediaItem>[];
+      _preparedInstantQueueIndex = 0;
+      instantPlaybackPhase.value = InstantPlaybackPhase.idle;
+      return;
+    }
+
+    final contextSnapshot = List<SongPlaybackPayload>.from(
+      _pendingInstantContext,
+    );
+    final indexSnapshot = _pendingInstantIndex;
+    final token = ++_instantWarmupToken;
+
+    instantPlaybackPhase.value = InstantPlaybackPhase.queueWarmup;
+    _instantWarmupFuture = _performInstantQueueWarmup(
+      contextSnapshot,
+      indexSnapshot,
+      token,
+    );
+  }
+
+  Future<void> _performInstantQueueWarmup(
+    List<SongPlaybackPayload> context,
+    int targetIndex,
+    int token,
+  ) async {
+    try {
+      if (context.isEmpty || _isDisposed) {
+        return;
+      }
+
+      final normalizedIndex = targetIndex.clamp(0, context.length - 1);
+      final normalizedContext = _rotateList(context, normalizedIndex);
+      final mediaItems = <MediaItem>[];
+      for (final payload in normalizedContext) {
+        mediaItems.add(_mediaItemFromPayload(payload));
+      }
+
+      final currentMediaItem = _currentMediaItem;
+      if (currentMediaItem != null && mediaItems.isNotEmpty) {
+        mediaItems[0] = currentMediaItem;
+      }
+
+      // Only publish result if this run is still current
+      if (token == _instantWarmupToken && !_isDisposed) {
+        _pendingInstantContext = normalizedContext;
+        _preparedInstantQueue = mediaItems;
+        _preparedInstantQueueIndex = 0;
+
+        final tail = mediaItems.length > 1
+            ? List<MediaItem>.from(mediaItems.sublist(1))
+            : const <MediaItem>[];
+        await _appendPreparedInstantQueueTail(tail, token);
+      }
+    } catch (e) {
+      developer.log(
+        '[MusicManager] Instant queue warmup failed: $e',
+        name: 'MusicManager',
+        error: e,
+      );
+    } finally {
+      if (token == _instantWarmupToken && !_isDisposed) {
+        instantPlaybackPhase.value = InstantPlaybackPhase.idle;
+        _instantWarmupFuture = null;
+      }
+    }
+  }
+
+  List<T> _rotateList<T>(List<T> source, int startIndex) {
+    if (source.isEmpty) return List<T>.empty(growable: true);
+    final normalizedIndex = startIndex.clamp(0, source.length - 1);
+    if (normalizedIndex == 0) {
+      return List<T>.from(source);
+    }
+    final head = source.sublist(normalizedIndex);
+    head.addAll(source.sublist(0, normalizedIndex));
+    return head;
+  }
+
+  Future<void> _appendPreparedInstantQueueTail(
+    List<MediaItem> tail,
+    int token,
+  ) async {
+    if (token != _instantWarmupToken || _isDisposed) return;
+
+    bool publishQueue = tail.isEmpty;
+    if (tail.isNotEmpty) {
+      final hasHandler = await ensureAudioHandler();
+      if (hasHandler) {
+        const int maxAttempts = 4;
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            if (attempt > 0) {
+              await Future.delayed(Duration(milliseconds: 150 * attempt));
+            }
+            await _audioHandler!.addQueueItems(tail);
+            publishQueue = true;
+            break;
+          } catch (e) {
+            final shouldRetry =
+                attempt < maxAttempts - 1 && _isTransientPlaylistError(e);
+            developer.log(
+              '[MusicManager] Failed to append instant queue tail (attempt ${attempt + 1}): $e',
+              name: 'MusicManager',
+              error: e,
+            );
+            if (!shouldRetry) {
+              publishQueue = false;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (publishQueue && token == _instantWarmupToken && !_isDisposed) {
+      _queue = List<MediaItem>.from(_preparedInstantQueue);
+      _currentIndex = 0;
+      if (_queue.isNotEmpty) {
+        _currentMediaItem = _queue.first;
+      }
+      _safeNotifyListeners();
     }
   }
 
@@ -1333,6 +1498,75 @@ class MusicManager extends ChangeNotifier {
     return mediaItems;
   }
 
+  MediaItem _mediaItemFromPayload(SongPlaybackPayload payload) {
+    final extras = Map<String, dynamic>.from(payload.extras);
+    extras['audio_id'] ??= payload.id;
+    extras['actual_audio_url'] ??= payload.audioUrl;
+    if (payload.imageUrl.isNotEmpty) {
+      extras['image_url'] = payload.imageUrl;
+    }
+    if (payload.channelName != null) {
+      extras['channel_name'] = payload.channelName;
+    }
+    if (payload.channelImageUrl != null) {
+      extras['channel_image_url'] = payload.channelImageUrl;
+    }
+    extras['playback_source'] ??= 'instant_play';
+
+    return MediaItem(
+      id: payload.audioUrl.isNotEmpty ? payload.audioUrl : payload.id,
+      title: payload.title,
+      artist: payload.channelName ?? 'Unknown Artist',
+      album: payload.channelName ?? 'JainVerse',
+      duration: payload.duration ?? kDefaultSongDuration,
+      artUri: payload.imageUrl.isNotEmpty
+          ? Uri.tryParse(payload.imageUrl)
+          : null,
+      extras: extras,
+    );
+  }
+
+  Future<void> _playSingleWithRetries(MediaItem mediaItem) async {
+    const int maxAttempts = 4;
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        if (attempt > 0) {
+          await Future.delayed(Duration(milliseconds: 150 * attempt));
+        }
+        await _audioHandler!.playSingle(mediaItem);
+        return;
+      } catch (e) {
+        if (!_isTransientPlaylistError(e) || attempt == maxAttempts - 1) {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  Future<void> _playContextWithRetries(List<MediaItem> mediaItems) async {
+    const int maxAttempts = 4;
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        if (attempt > 0) {
+          await Future.delayed(Duration(milliseconds: 150 * attempt));
+        }
+        await _audioHandler!.playInstantContext(mediaItems);
+        return;
+      } catch (e) {
+        if (!_isTransientPlaylistError(e) || attempt == maxAttempts - 1) {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  bool _isTransientPlaylistError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('addstream') ||
+        message.contains('add stream') ||
+        message.contains('you cannot add items');
+  }
+
   /// Ensures the audio handler is available, and attempts to re-initialize if null
   Future<bool> ensureAudioHandler() async {
     if (_audioHandler != null) return true;
@@ -1412,6 +1646,7 @@ class MusicManager extends ChangeNotifier {
 
       _stopAutoPlayMonitoring();
       _resetLocalPlaybackState(notifyListeners: false);
+      _resetInstantPlaybackContext();
       forceClearLocks();
 
       // Refresh cached state from handler so observers receive the cleared values
@@ -2408,6 +2643,97 @@ class MusicManager extends ChangeNotifier {
   /// Play a specific song by index within a provided list (coalesced and guarded)
   /// This method sets an optimistic processing state (for UI) and coalesces
   /// duplicate requests for the same song id so multiple taps share one Future.
+  Future<void> playInstant({
+    required SongPlaybackPayload payload,
+    List<SongPlaybackPayload> context = const <SongPlaybackPayload>[],
+    int contextIndex = 0,
+  }) async {
+    if (_isDisposed) return;
+    final hasHandler = await ensureAudioHandler();
+    if (!hasHandler) {
+      developer.log(
+        '[MusicManager] Instant play aborted - audio handler unavailable',
+        name: 'MusicManager',
+      );
+      return;
+    }
+
+    _resetInstantPlaybackContext(preserveActive: false, resetPhase: false);
+    instantPlaybackPhase.value = InstantPlaybackPhase.priming;
+    final bool hasContext = context.isNotEmpty;
+    int clampedIndex = 0;
+    List<SongPlaybackPayload> normalizedContext = const <SongPlaybackPayload>[];
+    List<MediaItem> normalizedMediaItems = const <MediaItem>[];
+    SongPlaybackPayload effectivePayload = payload;
+
+    if (hasContext) {
+      clampedIndex = contextIndex < 0
+          ? 0
+          : (contextIndex >= context.length
+                ? context.length - 1
+                : contextIndex);
+      normalizedContext = _rotateList(context, clampedIndex);
+      if (normalizedContext.isNotEmpty) {
+        effectivePayload = normalizedContext.first;
+        normalizedMediaItems = normalizedContext
+            .map(_mediaItemFromPayload)
+            .toList(growable: false);
+      }
+    }
+
+    try {
+      if (normalizedMediaItems.isNotEmpty) {
+        await _playContextWithRetries(normalizedMediaItems);
+
+        _queue = List<MediaItem>.from(normalizedMediaItems);
+        _currentMediaItem = _queue.first;
+        _currentIndex = 0;
+        _isPlaying = true;
+        _isLoading = false;
+        _activeInstantPayload = effectivePayload;
+        _pendingInstantContext = normalizedContext;
+        _pendingInstantIndex = 0;
+        instantPlaybackPhase.value = InstantPlaybackPhase.idle;
+        _preparedInstantQueue = List<MediaItem>.from(_queue);
+        _preparedInstantQueueIndex = 0;
+        _safeNotifyListeners();
+        return;
+      }
+
+      final mediaItem = _mediaItemFromPayload(effectivePayload);
+      await _playSingleWithRetries(mediaItem);
+
+      _queue = [mediaItem];
+      _currentMediaItem = mediaItem;
+      _currentIndex = 0;
+      _isPlaying = true;
+      _isLoading = false;
+      _activeInstantPayload = effectivePayload;
+      if (hasContext && normalizedContext.isNotEmpty) {
+        _pendingInstantContext = normalizedContext;
+        _pendingInstantIndex = 0;
+        instantPlaybackPhase.value = InstantPlaybackPhase.queueWarmup;
+        _scheduleInstantQueueWarmup();
+      } else {
+        _pendingInstantContext = const <SongPlaybackPayload>[];
+        _pendingInstantIndex = 0;
+        instantPlaybackPhase.value = InstantPlaybackPhase.idle;
+        _preparedInstantQueue = const <MediaItem>[];
+        _preparedInstantQueueIndex = 0;
+      }
+
+      _safeNotifyListeners();
+    } catch (e) {
+      _resetInstantPlaybackContext();
+      developer.log(
+        '[MusicManager] Instant play failed: $e',
+        name: 'MusicManager',
+        error: e,
+      );
+      rethrow;
+    }
+  }
+
   Future<void> playSongById({
     required List<DataMusic> musicList,
     required int startIndex,
@@ -2763,6 +3089,14 @@ class MusicManager extends ChangeNotifier {
           name: 'MusicManager',
         );
       }
+
+      try {
+        processingAudioId.dispose();
+      } catch (_) {}
+
+      try {
+        instantPlaybackPhase.dispose();
+      } catch (_) {}
 
       developer.log(
         '[MusicManager] Disposal cleanup completed successfully',
