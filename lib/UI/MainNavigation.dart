@@ -97,15 +97,24 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   Widget build(BuildContext context) {
     // Set up media coordination listener (only runs during build, not in initState)
     ref.listen(videoPlayerProvider, (previous, next) {
-      final coordinator = ref.read(mediaCoordinatorProvider.notifier);
+      final coordinatorNotifier = ref.read(mediaCoordinatorProvider.notifier);
+      final currentCoordinatorState = ref.read(mediaCoordinatorProvider);
 
-      if (next.currentVideoId != null) {
-        // Video is active
-        coordinator.setVideoActive();
-      } else if (previous?.currentVideoId != null &&
-          next.currentVideoId == null) {
-        // Video was just stopped
-        coordinator.clearActivePlayer();
+      final wasMiniVisible = previous?.showMiniPlayer == true;
+      final isMiniVisible = next.showMiniPlayer;
+
+      if (isMiniVisible) {
+        // Mini video player is visible, take control of the coordinator.
+        coordinatorNotifier.setVideoActive();
+        return;
+      }
+
+      final bool videoWasControlling =
+          currentCoordinatorState == ActiveMediaPlayer.video;
+
+      if (wasMiniVisible && !isMiniVisible && videoWasControlling) {
+        // Mini video player was dismissed; release coordinator unless audio already took over.
+        coordinatorNotifier.clearActivePlayer();
       }
     });
 

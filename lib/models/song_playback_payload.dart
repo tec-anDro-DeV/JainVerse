@@ -1,8 +1,7 @@
 import 'package:jainverse/Model/home_models.dart';
 
-/// Lightweight DTO that carries everything we need to start playback instantly
-/// without waiting for a full queue rebuild. Values come directly from the
-/// home API (featuredSongs/latestSongs/etc.).
+/// Lightweight DTO that carries everything we need to start playback instantly.
+/// Values come directly from the home API (featuredSongs/latestSongs/etc.).
 class SongPlaybackPayload {
   final String id;
   final String title;
@@ -24,10 +23,11 @@ class SongPlaybackPayload {
     this.extras = const {},
   });
 
+  /// Create payload from the new SongModel (audio model)
   factory SongPlaybackPayload.fromSongModel(SongModel song) {
     return SongPlaybackPayload(
-      id: song.id?.toString() ?? song.audio,
-      title: song.title,
+      id: song.id.toString(),
+      title: song.audioTitle,
       audioUrl: song.audioUrl,
       imageUrl: song.imageUrl,
       duration: _parseDuration(song.audioDuration),
@@ -35,7 +35,8 @@ class SongPlaybackPayload {
       channelImageUrl: song.channelImageUrl,
       extras: {
         'audio_id': song.id,
-        'audio_slug': song.slug,
+        'audio_slug': song.audioSlug,
+        'audio_title': song.audioTitle,
         'actual_audio_url': song.audioUrl,
         'image_url': song.imageUrl,
         'channel_name': song.channelName,
@@ -46,9 +47,9 @@ class SongPlaybackPayload {
         'is_featured': song.isFeatured,
         'is_trending': song.isTrending,
         'is_recommended': song.isRecommended,
-        'audio_language': song.audioLanguage,
         'copyright': song.copyright,
         'release_date': song.releaseDate,
+        'is_favourite': song.isFavourite,
       }..removeWhere((key, value) => value == null),
     );
   }
@@ -76,12 +77,16 @@ class SongPlaybackPayload {
   }
 }
 
+/// Parses a duration from "mm:ss" or "hh:mm:ss"
 Duration? _parseDuration(String? raw) {
   if (raw == null || raw.isEmpty) return null;
+
   final parts = raw.split(':');
   if (parts.isEmpty) return null;
+
   try {
     final numbers = parts.map(int.parse).toList();
+
     if (numbers.length == 3) {
       return Duration(
         hours: numbers[0],
@@ -98,5 +103,6 @@ Duration? _parseDuration(String? raw) {
   } catch (_) {
     return null;
   }
+
   return null;
 }

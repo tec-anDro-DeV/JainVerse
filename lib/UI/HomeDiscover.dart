@@ -264,8 +264,8 @@ class _HomeDiscoverState extends State<HomeDiscover> {
                   title: video.title,
                   thumbnailUrl: _resolveVideoThumb(video),
                   duration: video.duration,
-                  channelName: video.channelName ?? video.name,
-                  channelImageUrl: video.channelImageUrl ?? video.imageUrl,
+                  channelName: video.channelName,
+                  channelImageUrl: video.channelImageUrl,
                   totalViews: video.totalViews,
                   publishedAt: video.createdAt,
                   onTap: () => _openVideo(video),
@@ -444,7 +444,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     return SongCard(
       songId: songId,
       imagePath: imageUrl,
-      songName: song.title,
+      songName: song.audioTitle,
       artistName: artistName,
       sharedPreThemeData: theme,
       onTap: songId == null
@@ -457,7 +457,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handlePlayNext(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
@@ -465,14 +465,14 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handleAddToQueue(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
       onDownload: songId == null
           ? null
           : () => _musicActionHandler.handleDownload(
-              song.title,
+              song.audioTitle,
               'song',
               songId,
               imagePath: imageUrl,
@@ -481,19 +481,22 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handleAddToPlaylist(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
       onShare: () => _musicActionHandler.handleShare(
-        song.title,
+        song.audioTitle,
         'song',
         itemId: songId,
-        slug: song.slug,
+        slug: song.audioSlug,
       ),
       onFavorite: songId == null
           ? null
-          : () => _musicActionHandler.handleFavoriteToggle(songId, song.title),
+          : () => _musicActionHandler.handleFavoriteToggle(
+              songId,
+              song.audioTitle,
+            ),
     );
   }
 
@@ -511,7 +514,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     return PopularSongCard(
       songId: songId,
       imagePath: imageUrl,
-      songName: song.title,
+      songName: song.audioTitle,
       artistName: artistName,
       listenerCount: listens,
       sharedPreThemeData: theme,
@@ -525,7 +528,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handlePlayNext(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
@@ -533,14 +536,14 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handleAddToQueue(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
       onDownload: songId == null
           ? null
           : () => _musicActionHandler.handleDownload(
-              song.title,
+              song.audioTitle,
               'song',
               songId,
               imagePath: imageUrl,
@@ -549,19 +552,22 @@ class _HomeDiscoverState extends State<HomeDiscover> {
           ? null
           : () => _musicActionHandler.handleAddToPlaylist(
               songId,
-              song.title,
+              song.audioTitle,
               artistName,
               imagePath: imageUrl,
             ),
       onShare: () => _musicActionHandler.handleShare(
-        song.title,
+        song.audioTitle,
         'song',
         itemId: songId,
-        slug: song.slug,
+        slug: song.audioSlug,
       ),
       onFavorite: songId == null
           ? null
-          : () => _musicActionHandler.handleFavoriteToggle(songId, song.title),
+          : () => _musicActionHandler.handleFavoriteToggle(
+              songId,
+              song.audioTitle,
+            ),
     );
   }
 
@@ -602,7 +608,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     final instantIdentifier =
         (fallbackSongId != null && fallbackSongId.isNotEmpty)
         ? fallbackSongId
-        : tappedSong.audio.trim();
+        : tappedSong.audioUrl.trim();
 
     if (instantIdentifier.isEmpty) {
       _showSnackbar('Song unavailable.');
@@ -610,13 +616,13 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     }
 
     if (!_hasPlayableAudio(tappedSong)) {
-      await _fallbackToSmartPlay(fallbackSongId, tappedSong.title);
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
       return;
     }
 
     final payloads = _buildInstantPayloads(songs);
     if (payloads.isEmpty) {
-      await _fallbackToSmartPlay(fallbackSongId, tappedSong.title);
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
       return;
     }
 
@@ -625,7 +631,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     );
 
     if (normalizedIndex == -1) {
-      await _fallbackToSmartPlay(fallbackSongId, tappedSong.title);
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
       return;
     }
 
@@ -704,7 +710,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
   }
 
   void _openVideo(VideoModel video) {
-    final videoUrl = video.videoUrl.isNotEmpty ? video.videoUrl : video.video;
+    final videoUrl = video.videoUrl;
 
     if (videoUrl.isEmpty) {
       _showSnackbar('Video unavailable.');
@@ -716,9 +722,9 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     launchVideoPlayer(
       context,
       videoUrl: videoUrl,
-      videoId: (video.id ?? '').toString(),
+      videoId: video.id.toString(),
       videoTitle: video.title,
-      videoSubtitle: video.channelName ?? video.name,
+      videoSubtitle: video.channelName,
       thumbnailUrl: item.thumbnailUrl,
       videoItem: item,
     );
@@ -726,16 +732,16 @@ class _HomeDiscoverState extends State<HomeDiscover> {
 
   VideoItem _toVideoItem(VideoModel video, String videoUrl) {
     return VideoItem(
-      id: video.id ?? 0,
+      id: video.id,
       title: video.title,
       videoUrl: videoUrl,
       thumbnailUrl: _resolveVideoThumb(video),
       duration: video.duration,
       description: video.description,
       channelId: video.channelId,
-      channelName: video.channelName ?? video.name,
-      channelHandle: video.channelHandle ?? video.handle,
-      channelImageUrl: video.channelImageUrl ?? video.imageUrl,
+      channelName: video.channelName,
+      channelHandle: video.channelHandle,
+      channelImageUrl: video.channelImageUrl,
       totalViews: video.totalViews,
     );
   }
@@ -776,15 +782,15 @@ class _HomeDiscoverState extends State<HomeDiscover> {
 
   String _resolveVideoThumb(VideoModel video) {
     if (video.thumbnailUrl.isNotEmpty) return video.thumbnailUrl;
-    if (video.thumbnailImage.isNotEmpty) return video.thumbnailImage;
     return '';
   }
 
   String _resolveSongImage(SongModel song) {
     if (song.imageUrl.isNotEmpty) return song.imageUrl;
-    if (song.image.isNotEmpty) {
-      if (song.image.startsWith('http')) return song.image;
-      return '${AppConstant.ImageUrl}${song.image}';
+    if (song.bannerImage?.isNotEmpty == true) {
+      final raw = song.bannerImage!;
+      if (raw.startsWith('http')) return raw;
+      return '${AppConstant.ImageUrl}$raw';
     }
     return '';
   }
