@@ -15,7 +15,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/controllers/user_music_controller.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/models/downloaded_music.dart';
 import 'package:jainverse/providers/favorites_provider.dart';
 import 'package:jainverse/services/app_router_manager.dart';
@@ -302,7 +302,7 @@ Future<void> main() async {
             );
 
         // Initialize MusicManager with the audio handler
-        MusicManager().setAudioHandler(_audioHandler!);
+        MusicManager.instance.setAudioHandler(_audioHandler!);
       } catch (e, stackTrace) {
         debugPrint('Failed to initialize AudioService: $e');
         debugPrint('Stack trace: $stackTrace');

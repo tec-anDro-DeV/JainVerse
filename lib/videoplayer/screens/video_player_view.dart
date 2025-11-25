@@ -26,7 +26,7 @@ import '../widgets/animated_like_dislike_buttons.dart';
 import '../widgets/video_report_modal.dart';
 import '../models/video_item.dart';
 import '../services/subscription_service.dart';
-import '../../managers/music_manager.dart';
+import '../../controllers/music/music_manager.dart';
 import '../utils/orientation_helper.dart';
 import '../services/related_videos_service.dart';
 import '../widgets/video_card_inside.dart';

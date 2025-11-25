@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 import '../managers/video_player_state_provider.dart';
-import '../../managers/music_manager.dart';
+import '../../controllers/music/music_manager.dart';
 import '../utils/orientation_helper.dart';
 
 /// Full-screen landscape video player with YouTube-style controls

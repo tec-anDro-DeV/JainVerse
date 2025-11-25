@@ -11,7 +11,7 @@ import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
 import 'package:jainverse/UI/artist_detail_screen.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart'; // Import for AudioPlayerHandler
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/services/station_service.dart';

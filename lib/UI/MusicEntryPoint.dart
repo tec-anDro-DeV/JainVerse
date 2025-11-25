@@ -10,7 +10,7 @@ import 'package:jainverse/controllers/music_controller.dart';
 import 'package:jainverse/controllers/payment_controller.dart';
 import 'package:jainverse/controllers/playback_controller.dart';
 import 'package:jainverse/controllers/user_music_controller.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/widgets/common/loader.dart';
 import 'package:jainverse/widgets/musicplayer/MusicPlayerView.dart';

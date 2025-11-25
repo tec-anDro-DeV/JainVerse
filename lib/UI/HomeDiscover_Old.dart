@@ -22,7 +22,7 @@ import 'package:jainverse/UI/AllCategoryByName.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
 import 'package:jainverse/main.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
