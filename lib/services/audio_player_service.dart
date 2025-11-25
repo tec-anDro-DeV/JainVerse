@@ -809,12 +809,20 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         '[DEBUG][AudioPlayerHandlerImpl] ✅ Successfully skipped to queue item $index, was playing: $wasPlaying',
         name: 'AudioPlayerHandlerImpl',
       );
-      // Auto-play after skipping to queue item
-      await _player.play();
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] ▶️ Playback started after skipToQueueItem',
-        name: 'AudioPlayerHandlerImpl',
-      );
+      final shouldResumePlayback = wasPlaying || playbackState.value.playing;
+
+      if (shouldResumePlayback) {
+        await _player.play();
+        AudioLogger.log(
+          '[DEBUG][AudioPlayerHandlerImpl] ▶️ Playback resumed after skipToQueueItem',
+          name: 'AudioPlayerHandlerImpl',
+        );
+      } else {
+        AudioLogger.log(
+          '[DEBUG][AudioPlayerHandlerImpl] ⏸ SkipToQueueItem completed without auto-resume (user paused before skip)',
+          name: 'AudioPlayerHandlerImpl',
+        );
+      }
       // Ensure the new current MediaItem has normalized image URL - do this async
       _ensureCurrentMediaItemImageIsNormalized();
 
@@ -823,7 +831,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         _historyTracker.track(queue.value[index]);
       }
 
-      // Note: We don't auto-resume playback here. The caller should explicitly call play() if needed.
+      // Caller can still explicitly invoke play() if needed when we skip without resuming.
     } catch (e) {
       AudioLogger.log(
         '[ERROR][AudioPlayerHandlerImpl] Failed to skip to queue item: \\$e',

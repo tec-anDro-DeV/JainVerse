@@ -120,8 +120,8 @@ class _PopularSongCardState extends State<PopularSongCard>
     final responsiveWidth = widget.isCompact
         ? screenWidth * 0.86
         : screenWidth * 0.70;
-    final margin = EdgeInsets.only(left: 10.w, right: 6.w);
-    final padding = EdgeInsets.fromLTRB(16.w, 16.w, 16.w, 8.w);
+    final EdgeInsets margin = EdgeInsets.zero;
+    final EdgeInsets padding = EdgeInsets.fromLTRB(16.w, 16.w, 16.w, 8.w);
 
     // If songId is provided, use FavoritesSelector to auto-rebuild on favorites change
     if (widget.songId != null) {
@@ -306,11 +306,11 @@ class _PopularSongCardState extends State<PopularSongCard>
                             imageUrl: widget.imagePath,
                             width: double.infinity,
                             height: double.infinity,
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             alignment: Alignment.center,
                             borderRadius: BorderRadius.circular(24.w),
                             fallbackAsset: 'assets/images/song_placeholder.png',
-                            backgroundColor: appColors().gray[100],
+                            backgroundColor: appColors().white,
                           ),
                         ),
                       ),

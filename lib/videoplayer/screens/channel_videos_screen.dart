@@ -106,7 +106,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
 
     // Secondary check: if any video item has is_own flag, it's the user's channel
     if (_vm.items.isNotEmpty) {
-      return _vm.items.any((video) => video.isOwn);
+      return _vm.items.any((video) => (video.isOwn == 1));
     }
 
     return false;
@@ -138,7 +138,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen> {
     // Also check if any video items have is_own flag set to determine channel ownership
     if (_vm.items.isNotEmpty && _currentUserId == null) {
       final firstVideo = _vm.items.first;
-      if (firstVideo.isOwn) {
+      if (firstVideo.isOwn == 1) {
         // If any video is marked as own, this is the user's channel
         // No need to check user ID further
       }

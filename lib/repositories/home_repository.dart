@@ -26,6 +26,13 @@ class HomeRepository extends BasePresenter {
       throw Exception('Authentication token missing. Please login again.');
     }
 
+    try {
+      debugPrint('[HomeRepository] Using token: $token');
+      debugPrint(
+        '[HomeRepository] Calling API: ${AppConstant.BaseUrl}${AppConstant.API_HOME_LIST}',
+      );
+    } catch (_) {}
+
     if (forceRefresh) {
       await CacheManager.forceRefreshCache(CacheManager.HOME_CONTENT_CACHE_KEY);
     } else {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
@@ -39,7 +40,8 @@ class HomeDiscover extends StatefulWidget {
   State<HomeDiscover> createState() => _HomeDiscoverState();
 }
 
-class _HomeDiscoverState extends State<HomeDiscover> {
+class _HomeDiscoverState extends State<HomeDiscover>
+    with RouteAware, WidgetsBindingObserver {
   final SessionStorage session = SessionStorage();
   final NumberFormat _numberFormat = NumberFormat.compact();
 
@@ -49,6 +51,8 @@ class _HomeDiscoverState extends State<HomeDiscover> {
   late MusicActionHandler _musicActionHandler;
   bool _isHeaderVisible = true;
   double _lastScrollPosition = 0;
+  bool _isRouteObserverAttached = false;
+  bool _isFocusRefreshRunning = false;
 
   @override
   void initState() {
@@ -65,6 +69,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
       favoriteService: _favoriteService,
       onStateUpdate: () => setState(() {}),
     );
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.initialize();
@@ -76,11 +81,73 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _controller.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    if (_isRouteObserverAttached) {
+      try {
+        routeObserver.unsubscribe(this);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isRouteObserverAttached) return;
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (route != null) {
+      routeObserver.subscribe(this, route);
+      _isRouteObserverAttached = true;
+    }
+  }
+
+  @override
+  void didPush() {
+    _handleFocusGained();
+  }
+
+  @override
+  void didPopNext() {
+    _handleFocusGained(allowWhenEmpty: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _handleFocusGained(allowWhenEmpty: true);
+    }
+  }
+
+  Future<void> _handleFocusGained({bool allowWhenEmpty = false}) async {
+    if (!mounted || _isFocusRefreshRunning) return;
+    if (_controller.isLoading || _controller.isRefreshing) return;
+    if (!_controller.hasContent && !allowWhenEmpty) return;
+
+    _isFocusRefreshRunning = true;
+    try {
+      if (_controller.hasContent) {
+        await _controller.refresh();
+      } else {
+        await _controller.loadContent(forceRefresh: true);
+      }
+    } catch (_) {
+      // Silently ignore focus refresh failures; pull-to-refresh remains available.
+    } finally {
+      if (mounted) {
+        _isFocusRefreshRunning = false;
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -119,7 +186,7 @@ class _HomeDiscoverState extends State<HomeDiscover> {
             ),
           ..._buildSections(),
           SliverToBoxAdapter(
-            child: SizedBox(height: AppPadding.bottom(context)),
+            child: SizedBox(height: AppPadding.bottom(context, extra: 50.w)),
           ),
         ],
       ),
@@ -189,47 +256,75 @@ class _HomeDiscoverState extends State<HomeDiscover> {
   List<Widget> _buildSections() {
     final theme = _controller.theme;
     final sections = <Widget>[];
+    final updateStamp = _controller.lastUpdated?.millisecondsSinceEpoch ?? 0;
 
-    void addSection(Widget? child) {
-      if (child != null) {
-        sections.add(SliverToBoxAdapter(child: child));
-      }
+    void addAnimatedSection({
+      required Widget? child,
+      required String identity,
+    }) {
+      if (child == null) return;
+      sections.add(
+        SliverToBoxAdapter(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            child: KeyedSubtree(
+              key: ValueKey('$identity-$updateStamp'),
+              child: child,
+            ),
+          ),
+        ),
+      );
     }
 
-    addSection(
-      _buildVideoSection(
+    addAnimatedSection(
+      child: _buildVideoSection(
         title: 'Featured Videos',
         videos: _controller.featuredVideos,
         section: _HomeSection.featuredVideos,
         theme: theme,
       ),
+      identity: 'featuredVideos-${_controller.featuredVideos.length}',
     );
-    addSection(_buildChannelSection(_controller.channelList, theme));
-    addSection(
-      _buildSongCarousel(
+    addAnimatedSection(
+      child: _buildChannelSection(_controller.channelList, theme),
+      identity: 'channels-${_controller.channelList.length}',
+    );
+    addAnimatedSection(
+      child: _buildSongCarousel(
         title: 'Featured Songs',
         songs: _controller.featuredSongs,
         section: _HomeSection.featuredSongs,
         theme: theme,
       ),
+      identity: 'featuredSongs-${_controller.featuredSongs.length}',
     );
-    addSection(_buildLatestSongs(songs: _controller.latestSongs, theme: theme));
-    addSection(
-      _buildVideoSection(
+    addAnimatedSection(
+      child: _buildLatestSongs(songs: _controller.latestSongs, theme: theme),
+      identity: 'latestSongs-${_controller.latestSongs.length}',
+    );
+    addAnimatedSection(
+      child: _buildVideoSection(
         title: 'Popular Videos',
         videos: _controller.popularVideos,
         section: _HomeSection.popularVideos,
         theme: theme,
       ),
+      identity: 'popularVideos-${_controller.popularVideos.length}',
     );
-    addSection(_buildGenreSection(_controller.trendingGenres, theme));
-    addSection(
-      _buildVideoSection(
+    addAnimatedSection(
+      child: _buildGenreSection(_controller.trendingGenres, theme),
+      identity: 'trendingGenres-${_controller.trendingGenres.length}',
+    );
+    addAnimatedSection(
+      child: _buildVideoSection(
         title: 'New Videos',
         videos: _controller.newVideos,
         section: _HomeSection.newVideos,
         theme: theme,
       ),
+      identity: 'newVideos-${_controller.newVideos.length}',
     );
 
     return sections;
@@ -437,7 +532,8 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     List<SongModel> sectionSongs,
     int sectionIndex,
   ) {
-    final songId = song.id?.toString();
+    final songId = song.id.toString();
+    final bool hasSongId = songId.isNotEmpty;
     final imageUrl = _resolveSongImage(song);
     final artistName = _artistName(song);
 
@@ -447,56 +543,56 @@ class _HomeDiscoverState extends State<HomeDiscover> {
       songName: song.audioTitle,
       artistName: artistName,
       sharedPreThemeData: theme,
-      onTap: songId == null
-          ? () => _showSnackbar('Song unavailable.')
-          : () => _handleInstantHomeSongTap(sectionSongs, sectionIndex),
-      onPlay: songId == null
-          ? null
-          : () => _handleInstantHomeSongTap(sectionSongs, sectionIndex),
-      onPlayNext: songId == null
-          ? null
-          : () => _musicActionHandler.handlePlayNext(
+      onTap: hasSongId
+          ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
+          : () => _showSnackbar('Song unavailable.'),
+      onPlay: hasSongId
+          ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
+          : null,
+      onPlayNext: hasSongId
+          ? () => _musicActionHandler.handlePlayNext(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
-      onAddToQueue: songId == null
-          ? null
-          : () => _musicActionHandler.handleAddToQueue(
+            )
+          : null,
+      onAddToQueue: hasSongId
+          ? () => _musicActionHandler.handleAddToQueue(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
-      onDownload: songId == null
-          ? null
-          : () => _musicActionHandler.handleDownload(
+            )
+          : null,
+      onDownload: hasSongId
+          ? () => _musicActionHandler.handleDownload(
               song.audioTitle,
               'song',
               songId,
               imagePath: imageUrl,
-            ),
-      onAddToPlaylist: songId == null
-          ? null
-          : () => _musicActionHandler.handleAddToPlaylist(
+            )
+          : null,
+      onAddToPlaylist: hasSongId
+          ? () => _musicActionHandler.handleAddToPlaylist(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
+            )
+          : null,
       onShare: () => _musicActionHandler.handleShare(
         song.audioTitle,
         'song',
         itemId: songId,
         slug: song.audioSlug,
       ),
-      onFavorite: songId == null
-          ? null
-          : () => _musicActionHandler.handleFavoriteToggle(
+      onFavorite: hasSongId
+          ? () => _musicActionHandler.handleFavoriteToggle(
               songId,
               song.audioTitle,
-            ),
+            )
+          : null,
     );
   }
 
@@ -506,7 +602,8 @@ class _HomeDiscoverState extends State<HomeDiscover> {
     List<SongModel> sectionSongs,
     int sectionIndex,
   ) {
-    final songId = song.id?.toString();
+    final songId = song.id.toString();
+    final bool hasSongId = songId.isNotEmpty;
     final imageUrl = _resolveSongImage(song);
     final artistName = _artistName(song);
     final listens = _formatListenCount(song.listeningCount);
@@ -518,56 +615,56 @@ class _HomeDiscoverState extends State<HomeDiscover> {
       artistName: artistName,
       listenerCount: listens,
       sharedPreThemeData: theme,
-      onTap: songId == null
-          ? () => _showSnackbar('Song unavailable.')
-          : () => _handleInstantHomeSongTap(sectionSongs, sectionIndex),
-      onPlay: songId == null
-          ? null
-          : () => _handleInstantHomeSongTap(sectionSongs, sectionIndex),
-      onPlayNext: songId == null
-          ? null
-          : () => _musicActionHandler.handlePlayNext(
+      onTap: hasSongId
+          ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
+          : () => _showSnackbar('Song unavailable.'),
+      onPlay: hasSongId
+          ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
+          : null,
+      onPlayNext: hasSongId
+          ? () => _musicActionHandler.handlePlayNext(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
-      onAddToQueue: songId == null
-          ? null
-          : () => _musicActionHandler.handleAddToQueue(
+            )
+          : null,
+      onAddToQueue: hasSongId
+          ? () => _musicActionHandler.handleAddToQueue(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
-      onDownload: songId == null
-          ? null
-          : () => _musicActionHandler.handleDownload(
+            )
+          : null,
+      onDownload: hasSongId
+          ? () => _musicActionHandler.handleDownload(
               song.audioTitle,
               'song',
               songId,
               imagePath: imageUrl,
-            ),
-      onAddToPlaylist: songId == null
-          ? null
-          : () => _musicActionHandler.handleAddToPlaylist(
+            )
+          : null,
+      onAddToPlaylist: hasSongId
+          ? () => _musicActionHandler.handleAddToPlaylist(
               songId,
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
-            ),
+            )
+          : null,
       onShare: () => _musicActionHandler.handleShare(
         song.audioTitle,
         'song',
         itemId: songId,
         slug: song.audioSlug,
       ),
-      onFavorite: songId == null
-          ? null
-          : () => _musicActionHandler.handleFavoriteToggle(
+      onFavorite: hasSongId
+          ? () => _musicActionHandler.handleFavoriteToggle(
               songId,
               song.audioTitle,
-            ),
+            )
+          : null,
     );
   }
 
@@ -604,9 +701,8 @@ class _HomeDiscoverState extends State<HomeDiscover> {
   ) async {
     if (tappedIndex < 0 || tappedIndex >= songs.length) return;
     final tappedSong = songs[tappedIndex];
-    final fallbackSongId = tappedSong.id?.toString();
-    final instantIdentifier =
-        (fallbackSongId != null && fallbackSongId.isNotEmpty)
+    final fallbackSongId = tappedSong.id.toString();
+    final instantIdentifier = fallbackSongId.isNotEmpty
         ? fallbackSongId
         : tappedSong.audioUrl.trim();
 
@@ -742,16 +838,17 @@ class _HomeDiscoverState extends State<HomeDiscover> {
       channelName: video.channelName,
       channelHandle: video.channelHandle,
       channelImageUrl: video.channelImageUrl,
+      createdAt: DateTime.tryParse(video.createdAt),
+      subscribed: video.subscribed == null ? null : video.subscribed == 1,
+      like: video.like,
       totalViews: video.totalViews,
+      totalLikes: video.totalLikes,
+      isOwn: video.isOwn,
     );
   }
 
   void _openChannel(ChannelModel channel) {
-    final channelId = channel.id ?? channel.userId;
-    if (channelId == null) {
-      _showSnackbar('Channel unavailable.');
-      return;
-    }
+    final channelId = channel.id;
 
     Navigator.push(
       context,

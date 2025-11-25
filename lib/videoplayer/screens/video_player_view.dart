@@ -242,6 +242,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   @override
   void didPop() {
     _routeIsActive = false;
+    _setLightStatusBarStyle();
   }
 
   @override
@@ -532,20 +533,19 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     }
 
     final subscriptionManager = SubscriptionStateManager();
-    final bool computedSubscription = item.channelId != null
-        ? (subscriptionManager.getSubscriptionState(item.channelId!) ??
-              item.subscribed ??
-              false)
-        : false;
+    final bool computedSubscription =
+        subscriptionManager.getSubscriptionState(item.channelId) ??
+        item.subscribed ??
+        false;
 
     setState(() {
       _localTotalLikes = item.totalLikes;
       _isSubscribed = computedSubscription;
     });
 
-    if (item.channelId != null && item.subscribed != null) {
+    if (item.subscribed != null) {
       subscriptionManager.updateSubscriptionState(
-        item.channelId!,
+        item.channelId,
         item.subscribed!,
       );
     }
@@ -682,6 +682,22 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         SystemChrome.setSystemUIOverlayStyle(overlayStyle);
+      } catch (_) {
+        // Ignore any platform/version incompatibilities
+      }
+    });
+  }
+
+  void _setLightStatusBarStyle() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        SystemChrome.setSystemUIOverlayStyle(
+          const SystemUiOverlayStyle(
+            statusBarColor: Colors.white,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+        );
       } catch (_) {
         // Ignore any platform/version incompatibilities
       }
@@ -1186,19 +1202,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // Some Flutter versions don't expose the currently-active overlay style,
     // so we proactively set a normal (white) status bar here to ensure the
     // app returns to the expected look when leaving the full-screen player.
-    try {
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.white,
-          statusBarIconBrightness: Brightness.dark,
-          // On iOS the `statusBarBrightness` should be the inverse of the
-          // icon brightness.
-          statusBarBrightness: Brightness.light,
-        ),
-      );
-    } catch (_) {
-      // Ignore any platform/version incompatibilities
-    }
+    _setLightStatusBarStyle();
 
     // Restore global UI (navigation & mini player)
     MusicPlayerStateManager().hideFullPlayer();
@@ -1326,6 +1330,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     if (mounted) {
       _isProgrammaticPop = true;
       Navigator.of(context).pop();
+      _setLightStatusBarStyle();
       debugPrint('[VideoPlayerView] Navigator.pop() called');
     }
   }
@@ -1370,6 +1375,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // Pop this full-screen route first so the underlying app UI becomes
     // visible (mini player/main nav). Wait for the pop to complete.
     await Navigator.of(context).maybePop();
+    _setLightStatusBarStyle();
     await Future.delayed(const Duration(milliseconds: 50));
 
     // Try to push into the current tab's nested navigator so the new screen

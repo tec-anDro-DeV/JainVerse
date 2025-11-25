@@ -67,7 +67,6 @@ class SharedPref {
       Map decodeOptions = jsonDecode(user);
       return UserModel.fromJson(decodeOptions);
     } catch (e) {
-      print("DEBUG: Error parsing user data: $e");
       rethrow;
     }
   }
@@ -82,9 +81,6 @@ class SharedPref {
   }
 
   removeValues() async {
-    print(
-      "DEBUG SharedPref: removeValues called - preserving remember me data",
-    );
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
     // Remove user session data
@@ -95,90 +91,42 @@ class SharedPref {
     prefs.remove("boolValue");
     prefs.remove("intValue");
     prefs.remove("doubleValue");
-
-    // Verify remember me data is still there
-    bool verifyRememberMe = prefs.getBool('remember_me') ?? false;
-    String verifyEmail = prefs.getString('remembered_email') ?? '';
-    String verifyPassword = prefs.getString('remembered_password') ?? '';
-
-    print(
-      "DEBUG SharedPref: After removeValues - remember me: $verifyRememberMe, email: $verifyEmail, password length: ${verifyPassword.length}",
-    );
-
-    // Note: Remember me data is intentionally NOT removed during logout
-    // prefs.remove("remember_me");
-    // prefs.remove("remembered_email");
-    // prefs.remove("remembered_password");
   }
 
   // Remember me functionality
   setRememberMe(bool remember) async {
-    print("DEBUG SharedPref: Setting remember me to $remember");
     SharedPreferences sharedPref = await SharedPreferences.getInstance();
     await sharedPref.setBool('remember_me', remember);
     // Force commit to ensure it's saved immediately
     await sharedPref.commit();
-    // Verify it was saved
-    bool verification = sharedPref.getBool('remember_me') ?? false;
-    print("DEBUG SharedPref: Verified remember me saved as: $verification");
-
-    // Additional verification - get a fresh instance to double-check
-    SharedPreferences freshInstance = await SharedPreferences.getInstance();
-    bool freshVerification = freshInstance.getBool('remember_me') ?? false;
-    print("DEBUG SharedPref: Fresh instance verification: $freshVerification");
   }
+}
 
-  Future<bool> getRememberMe() async {
-    SharedPreferences sharedPref = await SharedPreferences.getInstance();
+Future<bool> getRememberMe() async {
+  SharedPreferences sharedPref = await SharedPreferences.getInstance();
 
-    // Debug: Check all keys to see what's stored
-    Set<String> allKeys = sharedPref.getKeys();
-    print("DEBUG SharedPref: All stored keys: $allKeys");
+  bool result = sharedPref.getBool('remember_me') ?? false;
+  return result;
+}
 
-    // Check if remember_me key exists
-    bool hasKey = sharedPref.containsKey('remember_me');
-    print("DEBUG SharedPref: Has remember_me key: $hasKey");
+setRememberedEmail(String email) async {
+  SharedPreferences sharedPref = await SharedPreferences.getInstance();
+  await sharedPref.setString('remembered_email', email);
+}
 
-    bool result = sharedPref.getBool('remember_me') ?? false;
-    print("DEBUG SharedPref: Getting remember me: $result");
-    return result;
-  }
+Future<String> getRememberedEmail() async {
+  SharedPreferences sharedPref = await SharedPreferences.getInstance();
+  String result = sharedPref.getString('remembered_email') ?? '';
+  return result;
+}
 
-  setRememberedEmail(String email) async {
-    print("DEBUG SharedPref: Setting remembered email: $email");
-    SharedPreferences sharedPref = await SharedPreferences.getInstance();
-    await sharedPref.setString('remembered_email', email);
-    // Verify it was saved
-    String verification = sharedPref.getString('remembered_email') ?? '';
-    print("DEBUG SharedPref: Verified email saved as: $verification");
-  }
+setRememberedPassword(String password) async {
+  SharedPreferences sharedPref = await SharedPreferences.getInstance();
+  await sharedPref.setString('remembered_password', password);
+}
 
-  Future<String> getRememberedEmail() async {
-    SharedPreferences sharedPref = await SharedPreferences.getInstance();
-    String result = sharedPref.getString('remembered_email') ?? '';
-    print("DEBUG SharedPref: Getting remembered email: $result");
-    return result;
-  }
-
-  setRememberedPassword(String password) async {
-    print(
-      "DEBUG SharedPref: Setting remembered password length: ${password.length}",
-    );
-    SharedPreferences sharedPref = await SharedPreferences.getInstance();
-    await sharedPref.setString('remembered_password', password);
-    // Verify it was saved
-    String verification = sharedPref.getString('remembered_password') ?? '';
-    print(
-      "DEBUG SharedPref: Verified password saved with length: ${verification.length}",
-    );
-  }
-
-  Future<String> getRememberedPassword() async {
-    SharedPreferences sharedPref = await SharedPreferences.getInstance();
-    String result = sharedPref.getString('remembered_password') ?? '';
-    print(
-      "DEBUG SharedPref: Getting remembered password length: ${result.length}",
-    );
-    return result;
-  }
+Future<String> getRememberedPassword() async {
+  SharedPreferences sharedPref = await SharedPreferences.getInstance();
+  String result = sharedPref.getString('remembered_password') ?? '';
+  return result;
 }

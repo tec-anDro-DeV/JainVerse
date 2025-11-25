@@ -91,9 +91,19 @@ class HomeController extends ChangeNotifier {
         );
       }
 
-      _applyData(response.data!);
+      final newData = response.data!;
+
+      final changed = _hasDataChanged(newData);
+      debugPrint('[HomeController] Home data changed: $changed');
+
+      if (changed) {
+        _applyData(newData);
+        _lastUpdated = DateTime.now();
+      } else {
+        // No structural change detected; keep previous data and timestamp.
+      }
+
       _errorMessage = null;
-      _lastUpdated = DateTime.now();
     } catch (error) {
       debugPrint('HomeController.loadContent error: $error');
       if (!hasContent) {
@@ -139,5 +149,61 @@ class HomeController extends ChangeNotifier {
     _popularVideos = data.popularVideos;
     _trendingGenres = data.trendingGenres;
     _newVideos = data.newVideos;
+  }
+
+  bool _hasDataChanged(HomeData newData) {
+    try {
+      bool listChanged<T>(
+        List<T> oldList,
+        List<T> newList,
+        int Function(T) idGetter,
+      ) {
+        if (oldList.length != newList.length) return true;
+        final oldIds = oldList.map(idGetter).toSet();
+        final newIds = newList.map(idGetter).toSet();
+        return !(oldIds.length == newIds.length && oldIds.containsAll(newIds));
+      }
+
+      if (listChanged<VideoModel>(
+        _featuredVideos,
+        newData.featuredVideos,
+        (v) => v.id,
+      ))
+        return true;
+      if (listChanged<ChannelModel>(_channels, newData.channels, (c) => c.id))
+        return true;
+      if (listChanged<SongModel>(
+        _featuredSongs,
+        newData.featuredSongs,
+        (s) => s.id,
+      ))
+        return true;
+      if (listChanged<SongModel>(
+        _latestSongs,
+        newData.latestSongs,
+        (s) => s.id,
+      ))
+        return true;
+      if (listChanged<VideoModel>(
+        _popularVideos,
+        newData.popularVideos,
+        (v) => v.id,
+      ))
+        return true;
+      if (listChanged<GenreModel>(
+        _trendingGenres,
+        newData.trendingGenres,
+        (g) => (g.id ?? -1),
+      ))
+        return true;
+      if (listChanged<VideoModel>(_newVideos, newData.newVideos, (v) => v.id))
+        return true;
+
+      // Fallback: no structural change detected
+      return false;
+    } catch (e) {
+      debugPrint('HomeController._hasDataChanged error: $e');
+      return true;
+    }
   }
 }

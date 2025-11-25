@@ -123,12 +123,15 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   bool _ignoreOuterDrag = false;
   // Haptic debounce for scrubbing
   int? _lastHapticSecond;
+  PlaybackState? _latestPlaybackState;
+  StreamSubscription<PlaybackState>? _playbackStateSubscription;
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _setupMediaListener();
+    _subscribeToPlaybackState();
     // Listen for optimistic processing audio id to trigger mini-player immediately
     widget.musicManager.processingAudioId.addListener(() {
       if (!mounted) return;
@@ -189,8 +192,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         '[MiniMusicPlayer] _setupMediaListener: mediaItem event: ${mediaItem?.id} / ${mediaItem?.title}',
       );
       if (mounted) {
-        final shouldShow =
-            mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
+        final shouldShow = _shouldDisplayMiniPlayer(mediaItem);
 
         developer.log(
           '[MiniMusicPlayer] _setupMediaListener: shouldShow=$shouldShow, _hasMediaItem=$_hasMediaItem, _isVisible=$_isVisible',
@@ -210,6 +212,78 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         _hasMediaItem = shouldShow;
       }
     });
+  }
+
+  void _subscribeToPlaybackState() {
+    final playbackStateStream = widget.musicManager.playbackState;
+    if (playbackStateStream.hasValue) {
+      _latestPlaybackState = playbackStateStream.value;
+    }
+    _playbackStateSubscription = playbackStateStream.listen(
+      _handlePlaybackStateUpdate,
+    );
+  }
+
+  void _handlePlaybackStateUpdate(PlaybackState state) {
+    _latestPlaybackState = state;
+    if (_isPlaybackSessionActive ||
+        widget.musicManager.processingAudioId.value != null ||
+        _awaitingNewPlaybackAfterDismiss) {
+      return;
+    }
+
+    _clearCachedMediaState();
+
+    if (_hasMediaItem && mounted) {
+      setState(() {
+        _hasMediaItem = false;
+      });
+    } else {
+      _hasMediaItem = false;
+    }
+
+    if (_isVisible) {
+      _hideMiniPlayer();
+    }
+  }
+
+  bool _shouldDisplayMiniPlayer(MediaItem? mediaItem) {
+    final bool hasOptimisticRequest =
+        widget.musicManager.processingAudioId.value != null;
+    if (hasOptimisticRequest) {
+      return true;
+    }
+
+    if (!_isPlaybackSessionActive) {
+      return false;
+    }
+
+    return mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
+  }
+
+  bool get _isPlaybackSessionActive {
+    PlaybackState? state = _latestPlaybackState;
+    if (state == null) {
+      final playbackStateStream = widget.musicManager.playbackState;
+      if (playbackStateStream.hasValue) {
+        state = playbackStateStream.value;
+      }
+    }
+
+    if (state == null) {
+      if (widget.musicManager.isPlaying) return true;
+      return widget.musicManager.queue.isNotEmpty;
+    }
+
+    return state.processingState != AudioProcessingState.idle;
+  }
+
+  void _clearCachedMediaState() {
+    MiniMusicPlayer.musicName = '';
+    MiniMusicPlayer.artistName = '';
+    MiniMusicPlayer.musicImage = '';
+    MiniMusicPlayer.mainPosition = 0.0;
+    MiniMusicPlayer.maxDuration = 0.0;
   }
 
   void _showMiniPlayer() {
@@ -325,6 +399,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     _slideAnimationController.dispose();
     _fadeAnimationController.dispose();
     _dragAnimationController?.dispose();
+    _playbackStateSubscription?.cancel();
     _refreshNotifier.dispose();
     _showDelayTimer?.cancel();
     super.dispose();
@@ -339,8 +414,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           '[MiniMusicPlayer] build StreamBuilder: snapshot.hasData=${snapshot.hasData}, snapshot.data=${snapshot.data?.id ?? 'null'}; _isVisible=$_isVisible, _hasMediaItem=$_hasMediaItem',
         );
         final mediaItem = snapshot.data;
-        bool shouldShow =
-            mediaItem != null || MiniMusicPlayer.musicName.isNotEmpty;
+        bool shouldShow = _shouldDisplayMiniPlayer(mediaItem);
 
         if (_awaitingNewPlaybackAfterDismiss) {
           final bool isPlaying = widget.musicManager.isPlaying;
@@ -623,11 +697,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     }
 
     widget.musicManager.clearProcessingAudioId();
-    MiniMusicPlayer.musicName = '';
-    MiniMusicPlayer.artistName = '';
-    MiniMusicPlayer.musicImage = '';
-    MiniMusicPlayer.mainPosition = 0.0;
-    MiniMusicPlayer.maxDuration = 0.0;
+    _clearCachedMediaState();
 
     if (mounted) {
       setState(() {
@@ -931,23 +1001,65 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
 
   /// Enhanced position stream that works for both playing and paused states
   Stream<Duration> _buildEnhancedPositionStream() {
-    return Rx.merge([
-      // Primary: AudioService position (works in all states)
-      AudioService.position,
-      // Secondary: Music manager snapshot position (with fallback)
-      Stream.periodic(const Duration(milliseconds: 1000)).map(
-        (_) => AudioPlayerSelectors.currentPositionSnapshot(
-          widget.musicManager.audioHandler,
-          fallback: Duration(
-            milliseconds: MiniMusicPlayer.mainPosition.toInt(),
-          ),
-        ),
-      ),
-      // Tertiary: Static cached position when all else fails
-      Stream.periodic(const Duration(milliseconds: 2000)).map(
-        (_) => Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
-      ),
-    ]).distinct((prev, next) => prev.inMilliseconds == next.inMilliseconds);
+    // Create a broadcast stream that listens to the authoritative playbackState
+    // and emits a smoothly interpolated position on a regular tick while
+    // playback is ongoing. This prevents the UI from jumping when discrete
+    // position snapshots arrive at irregular intervals.
+    final handler = widget.musicManager.audioHandler;
+    if (handler == null) {
+      return Stream.value(
+        Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),
+      );
+    }
+
+    return Stream<Duration>.multi((controller) {
+      // Local state to interpolate position between playbackState events
+      Duration basePosition = Duration(
+        milliseconds: MiniMusicPlayer.mainPosition.toInt(),
+      );
+      bool playing = widget.musicManager.isPlaying;
+      double speed = 1.0;
+      DateTime lastUpdate = DateTime.now();
+
+      // Emit the computed position based on basePosition + elapsed * speed
+      void emitInterpolated() {
+        final now = DateTime.now();
+        Duration pos = basePosition;
+        if (playing) {
+          final elapsed = now.difference(lastUpdate);
+          final addedMs = (elapsed.inMilliseconds * speed).round();
+          pos = basePosition + Duration(milliseconds: addedMs);
+        }
+        // Clamp to non-negative
+        if (pos.isNegative) pos = Duration.zero;
+        try {
+          controller.add(pos);
+        } catch (_) {}
+      }
+
+      // Listen to playbackState to update basePosition and flags
+      final sub = handler.playbackState.listen((state) {
+        // Use the handler-reported updatePosition as authoritative baseline
+        basePosition = state.updatePosition;
+        playing = state.playing;
+        speed = state.speed;
+        lastUpdate = DateTime.now();
+        // Emit immediate update when playback state changes (seek, pause, etc.)
+        try {
+          controller.add(basePosition);
+        } catch (_) {}
+      });
+
+      // Periodic timer to emit smooth updates while controller has listeners
+      final timer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+        emitInterpolated();
+      });
+
+      controller.onCancel = () async {
+        await sub.cancel();
+        timer.cancel();
+      };
+    }).distinct((prev, next) => prev.inMilliseconds == next.inMilliseconds);
   }
 
   /// Enhanced playing state stream that ensures accurate state reporting

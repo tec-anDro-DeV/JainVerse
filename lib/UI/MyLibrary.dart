@@ -4,12 +4,15 @@ import 'dart:convert';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/Model/ModelCatSubcatMusic.dart';
+// Removed legacy ModelCatSubcatMusic usage; HomeController provides home sections
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
+import 'package:jainverse/videoplayer/models/video_item.dart';
+import 'package:jainverse/controllers/home_controller.dart';
+import 'package:jainverse/Model/home_models.dart';
+import 'package:jainverse/widgets/cards/video_card_small.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
@@ -30,7 +33,6 @@ import '../widgets/common/app_header.dart';
 import '../widgets/music/history_card.dart';
 import '../widgets/music/home_section_header.dart';
 import '../widgets/music/popular_song_card.dart';
-import '../widgets/music/song_card.dart';
 import 'AccountPage.dart';
 import 'AllCategoryByName.dart';
 import 'Download.dart';
@@ -77,9 +79,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   double _lastScrollPosition = 0;
 
   // Music data variables
-  ModelCatSubcatMusic? _cachedMusicData;
   bool _isMusicLoading = true;
-  bool _isBackgroundRefreshing = false;
   bool _hasMusicError = false;
   String _errorMessage = '';
 
@@ -90,9 +90,13 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   String _historyImagePath = '';
   String _historyAudioPath = '';
 
-  // Add presenter instance
-  final CatSubcatMusicPresenter _presenter = CatSubcatMusicPresenter();
+  // Use HomeController (same as HomeDiscover) for unified home sections
+  late final HomeController _homeController;
+  void _onHomeControllerUpdate() => setState(() {});
+
   final HistoryPresenter _historyPresenter = HistoryPresenter();
+  // Keep a legacy presenter for category-specific requests (used only on user taps)
+  // legacy presenter removed — category taps now navigate to Music screen
 
   // Add favorite service instance for context menu
   final FavoriteService _favoriteService = FavoriteService();
@@ -142,11 +146,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       color: appColors().primaryColorApp,
     ),
     LibraryItem(
-      icon: Icons.people_outlined,
-      title: 'Artists',
-      color: appColors().primaryColorApp,
-    ),
-    LibraryItem(
       icon: Icons.music_note_outlined,
       title: 'Songs',
       color: appColors().primaryColorApp,
@@ -187,40 +186,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   }
 
   // Add music data loading methods similar to HomeDiscover
-  Future<void> _tryLoadCachedMusicData() async {
-    try {
-      final cachedData = await CacheManager.getFromCache(
-        CacheManager.MUSIC_CATEGORIES_CACHE_KEY,
-      );
-
-      if (cachedData != null) {
-        // Parse the JSON data safely
-        final dataString = cachedData['data'] as String;
-        final parsedData = _safeJsonDecode(dataString);
-        if (parsedData == null) {
-          // Corrupted or non-JSON cache, clear and bail out
-          await CacheManager.clearCache(
-            CacheManager.MUSIC_CATEGORIES_CACHE_KEY,
-          );
-          return;
-        }
-        final modelData = ModelCatSubcatMusic.fromJson(parsedData);
-
-        if (mounted) {
-          setState(() {
-            _cachedMusicData = modelData;
-            _isMusicLoading = false;
-            _hasMusicError = false;
-            print('Loaded music data from cache in MyLibrary');
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading cached music data in MyLibrary: $e');
-      // Clear corrupted cache
-      await CacheManager.clearCache(CacheManager.MUSIC_CATEGORIES_CACHE_KEY);
-    }
-  }
+  // Legacy cached music data removed; HomeController is the single source now.
 
   // Add initialization tracking
   bool _hasInitialized = false;
@@ -247,49 +213,23 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
     CacheManager.setFreshDataLoading(true);
 
-    final bool loadInBackground = _cachedMusicData != null;
-
-    if (!loadInBackground) {
-      if (mounted) {
-        setState(() {
-          _isMusicLoading = true;
-          _hasMusicError = false;
-          _errorMessage = '';
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _isBackgroundRefreshing = true;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _isMusicLoading = true;
+        _hasMusicError = false;
+        _errorMessage = '';
+      });
     }
 
     try {
-      print('Loading fresh music data in MyLibrary with token: $token');
+      print('Loading home content via HomeController in MyLibrary');
 
-      final freshData = await _presenter
-          .getCatSubCatMusicList(token, context)
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Request timed out after 10 seconds');
-            },
-          );
-
-      print('Fresh music data loaded successfully in MyLibrary');
-
-      // Save to cache
-      await CacheManager.saveToCache(
-        CacheManager.MUSIC_CATEGORIES_CACHE_KEY,
-        freshData.toJson(),
-      );
+      // Use HomeController (same as HomeDiscover) instead of CatSubcatMusicPresenter
+      await _homeController.loadContent();
 
       if (mounted) {
         setState(() {
-          _cachedMusicData = freshData;
           _isMusicLoading = false;
-          _isBackgroundRefreshing = false;
           _hasMusicError = false;
         });
       }
@@ -298,12 +238,8 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       if (mounted) {
         setState(() {
           _isMusicLoading = false;
-          _isBackgroundRefreshing = false;
-
-          if (_cachedMusicData == null) {
-            _hasMusicError = true;
-            _errorMessage = 'Failed to load music content. Please try again.';
-          }
+          _hasMusicError = true;
+          _errorMessage = 'Failed to load music content. Please try again.';
         });
       }
     } finally {
@@ -405,18 +341,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     }
   }
 
-  Future<void> getSettings() async {
-    String? sett = await sharePrefs.getSettings();
-    final Map<String, dynamic> parsed = json.decode(sett!);
-    ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-    if (modelSettings.data.download == 1) {
-      allowDown = true;
-    } else {
-      allowDown = false;
-    }
-    setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
@@ -436,12 +360,26 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       onStateUpdate: () => setState(() {}),
     );
 
-    getSettings();
+    // Initialize HomeController (same pattern as HomeDiscover)
+    _homeController = HomeController();
+    _homeController.addListener(_onHomeControllerUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _homeController.initialize();
+    });
 
     // Initialize data loading only if not already done
     if (!_hasInitialized) {
       _initializeData();
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    _homeController.removeListener(_onHomeControllerUpdate);
+    _homeController.dispose();
+    super.dispose();
   }
 
   // Add navigation lifecycle awareness
@@ -457,14 +395,11 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _checkAndRefreshIfNeeded() async {
-    final hasCachedData = await CacheManager.hasCachedData(
-      CacheManager.MUSIC_CATEGORIES_CACHE_KEY,
-    );
-
-    if (!hasCachedData &&
+    // If HomeController doesn't have content, try refreshing from server.
+    if (!_homeController.hasContent &&
         !CacheManager.isFreshDataLoading &&
         token.isNotEmpty) {
-      print('Cache expired in MyLibrary, refreshing data in background');
+      print('Home content missing in MyLibrary, refreshing data in background');
       await _loadFreshMusicData();
     }
   }
@@ -473,7 +408,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     if (_hasInitialized) return;
 
     try {
-      await _tryLoadCachedMusicData();
       await _tryLoadCachedHistoryData();
       await value();
 
@@ -609,15 +543,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           ),
         );
         break;
-      case 'Artists':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AllCategoryByName(_audioHandler, "Artists"),
-            settings: const RouteSettings(name: '/MyLibrary/Artists'),
-          ),
-        );
-        break;
       case 'Songs':
         Navigator.push(
           context,
@@ -627,72 +552,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           ),
         );
         break;
-    }
-  }
-
-  // Helper method to handle music item taps with navigation tracking
-  void _handleMusicItemTap(
-    DataCat category,
-    int idx,
-    BuildContext context,
-    String categoryName,
-  ) async {
-    final subCategory = category.sub_category[idx];
-    final id = subCategory.id.toString();
-    final name = subCategory.name;
-
-    // Set navigation flag
-    _isNavigatingBack = true;
-
-    print('🎵🎵🎵 MYLIBRARY TAP: $categoryName, ID: $id, Name: $name 🎵🎵🎵');
-
-    try {
-      print('[DEBUG] Loading songs for category: $categoryName, ID: $id');
-
-      // Get the songs for this category
-      final response = await _presenter.getMusicListByCategory(
-        id,
-        'Songs',
-        token,
-      );
-
-      if (response.data.isNotEmpty) {
-        print('[DEBUG] Successfully loaded ${response.data.length} songs');
-
-        // Use music manager for queue replacement instead of navigation
-        final musicManager = MusicManager();
-
-        await musicManager.replaceQueue(
-          musicList: response.data,
-          startIndex: 0, // Start from the first song
-          pathImage: response.imagePath,
-          audioPath: response.audioPath,
-          callSource: 'MyLibrary.handleMusicItemTap',
-          contextType: categoryName,
-          contextId: id,
-        );
-
-        // Show mini player instead of navigating to full player
-        final stateManager = MusicPlayerStateManager();
-        stateManager.showMiniPlayerForMusicStart();
-
-        print('[DEBUG] Music playback started via mini player');
-      } else {
-        print('[ERROR] No songs found for this category');
-      }
-    } catch (e) {
-      // Log and fallback to navigation if music manager fails
-      print('[ERROR] Failed to load and play songs: $e');
-
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              Music(_audioHandler, id, 'Songs', [], "", 0, false, ''),
-        ),
-      );
     }
   }
 
@@ -764,9 +623,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     return StreamBuilder<MediaItem?>(
       stream: _audioHandler!.mediaItem,
       builder: (context, snapshot) {
-        // Centralized bottom padding. The library screen previously added
-        // an extra 70.w; preserve that additional spacing by passing extra.
-        final bottomPadding = AppPadding.bottom(context, extra: 70.w);
+        // Centralized bottom padding. The library screen now uses
+        // AppPadding.bottom(context, extra: 50.w) for consistent spacing.
+        final bottomPadding = AppPadding.bottom(context, extra: 50.w);
         // Detect tablet / iPad sized devices to reduce over-large spacing
         final bool isTabletLocal =
             MediaQuery.of(context).size.shortestSide >= 600;
@@ -815,14 +674,12 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
               // Music sections
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  10.w,
-                  0.w,
-                  0,
-                  bottomPadding + 70.w, // Additional padding for library screen
-                ),
+                padding: EdgeInsets.only(bottom: 0),
                 sliver: _buildContentSliver(),
               ),
+
+              // Bottom spacing (scrollable) to match HomeDiscover
+              SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
             ],
           ),
         );
@@ -835,12 +692,12 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildMusicSectionsSliver() {
-    if (_cachedMusicData != null) {
+    // Prefer HomeController home sections (featuredSongs / popularVideos / newVideos)
+    if (_homeController.hasContent) {
       return SliverToBoxAdapter(
         child: Column(
           children: [
-            // Show refreshing indicator if background refresh is happening
-            if (_isBackgroundRefreshing)
+            if (_homeController.isRefreshing)
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: 10.w),
@@ -858,8 +715,23 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                 ),
               ),
 
-            // Build music categories
-            _buildMusicCategories(_cachedMusicData!),
+            // History first
+            _buildHistorySection(),
+
+            // Featured songs section
+            _buildFeaturedSongsSection(),
+
+            // Popular videos
+            _buildVideoSection(
+              title: 'Popular Videos',
+              videos: _homeController.popularVideos,
+            ),
+
+            // New videos
+            _buildVideoSection(
+              title: 'New Videos',
+              videos: _homeController.newVideos,
+            ),
           ],
         ),
       );
@@ -925,310 +797,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     }
   }
 
-  Widget _buildMusicCategories(ModelCatSubcatMusic data) {
-    // Filter to show only Popular Songs and Featured Songs
-    List<DataCat> targetCategories = data.data
-        .where(
-          (cat) =>
-              (cat.cat_name.contains("Popular Songs") ||
-                  cat.cat_name.contains("Featured Songs")) &&
-              cat.sub_category.isNotEmpty,
-        )
-        .toList();
-
-    // Sort to ensure Popular Songs comes before Featured Songs
-    targetCategories.sort((a, b) {
-      if (a.cat_name.contains("Popular Songs") &&
-          b.cat_name.contains("Featured Songs")) {
-        return -1; // Popular Songs comes first
-      } else if (a.cat_name.contains("Featured Songs") &&
-          b.cat_name.contains("Popular Songs")) {
-        return 1; // Featured Songs comes second
-      }
-      return 0; // Keep original order for other cases
-    });
-
-    if (targetCategories.isEmpty) {
-      return Column(children: [_buildHistorySection()]);
-    }
-
-    return Column(
-      children: [
-        // Add history section at the top
-        _buildHistorySection(),
-
-        // Add existing music categories
-        ListView.builder(
-          scrollDirection: Axis.vertical,
-          itemCount: targetCategories.length,
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemBuilder: (context, index) {
-            return Container(
-              alignment: Alignment.centerLeft,
-              child: Column(
-                children: [
-                  _buildCategoryHeader(targetCategories[index], context),
-                  _buildContentRow(targetCategories[index], context),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // Helper method to build category headers
-  Widget _buildCategoryHeader(DataCat category, BuildContext context) {
-    return Container(
-      margin: EdgeInsets.fromLTRB(
-        10.w,
-        5.w,
-        10.w,
-        0,
-      ), // Reduced top and bottom margins
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 4.w),
-        child: HomeSectionHeader(
-          title: category.cat_name,
-          sharedPreThemeData: sharedPreThemeData,
-          onViewAllPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    AllCategoryByName(_audioHandler, category.cat_name),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  // Helper method to build content rows
-  Widget _buildContentRow(DataCat category, BuildContext context) {
-    final categoryName = category.cat_name;
-    final itemHeight = _getItemHeight(categoryName);
-
-    // Special handling for Popular Songs to show in 2 rows
-    if (categoryName == "Popular Songs") {
-      final adjustedHeight = category.sub_category.length == 1 ? 170.w : 340.w;
-
-      return Container(
-        width: double.infinity,
-        height: adjustedHeight,
-        alignment: Alignment.centerLeft, // Ensure left alignment
-        child: _buildPopularSongsGrid(category, context),
-      );
-    }
-
-    return Container(
-      width: double.infinity,
-      height: itemHeight,
-      alignment: Alignment.centerLeft, // Changed from center to centerLeft
-      margin: EdgeInsets.only(left: 7.w),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: category.sub_category.length,
-        itemBuilder: (context, idx) {
-          return _buildContentItem(category, idx, context, categoryName);
-        },
-      ),
-    );
-  }
-
-  // Helper method to get item height based on category type
-  double _getItemHeight(String categoryName) {
-    switch (categoryName) {
-      case "Featured Songs":
-        return 220.w; // Further increased height to accommodate artist names
-      case "New Songs":
-        return 220.w; // Further increased height to accommodate artist names
-      case "Popular Songs":
-        return 200.w; // Further increased height for better spacing
-      default:
-        return 270
-            .w; // Further increased default height to accommodate artist names
-    }
-  }
-
-  // Helper method to build Popular Songs in a 2-row grid format
-  Widget _buildPopularSongsGrid(DataCat category, BuildContext context) {
-    final items = category.sub_category;
-
-    if (items.length == 1) {
-      return Align(
-        alignment: Alignment.centerLeft, // Ensure left alignment
-        child: _buildPopularSongItem(category, 0, context, isSingle: true),
-      );
-    }
-
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: (items.length / 2).ceil(),
-      itemBuilder: (context, columnIndex) {
-        // Let the card handle its own width - no override here
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start, // Left align columns
-          children: [
-            if (columnIndex * 2 < items.length)
-              SizedBox(
-                height: 170.w,
-                child: _buildPopularSongItem(
-                  category,
-                  columnIndex * 2,
-                  context,
-                ),
-              ),
-            SizedBox(height: 3.w), // Minimal spacing between rows
-            if (columnIndex * 2 + 1 < items.length)
-              SizedBox(
-                height: 160.w,
-                child: _buildPopularSongItem(
-                  category,
-                  columnIndex * 2 + 1,
-                  context,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Helper method to build individual popular song items
-  Widget _buildPopularSongItem(
-    DataCat category,
-    int idx,
-    BuildContext context, {
-    bool isSingle = false,
-  }) {
-    final imagePath =
-        AppConstant.ImageUrl +
-        category.imagePath +
-        category.sub_category[idx].image;
-    final subCategory = category.sub_category[idx];
-    final name = subCategory.name;
-    final artistName = subCategory.artist != null
-        ? subCategory.artist!.map((a) => a.name).join(', ')
-        : '';
-
-    onTap() => _handleMusicItemTap(category, idx, context, "Popular Songs");
-
-    return PopularSongCard(
-      songId: subCategory.id
-          .toString(), // Pass songId for global favorites management
-      imagePath: imagePath,
-      songName: name,
-      artistName: artistName,
-      onTap: onTap,
-      sharedPreThemeData: sharedPreThemeData,
-      height: 160.w, // Reduced height for more compact cards
-      isCompact: isSingle,
-      // Remove static isFavorite - let PopularSongCard use global provider
-      onPlay: () =>
-          _musicActionHandler.handlePlaySong(subCategory.id.toString(), name),
-      onPlayNext: () => _musicActionHandler.handlePlayNext(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onDownload: () => _musicActionHandler.handleDownload(
-        name,
-        "song",
-        subCategory.id.toString(),
-      ),
-      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onShare: () => _musicActionHandler.handleShare(
-        name,
-        "song",
-        itemId: subCategory.id.toString(),
-        slug: subCategory.slug,
-      ),
-      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
-        subCategory.id.toString(),
-        name,
-        favoriteIds: _favoriteIds,
-      ),
-    );
-  }
-
-  // Helper method to build individual content items
-  Widget _buildContentItem(
-    DataCat category,
-    int idx,
-    BuildContext context,
-    String categoryName,
-  ) {
-    final imagePath =
-        AppConstant.ImageUrl +
-        category.imagePath +
-        category.sub_category[idx].image;
-    final subCategory = category.sub_category[idx];
-    final name = subCategory.name;
-    final artistName = subCategory.artist != null
-        ? subCategory.artist!.map((a) => a.name).join(', ')
-        : '';
-
-    onTap() => _handleMusicItemTap(category, idx, context, categoryName);
-
-    // Return SongCard for most categories
-    return SongCard(
-      songId: subCategory.id
-          .toString(), // Pass songId for global favorites management
-      imagePath: imagePath,
-      songName: name,
-      artistName: artistName,
-      onTap: onTap,
-      sharedPreThemeData: sharedPreThemeData,
-      // Remove static isFavorite - let SongCard use global provider
-      onPlay: () =>
-          _musicActionHandler.handlePlaySong(subCategory.id.toString(), name),
-      onPlayNext: () => _musicActionHandler.handlePlayNext(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onAddToQueue: () => _musicActionHandler.handleAddToQueue(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onDownload: () => _musicActionHandler.handleDownload(
-        name,
-        "song",
-        subCategory.id.toString(),
-      ),
-      onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
-        subCategory.id.toString(),
-        name,
-        artistName,
-      ),
-      onShare: () => _musicActionHandler.handleShare(
-        name,
-        "song",
-        itemId: subCategory.id.toString(),
-        slug: subCategory.slug,
-      ),
-      onFavorite: () => _musicActionHandler.handleFavoriteToggle(
-        subCategory.id.toString(),
-        name,
-        favoriteIds: _favoriteIds,
-      ),
-    );
-  }
+  // Legacy category-based UI removed — HomeController provides the
+  // Featured/Popular/New sections. Helper methods that constructed
+  // UI from ModelCatSubcatMusic have been deleted.
 
   Widget _buildLibraryCard(LibraryItem item) {
     return Material(
@@ -1330,86 +901,260 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         ),
       );
     }
+    return Padding(
+      padding: EdgeInsets.only(top: 18.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // History section header
+          SizedBox(
+            child: HomeSectionHeader(
+              title: "History",
+              sharedPreThemeData: sharedPreThemeData,
+              onViewAllPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Favorite('his')),
+                );
+              },
+            ),
+          ),
+          // History items horizontal list
+          SizedBox(
+            height: 210.w,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _cachedHistoryData!.data.length > 10
+                  ? 10
+                  : _cachedHistoryData!.data.length,
+              itemBuilder: (context, index) {
+                final historyItem = _cachedHistoryData!.data[index];
+                return HistoryCard(
+                  imagePath:
+                      AppConstant.ImageUrl +
+                      _historyImagePath +
+                      historyItem.image,
+                  songName: historyItem.audio_title,
+                  artistName: historyItem.artists_name,
+                  sharedPreThemeData: sharedPreThemeData,
+                  onTap: () => _handleHistoryItemTap(historyItem, index),
+                  songId: historyItem.id
+                      .toString(), // Pass songId instead of isFavorite
+                  onPlay: () => _musicActionHandler.handlePlaySong(
+                    historyItem.id.toString(),
+                    historyItem.audio_title,
+                  ),
+                  onPlayNext: () => _musicActionHandler.handlePlayNext(
+                    historyItem.id.toString(),
+                    historyItem.audio_title,
+                    historyItem.artists_name,
+                  ),
+                  onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+                    historyItem.id.toString(),
+                    historyItem.audio_title,
+                    historyItem.artists_name,
+                  ),
+                  onDownload: () => _musicActionHandler.handleDownload(
+                    historyItem.audio_title,
+                    "song",
+                    historyItem.id.toString(),
+                  ),
+                  onAddToPlaylist: () =>
+                      _musicActionHandler.handleAddToPlaylist(
+                        historyItem.id.toString(),
+                        historyItem.audio_title,
+                        historyItem.artists_name,
+                      ),
+                  onShare: () => _musicActionHandler.handleShare(
+                    historyItem.audio_title,
+                    "song",
+                    itemId: historyItem.id.toString(),
+                    slug: historyItem.audio_slug,
+                  ),
+                  onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+                    historyItem.id.toString(),
+                    historyItem.audio_title,
+                    favoriteIds: _favoriteIds,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build featured songs section using HomeController data
+  Widget _buildFeaturedSongsSection() {
+    final songs = _homeController.featuredSongs;
+    if (songs.isEmpty) return SizedBox.shrink();
+
+    final theme = sharedPreThemeData;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // History section header
-        Container(
-          margin: EdgeInsets.fromLTRB(7.w, 20.w, 7.w, 10.w),
-          child: HomeSectionHeader(
-            title: "History",
-            sharedPreThemeData: sharedPreThemeData,
-            onViewAllPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Favorite('his')),
-              );
-            },
-          ),
+        HomeSectionHeader(
+          title: 'Featured Songs',
+          sharedPreThemeData: theme,
+          onViewAllPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    AllCategoryByName(_audioHandler, 'Featured Songs'),
+              ),
+            );
+          },
         ),
-        // History items horizontal list
-        Container(
+        SizedBox(
           height: 210.w,
-          margin: EdgeInsets.only(left: 7.w),
-          child: ListView.builder(
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _cachedHistoryData!.data.length > 10
-                ? 10
-                : _cachedHistoryData!.data.length,
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
             itemBuilder: (context, index) {
-              final historyItem = _cachedHistoryData!.data[index];
-              return HistoryCard(
-                imagePath:
-                    AppConstant.ImageUrl +
-                    _historyImagePath +
-                    historyItem.image,
-                songName: historyItem.audio_title,
-                artistName: historyItem.artists_name,
-                sharedPreThemeData: sharedPreThemeData,
-                onTap: () => _handleHistoryItemTap(historyItem, index),
-                songId: historyItem.id
-                    .toString(), // Pass songId instead of isFavorite
+              final song = songs[index];
+              final imageUrl = song.imageUrl.isNotEmpty
+                  ? song.imageUrl
+                  : (song.bannerImage ?? '');
+              final artistName = song.channelName;
+
+              return PopularSongCard(
+                songId: song.id.toString(),
+                imagePath: imageUrl,
+                songName: song.audioTitle,
+                artistName: artistName,
+                sharedPreThemeData: theme,
+                onTap: () => _musicActionHandler.handlePlaySong(
+                  song.id.toString(),
+                  song.audioTitle,
+                ),
                 onPlay: () => _musicActionHandler.handlePlaySong(
-                  historyItem.id.toString(),
-                  historyItem.audio_title,
+                  song.id.toString(),
+                  song.audioTitle,
                 ),
                 onPlayNext: () => _musicActionHandler.handlePlayNext(
-                  historyItem.id.toString(),
-                  historyItem.audio_title,
-                  historyItem.artists_name,
+                  song.id.toString(),
+                  song.audioTitle,
+                  artistName,
+                  imagePath: imageUrl,
                 ),
                 onAddToQueue: () => _musicActionHandler.handleAddToQueue(
-                  historyItem.id.toString(),
-                  historyItem.audio_title,
-                  historyItem.artists_name,
+                  song.id.toString(),
+                  song.audioTitle,
+                  artistName,
+                  imagePath: imageUrl,
                 ),
                 onDownload: () => _musicActionHandler.handleDownload(
-                  historyItem.audio_title,
-                  "song",
-                  historyItem.id.toString(),
+                  song.audioTitle,
+                  'song',
+                  song.id.toString(),
+                  imagePath: imageUrl,
                 ),
                 onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
-                  historyItem.id.toString(),
-                  historyItem.audio_title,
-                  historyItem.artists_name,
+                  song.id.toString(),
+                  song.audioTitle,
+                  artistName,
+                  imagePath: imageUrl,
                 ),
                 onShare: () => _musicActionHandler.handleShare(
-                  historyItem.audio_title,
-                  "song",
-                  itemId: historyItem.id.toString(),
-                  slug: historyItem.audio_slug,
+                  song.audioTitle,
+                  'song',
+                  itemId: song.id.toString(),
+                  slug: song.audioSlug,
                 ),
                 onFavorite: () => _musicActionHandler.handleFavoriteToggle(
-                  historyItem.id.toString(),
-                  historyItem.audio_title,
+                  song.id.toString(),
+                  song.audioTitle,
                   favoriteIds: _favoriteIds,
                 ),
               );
             },
+            separatorBuilder: (context, _) => SizedBox(width: 12.w),
+            itemCount: songs.length,
           ),
         ),
       ],
+    );
+  }
+
+  // Build video section from a list of VideoModel items
+  Widget _buildVideoSection({
+    required String title,
+    required List<VideoModel> videos,
+  }) {
+    if (videos.isEmpty) return SizedBox.shrink();
+
+    final theme = sharedPreThemeData;
+
+    return Padding(
+      padding: EdgeInsets.only(top: 4.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HomeSectionHeader(
+            title: title,
+            sharedPreThemeData: theme,
+            onViewAllPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SizedBox()),
+            ),
+          ),
+          SizedBox(
+            height: 250.w,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              itemBuilder: (context, index) {
+                final video = videos[index];
+                return VideoCardSmall(
+                  title: video.title,
+                  thumbnailUrl: video.thumbnailUrl,
+                  duration: video.duration,
+                  channelName: video.channelName,
+                  channelImageUrl: video.channelImageUrl,
+                  totalViews: video.totalViews,
+                  publishedAt: video.createdAt,
+                  onTap: () => launchVideoPlayer(
+                    context,
+                    videoUrl: video.videoUrl,
+                    videoId: video.id.toString(),
+                    videoTitle: video.title,
+                    videoSubtitle: video.channelName,
+                    thumbnailUrl: video.thumbnailUrl,
+                    videoItem: VideoItem(
+                      id: video.id,
+                      title: video.title,
+                      videoUrl: video.videoUrl,
+                      thumbnailUrl: video.thumbnailUrl,
+                      duration: video.duration,
+                      description: video.description,
+                      channelId: video.channelId,
+                      channelName: video.channelName,
+                      channelHandle: video.channelHandle,
+                      channelImageUrl: video.channelImageUrl,
+                      createdAt: DateTime.tryParse(video.createdAt),
+                      subscribed: video.subscribed == null
+                          ? null
+                          : video.subscribed == 1,
+                      like: video.like,
+                      totalViews: video.totalViews,
+                      totalLikes: video.totalLikes,
+                      report: video.report,
+                      block: null,
+                      reason: null,
+                      isOwn: video.isOwn,
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (context, _) => SizedBox(width: 12.w),
+              itemCount: videos.length,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
