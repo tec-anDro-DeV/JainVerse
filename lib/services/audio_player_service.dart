@@ -1,19 +1,30 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:audio_session/audio_session.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 // import 'package:jainverse/ThemeMain/appColors.dart';  // Comment out: unused import after removing toast messages
 import 'package:jainverse/services/media_item_image_fixer.dart';
-import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/BackgroundAudioManager.dart';
 // import 'package:flutter/material.dart';  // Comment out: unused import after removing toast messages
 // import 'package:fluttertoast/fluttertoast.dart';  // Comment out: unused import after removing toast messages
 import 'package:just_audio/just_audio.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:jainverse/services/audio/android/auto_media_browser.dart';
+import 'package:jainverse/services/audio/analytics/playback_history_tracker.dart';
 import 'package:jainverse/services/audio/common/audio_logger.dart';
 import 'package:jainverse/services/audio/core/audio_player_error_handler.dart';
+import 'package:jainverse/services/audio/core/audio_session_manager.dart';
+import 'package:jainverse/services/audio/core/background_sync_manager.dart';
+import 'package:jainverse/services/audio/playback/playback_controller_core.dart';
+import 'package:jainverse/services/audio/playback/playback_recovery_manager.dart';
+import 'package:jainverse/services/audio/playback/skip_manager.dart';
+import 'package:jainverse/services/audio/playback/state_broadcaster.dart';
+import 'package:jainverse/services/audio/playback/track_completion_handler.dart';
 import 'package:jainverse/services/audio/queue/audio_queue_state.dart';
+import 'package:jainverse/services/audio/queue/queue_synchronizer.dart';
+import 'package:jainverse/services/audio/queue/queue_updater.dart';
+import 'package:jainverse/services/audio/queue/shuffle_manager.dart';
+import 'package:jainverse/services/audio/source/audio_source_factory.dart';
 
 /// Abstract interface for audio player handler
 abstract class AudioPlayerHandler implements AudioHandler {
@@ -24,39 +35,6 @@ abstract class AudioPlayerHandler implements AudioHandler {
   ValueStream<double> get speed;
   Future<void> playSingle(MediaItem mediaItem);
   Future<void> playInstantContext(List<MediaItem> mediaItems);
-}
-
-/// Media library for organizing audio content with Android Auto support
-class MediaLibrary {
-  static const albumsRootId = 'albums';
-
-  Map<String, List<MediaItem>> items = <String, List<MediaItem>>{
-    AudioService.browsableRootId: const [
-      MediaItem(
-        id: albumsRootId,
-        title: "Music Library",
-        playable: false,
-        extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
-      ),
-      MediaItem(
-        id: AudioService.recentRootId,
-        title: "Recently Played",
-        playable: false,
-        extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
-      ),
-    ],
-    albumsRootId: [],
-    AudioService.recentRootId: [],
-  };
-
-  void updateQueue(List<MediaItem> newQueue) {
-    // Update both albums and recent with the new queue for better Android Auto integration
-    items[albumsRootId] = newQueue;
-    // Also populate recent with current queue items (first 10 items)
-    if (newQueue.isNotEmpty) {
-      items[AudioService.recentRootId] = newQueue.take(10).toList();
-    }
-  }
 }
 
 /// Unified Audio Player Handler - Single Implementation
@@ -75,7 +53,84 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   }
 
   AudioPlayerHandlerImpl._internal() {
-    _backgroundAudioManager = BackgroundAudioManager();
+    final backgroundAudioManager = BackgroundAudioManager();
+    _backgroundSyncManager = BackgroundSyncManager(
+      audioManager: backgroundAudioManager,
+    );
+    _audioSessionManager = AudioSessionManager(
+      playbackState: playbackState,
+      volume: volume,
+      pause: () => pause(),
+      setVolume: (value) => setVolume(value),
+    );
+    _stateBroadcaster = StateBroadcaster(
+      player: _player,
+      playbackState: playbackState,
+    );
+    _queueSynchronizer = QueueSynchronizer(
+      player: _player,
+      playlistGetter: () => _playlist,
+      playlistSetter: (newPlaylist) => _playlist = newPlaylist,
+    );
+    _autoMediaBrowser = AutoMediaBrowser(
+      mediaLibrary: _mediaLibrary,
+      recentSubject: _recentSubject,
+      queueStream: queue,
+    );
+    _historyTracker = PlaybackHistoryTracker(
+      historyPresenter: _historyPresenter,
+      reportError: _reportError,
+    );
+    _shuffleManager = ShuffleManager();
+    _skipManager = SkipManager(
+      player: _player,
+      queueStream: queue,
+      historyTracker: _historyTracker,
+      shuffleManager: _shuffleManager,
+      playbackState: playbackState,
+      setRepeatMode: (mode) => setRepeatMode(mode),
+      normalizeCurrentMediaImage: () =>
+          _ensureCurrentMediaItemImageIsNormalized(),
+    );
+    _audioSourceFactory = AudioSourceFactory(_mediaItemExpando);
+    _queueUpdater = QueueUpdater(
+      player: _player,
+      queueSynchronizer: _queueSynchronizer,
+      audioSourceFactory: _audioSourceFactory,
+      mediaLibrary: _mediaLibrary,
+      historyTracker: _historyTracker,
+      shuffleManager: _shuffleManager,
+      queueStream: queue,
+      emitQueue: (items) => super.queue.add(items),
+      playlistGetter: () => _playlist,
+    );
+    _playbackCore = PlaybackControllerCore(
+      player: _player,
+      queueStream: queue,
+      historyTracker: _historyTracker,
+      audioSessionManager: _audioSessionManager,
+      backgroundSyncManager: _backgroundSyncManager,
+      stateBroadcaster: _stateBroadcaster,
+      mediaItemStream: mediaItem,
+      playlistGetter: () => _playlist,
+    );
+    _playbackRecovery = PlaybackRecoveryManager(
+      player: _player,
+      queueStream: queue,
+      reloadCurrentItem: () => _playbackCore.reloadCurrentItem(),
+      skipToQueueItem: (index) => skipToQueueItem(index),
+    );
+    _trackCompletionHandler = TrackCompletionHandler(
+      player: _player,
+      queueStream: queue,
+      playbackState: playbackState,
+      historyTracker: _historyTracker,
+      skipToNext: () => skipToNext(),
+      play: () => play(),
+      stop: () => stop(),
+      reportError: _reportError,
+    );
+    _playbackCore.attachRecoveryManager(_playbackRecovery);
     _init();
   }
 
@@ -101,23 +156,23 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   final BehaviorSubject<double> speed = BehaviorSubject.seeded(1.0);
 
   final _mediaItemExpando = Expando<MediaItem>();
-  late final BackgroundAudioManager _backgroundAudioManager;
-
-  // Shuffle state management
-  bool _isShuffleEnabled = false;
-  List<int> _shuffledIndices = [];
-  List<int> _originalIndices = [];
-  final BehaviorSubject<List<int>?> _customShuffleIndicesStream =
-      BehaviorSubject.seeded(null);
+  late final BackgroundSyncManager _backgroundSyncManager;
+  late final AudioSessionManager _audioSessionManager;
+  late final StateBroadcaster _stateBroadcaster;
+  late final TrackCompletionHandler _trackCompletionHandler;
 
   final MediaLibrary _mediaLibrary = MediaLibrary();
   final HistoryPresenter _historyPresenter = HistoryPresenter();
   final AudioPlayerErrorHandler _errorHandler = const AudioPlayerErrorHandler();
-
-  // Race condition protection for queue operations
-  bool _isQueueOperationInProgress = false;
-  final List<Future<void> Function()> _queueOperationQueue = [];
-  Completer<void>? _currentQueueOperation;
+  late final QueueSynchronizer _queueSynchronizer;
+  late final AutoMediaBrowser _autoMediaBrowser;
+  late final PlaybackHistoryTracker _historyTracker;
+  late final ShuffleManager _shuffleManager;
+  late final SkipManager _skipManager;
+  late final AudioSourceFactory _audioSourceFactory;
+  late final QueueUpdater _queueUpdater;
+  late final PlaybackControllerCore _playbackCore;
+  late final PlaybackRecoveryManager _playbackRecovery;
 
   /// Stream of the current effective sequence from just_audio
   Stream<List<IndexedAudioSource>> get _effectiveSequence =>
@@ -163,11 +218,13 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       Rx.combineLatest3<List<MediaItem>, PlaybackState, List<int>?, QueueState>(
             queue.distinct(),
             playbackState.distinct(),
-            _customShuffleIndicesStream.distinct(),
+            _shuffleManager.indicesStream.distinct(),
             (queueItems, playbackState, shuffleIndices) => QueueState(
               queue: queueItems,
               queueIndex: playbackState.queueIndex,
-              shuffleIndices: _isShuffleEnabled ? shuffleIndices : null,
+              shuffleIndices: _shuffleManager.isShuffleEnabled
+                  ? shuffleIndices
+                  : null,
               repeatMode: playbackState.repeatMode,
             ),
           )
@@ -178,329 +235,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
                 state.shuffleIndices == null ||
                 state.queue.length == state.shuffleIndices!.length,
           );
-
-  Future<void> _init() async {
-    AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl][_init] Starting initialization',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    try {
-      await _configureAudioSession();
-      await _configurePlayerForPerformance();
-      _setupStreamListeners();
-      await _initializeBuffering();
-      await _setupBackgroundAudioHandling();
-      await _init2();
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl][_init] Initialization completed successfully',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    } catch (e, stackTrace) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl][_init] Initialization failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      _reportError(e, stackTrace);
-    }
-  }
-
-  Future<void> _configureAudioSession() async {
-    final session = await AudioSession.instance;
-    await session.configure(
-      const AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playback,
-        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.none,
-        avAudioSessionMode: AVAudioSessionMode.defaultMode,
-        avAudioSessionRouteSharingPolicy:
-            AVAudioSessionRouteSharingPolicy.defaultPolicy,
-        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
-        androidAudioAttributes: AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
-          flags: AndroidAudioFlags.none,
-          usage: AndroidAudioUsage.media,
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: false,
-      ),
-    );
-
-    await session.setActive(true);
-
-    session.becomingNoisyEventStream.listen((event) {
-      _handleBecomingNoisy();
-    });
-
-    session.interruptionEventStream.listen((event) {
-      _handleAudioInterruption(event);
-    });
-  }
-
-  Future<void> _configurePlayerForPerformance() async {
-    try {
-      // PERFORMANCE OPTIMIZATION: Configure player for faster loading
-      await _player.setSpeed(1.0);
-      await _player.setVolume(0.7); // Set initial volume
-      volume.add(0.7);
-
-      // Enable automatic gain control for consistent audio levels
-      await _player.setAutomaticallyWaitsToMinimizeStalling(false);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Player configured for optimal performance',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    } catch (e, stackTrace) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Performance configuration failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      _reportError(e, stackTrace);
-    }
-  }
-
-  void _setupStreamListeners() {
-    // Speed changes
-    speed.debounceTime(const Duration(milliseconds: 250)).listen((speed) {
-      playbackState.add(playbackState.value.copyWith(speed: speed));
-    });
-
-    // Media item stream with optimized performance
-    Rx.combineLatest4<int?, List<MediaItem>, bool, List<int>?, MediaItem?>(
-          _player.currentIndexStream.distinct(),
-          queue.distinct(),
-          _player.shuffleModeEnabledStream.distinct(),
-          _player.shuffleIndicesStream.distinct(),
-          (index, queue, shuffleModeEnabled, shuffleIndices) {
-            try {
-              final queueIndex = getQueueIndex(
-                index,
-                shuffleModeEnabled,
-                shuffleIndices,
-              );
-              return (queueIndex != null && queueIndex < queue.length)
-                  ? queue[queueIndex]
-                  : null;
-            } catch (e, stackTrace) {
-              AudioLogger.log(
-                '[ERROR][AudioPlayerHandlerImpl] Error in media item stream: $e',
-                name: 'AudioPlayerHandlerImpl',
-                error: e,
-                stackTrace: stackTrace,
-              );
-              _reportError(e, stackTrace);
-              return null;
-            }
-          },
-        )
-        .whereType<MediaItem>()
-        .distinct()
-        .throttleTime(const Duration(milliseconds: 100))
-        .listen(
-          (item) {
-            mediaItem.add(item);
-            // Automatically track song history when track changes
-            _trackSongHistory(item);
-            // Persist last playback metadata so mini-player can be restored
-            try {
-              _backgroundAudioManager.persistPlaybackState({
-                'id': item.id,
-                'title': item.title,
-                'artist': item.artist ?? '',
-                'album': item.album ?? '',
-                'position': _player.position.inMilliseconds.toString(),
-                'playing': (_player.playing).toString(),
-              });
-            } catch (e) {
-              AudioLogger.log(
-                '[WARN][AudioPlayerHandlerImpl] Failed to persist track metadata: $e',
-                name: 'AudioPlayerHandlerImpl',
-              );
-            }
-          },
-          onError: (error, stackTrace) {
-            AudioLogger.log(
-              '[ERROR][AudioPlayerHandlerImpl] Media item stream error: $error',
-              name: 'AudioPlayerHandlerImpl',
-              error: error,
-              stackTrace: stackTrace,
-            );
-            _reportError(error, stackTrace);
-          },
-        );
-
-    // Playback event stream
-    _player.playbackEventStream.listen(
-      _broadcastState,
-      onError: (error, stackTrace) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Playback event stream error: $error',
-          name: 'AudioPlayerHandlerImpl',
-          error: error,
-          stackTrace: stackTrace,
-        );
-        _reportError(error, stackTrace);
-      },
-    );
-
-    // Real-time position updates for smooth UI
-    _player.positionStream
-        .where((_) => _player.playing) // Only emit when playing
-        .throttleTime(
-          const Duration(milliseconds: 200),
-        ) // Update 5 times per second
-        .listen(
-          (position) => _broadcastState(_player.playbackEvent),
-          onError: (error, stackTrace) {
-            AudioLogger.log(
-              '[ERROR][AudioPlayerHandlerImpl] Position stream error: $error',
-              name: 'AudioPlayerHandlerImpl',
-              error: error,
-              stackTrace: stackTrace,
-            );
-            _reportError(error, stackTrace);
-          },
-        );
-
-    // Shuffle mode stream
-    _player.shuffleModeEnabledStream.listen(
-      (enabled) => _broadcastState(_player.playbackEvent),
-      onError: (error, stackTrace) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Shuffle mode stream error: $error',
-          name: 'AudioPlayerHandlerImpl',
-          error: error,
-          stackTrace: stackTrace,
-        );
-        _reportError(error, stackTrace);
-      },
-    );
-
-    // Processing state handling
-    _player.processingStateStream.listen((state) {
-      try {
-        if (state == ProcessingState.completed) {
-          _handleTrackCompletion();
-        }
-      } catch (e, stackTrace) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Processing state error: $e',
-          name: 'AudioPlayerHandlerImpl',
-          error: e,
-          stackTrace: stackTrace,
-        );
-        _reportError(e, stackTrace);
-      }
-    });
-  }
-
-  Future<void> _handleTrackCompletion() async {
-    try {
-      final currentQueue = queue.value;
-      final currentIndex = _player.currentIndex ?? 0;
-
-      if (currentQueue.length > 1 && currentIndex < currentQueue.length - 1) {
-        // Move to next track and track its history
-        skipToNext();
-      } else {
-        final repeatMode = playbackState.value.repeatMode;
-        if (repeatMode == AudioServiceRepeatMode.all) {
-          _player.seek(Duration.zero, index: 0);
-          // Track history when repeating playlist
-          if (currentQueue.isNotEmpty) {
-            _trackSongHistory(currentQueue[0]);
-          }
-          play();
-        } else if (repeatMode == AudioServiceRepeatMode.one) {
-          _player.seek(Duration.zero);
-          // Track history when repeating same song
-          if (currentIndex < currentQueue.length) {
-            _trackSongHistory(currentQueue[currentIndex]);
-          }
-          play();
-        } else {
-          // No next track and repeat mode is none: stop playback but keep the
-          // current (last) track selected instead of wrapping back to the
-          // first track. This ensures the UI stays on the last song in a
-          // paused/stopped state as requested.
-          try {
-            // Stop the player (will update playback state and native notifications)
-            await stop();
-
-            // If we have a non-empty queue, seek to the last item at position 0
-            if (currentQueue.isNotEmpty) {
-              final lastIndex = currentQueue.length - 1;
-              await _player.seek(Duration.zero, index: lastIndex);
-            }
-          } catch (e, stackTrace) {
-            AudioLogger.log(
-              '[ERROR][AudioPlayerHandlerImpl] Failed to stop and keep last track selected: $e',
-              name: 'AudioPlayerHandlerImpl',
-              error: e,
-              stackTrace: stackTrace,
-            );
-            _reportError(e, stackTrace);
-          }
-        }
-      }
-    } catch (e, stackTrace) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Track completion handling failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      _reportError(e, stackTrace);
-    }
-  }
-
-  /// Automatically track song history when a song is played or changed
-  void _trackSongHistory(MediaItem item) {
-    try {
-      // Extract music ID from MediaItem extras first, fallback to parsing from ID
-      String musicId = '';
-
-      if (item.extras != null && item.extras!['audio_id'] != null) {
-        // Use audio_id from extras (preferred method)
-        musicId = item.extras!['audio_id'].toString();
-      } else {
-        // Fallback: try to extract from MediaItem ID if it's just a number
-        final id = item.id;
-        if (RegExp(r'^\d+$').hasMatch(id)) {
-          musicId = id;
-        } else {
-          // If ID contains URL or other data, skip history tracking
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] Skipping history tracking - no valid music ID found for: ${item.title}',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          return;
-        }
-      }
-
-      if (musicId.isNotEmpty) {
-        // Track history asynchronously without blocking audio playback
-        _historyPresenter.trackSongPlay(musicId);
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Tracking history for song: ${item.title} (Music ID: $musicId)',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-    } catch (e, stackTrace) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to track song history: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      _reportError(e, stackTrace);
-    }
-  }
 
   Future<void> _initializeBuffering() async {
     try {
@@ -524,7 +258,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         name: 'AudioPlayerHandlerImpl',
       );
 
-      await _backgroundAudioManager.initialize();
+      await _backgroundSyncManager.initialize();
 
       AudioLogger.log(
         '[DEBUG][AudioPlayerHandlerImpl] Background audio setup completed',
@@ -539,91 +273,14 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     }
   }
 
-  /// CRITICAL FIX: Enhanced audio interruption handling
-  void _handleAudioInterruption(AudioInterruptionEvent event) async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Audio interruption: ${event.type}',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      switch (event.type) {
-        case AudioInterruptionType.pause:
-          // CRITICAL FIX: Only pause if actually playing
-          if (playbackState.value.playing) {
-            await pause();
-            AudioLogger.log(
-              '[DEBUG][AudioPlayerHandlerImpl] Paused due to interruption',
-              name: 'AudioPlayerHandlerImpl',
-            );
-          }
-          break;
-
-        case AudioInterruptionType.duck:
-          // CRITICAL FIX: Implement proper audio ducking
-          if (playbackState.value.playing) {
-            final currentVolume = volume.value;
-            // Duck to 30% volume instead of pausing
-            await setVolume(currentVolume * 0.3);
-            AudioLogger.log(
-              '[DEBUG][AudioPlayerHandlerImpl] Audio ducked to 30% volume',
-              name: 'AudioPlayerHandlerImpl',
-            );
-
-            // Restore volume after 3 seconds if still playing
-            Future.delayed(const Duration(seconds: 3), () async {
-              if (playbackState.value.playing) {
-                await setVolume(currentVolume);
-                AudioLogger.log(
-                  '[DEBUG][AudioPlayerHandlerImpl] Audio volume restored',
-                  name: 'AudioPlayerHandlerImpl',
-                );
-              }
-            });
-          }
-          break;
-
-        case AudioInterruptionType.unknown:
-          // CRITICAL FIX: Handle unknown interruptions gracefully
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] Unknown interruption type, no action taken',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          break;
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Error handling interruption: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
-  }
-
-  void _handleBecomingNoisy() {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Audio becoming noisy - pausing playback',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      if (playbackState.value.playing) {
-        pause();
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Error handling noisy event: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
-  }
-
-  Future<void> _init2() async {
+  Future<void> _init() async {
     AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl][_init2] Called',
+      '[DEBUG][AudioPlayerHandlerImpl][_init] Called',
       name: 'AudioPlayerHandlerImpl',
     );
+
+    await _initializeBuffering();
+    await _setupBackgroundAudioHandling();
 
     // Load and broadcast the initial queue
     if (_mediaLibrary.items[MediaLibrary.albumsRootId]?.isNotEmpty == true) {
@@ -660,18 +317,15 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     // Propagate events with throttling to reduce frequency
     _player.playbackEventStream
         .throttleTime(const Duration(milliseconds: 100))
-        .listen(_broadcastState);
+        .listen(_stateBroadcaster.broadcast);
     _player.shuffleModeEnabledStream.distinct().listen(
-      (enabled) => _broadcastState(_player.playbackEvent),
+      (enabled) => _stateBroadcaster.broadcast(_player.playbackEvent),
     );
 
     // In this case, the service stops when reaching the end
     _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
-        // Delegate to the unified async completion handler. We don't await
-        // here because this is a stream callback; the handler will run
-        // asynchronously and perform the appropriate stop/seek logic.
-        _handleTrackCompletion();
+        _trackCompletionHandler.handleTrackCompletion();
       }
     });
 
@@ -738,88 +392,27 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   }
 
   @override
-  Future<void> setShuffleMode(AudioServiceShuffleMode mode) async {
-    final enabled = mode == AudioServiceShuffleMode.all;
+  Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
+    final enabled = shuffleMode == AudioServiceShuffleMode.all;
 
     AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl] Setting shuffle mode: $mode (enabled: $enabled)',
+      '[DEBUG][AudioPlayerHandlerImpl] Setting shuffle mode: $shuffleMode (enabled: $enabled)',
       name: 'AudioPlayerHandlerImpl',
     );
 
-    _isShuffleEnabled = enabled;
-
-    // Generate shuffle indices if enabling shuffle
-    if (enabled && queue.value.isNotEmpty) {
-      _generateShuffleIndices();
-    } else {
-      // Emit null to indicate no shuffle when disabled
-      _customShuffleIndicesStream.add(null);
-    }
+    _shuffleManager.setShuffleMode(
+      shuffleMode: shuffleMode,
+      queueLength: queue.value.length,
+      currentIndex: _player.currentIndex ?? 0,
+    );
 
     // Update the playback state to reflect the new shuffle mode
-    playbackState.add(playbackState.value.copyWith(shuffleMode: mode));
+    playbackState.add(playbackState.value.copyWith(shuffleMode: shuffleMode));
 
     AudioLogger.log(
       '[DEBUG][AudioPlayerHandlerImpl] Shuffle mode set to: $enabled (internal tracking)',
       name: 'AudioPlayerHandlerImpl',
     );
-  }
-
-  /// Generate shuffled indices for the current queue
-  void _generateShuffleIndices() {
-    final currentIndex = _player.currentIndex ?? 0;
-    _originalIndices = List.generate(queue.value.length, (i) => i);
-    _shuffledIndices = List.from(_originalIndices);
-
-    // Remove current song from shuffle list
-    _shuffledIndices.removeAt(currentIndex);
-
-    // Shuffle remaining songs
-    _shuffledIndices.shuffle();
-
-    // Add current song back at the beginning
-    _shuffledIndices.insert(0, currentIndex);
-
-    // Emit shuffled indices to custom stream
-    _customShuffleIndicesStream.add(_shuffledIndices);
-
-    AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl] Generated shuffle indices: $_shuffledIndices',
-      name: 'AudioPlayerHandlerImpl',
-    );
-  }
-
-  /// Get the next index based on shuffle mode
-  int? _getNextIndex(int currentIndex) {
-    if (!_isShuffleEnabled) {
-      // Normal sequential mode
-      return currentIndex + 1 < queue.value.length ? currentIndex + 1 : null;
-    }
-
-    // Shuffle mode
-    final currentShufflePosition = _shuffledIndices.indexOf(currentIndex);
-    if (currentShufflePosition == -1 ||
-        currentShufflePosition + 1 >= _shuffledIndices.length) {
-      return null; // End of shuffled list
-    }
-
-    return _shuffledIndices[currentShufflePosition + 1];
-  }
-
-  /// Get the previous index based on shuffle mode
-  int? _getPreviousIndex(int currentIndex) {
-    if (!_isShuffleEnabled) {
-      // Normal sequential mode
-      return currentIndex > 0 ? currentIndex - 1 : null;
-    }
-
-    // Shuffle mode
-    final currentShufflePosition = _shuffledIndices.indexOf(currentIndex);
-    if (currentShufflePosition <= 0) {
-      return null; // Beginning of shuffled list
-    }
-
-    return _shuffledIndices[currentShufflePosition - 1];
   }
 
   @override
@@ -834,72 +427,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     await _player.setSpeed(speed);
   }
 
-  // Audio source creation
-  AudioSource _itemToSource(MediaItem mediaItem) {
-    AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl] Creating optimized audio source for: ${mediaItem.title}',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    Uri? uri;
-    try {
-      // Use actual_audio_url from extras if available, otherwise fall back to mediaItem.id
-      final audioUrl =
-          mediaItem.extras?['actual_audio_url'] as String? ?? mediaItem.id;
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Using audio URL: $audioUrl for ${mediaItem.title}',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      if (audioUrl.startsWith('http') || audioUrl.startsWith('https')) {
-        // Already a complete URL
-        uri = Uri.parse(audioUrl);
-      } else if (audioUrl.startsWith('file://')) {
-        // File URL
-        uri = Uri.parse(audioUrl);
-      } else {
-        // Relative path - construct full URL
-        const baseUrl = '${AppConstant.SiteUrl}public/';
-        uri = Uri.parse('$baseUrl$audioUrl');
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Constructed full URL: ${uri.toString()}',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Invalid URL: ${mediaItem.extras?['actual_audio_url'] ?? mediaItem.id}, error: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      uri = Uri.parse('https://example.com/dummy.mp3');
-    }
-
-    final audioSource = AudioSource.uri(
-      uri,
-      headers: {
-        'User-Agent': 'JainVerse/1.0',
-        'Accept': 'audio/*',
-        'Accept-Encoding': 'gzip, deflate',
-        'Cache-Control': 'max-age=3600',
-        'Connection': 'close', // Changed to close to avoid socket issues
-        'Accept-Ranges': 'bytes',
-      },
-      tag: {
-        'title': mediaItem.title,
-        'artist': mediaItem.artist,
-        'id': mediaItem.id,
-        'preload': true,
-      },
-    );
-    _mediaItemExpando[audioSource] = mediaItem;
-    return audioSource;
-  }
-
-  List<AudioSource> _itemsToSources(List<MediaItem> mediaItems) =>
-      mediaItems.map(_itemToSource).toList();
-
   // Queue management methods
 
   /// CRITICAL: Android Auto MediaBrowserService implementation
@@ -909,68 +436,12 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     String parentMediaId, [
     Map<String, dynamic>? options,
   ]) async {
-    AudioLogger.log(
-      '[INFO][AudioPlayerHandlerImpl] getChildren called for: $parentMediaId',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    switch (parentMediaId) {
-      case AudioService.browsableRootId:
-        // Return root level browseable categories for Android Auto
-        return [
-          const MediaItem(
-            id: MediaLibrary.albumsRootId,
-            title: "Music Library",
-            playable: false,
-            extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
-          ),
-          const MediaItem(
-            id: AudioService.recentRootId,
-            title: "Recently Played",
-            playable: false,
-            extras: {'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1},
-          ),
-        ];
-      case AudioService.recentRootId:
-        // Return recently played items
-        final recentItems = _recentSubject.value;
-        AudioLogger.log(
-          '[INFO][AudioPlayerHandlerImpl] Returning ${recentItems.length} recent items',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return recentItems;
-      case MediaLibrary.albumsRootId:
-        // Return current queue/library items
-        final libraryItems = _mediaLibrary.items[parentMediaId] ?? [];
-        AudioLogger.log(
-          '[INFO][AudioPlayerHandlerImpl] Returning ${libraryItems.length} library items',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return libraryItems;
-      default:
-        // Fallback to library items for unknown parent IDs
-        final fallbackItems = _mediaLibrary.items[parentMediaId] ?? [];
-        AudioLogger.log(
-          '[INFO][AudioPlayerHandlerImpl] Fallback: Returning ${fallbackItems.length} items for $parentMediaId',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return fallbackItems;
-    }
+    return _autoMediaBrowser.getChildren(parentMediaId, options: options);
   }
 
   @override
   ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
-    switch (parentMediaId) {
-      case AudioService.recentRootId:
-        final stream = _recentSubject.map((_) => <String, dynamic>{});
-        return _recentSubject.hasValue
-            ? stream.shareValueSeeded(<String, dynamic>{})
-            : stream.shareValue();
-      default:
-        return Stream.value(
-          _mediaLibrary.items[parentMediaId],
-        ).map((_) => <String, dynamic>{}).shareValue();
-    }
+    return _autoMediaBrowser.subscribeToChildren(parentMediaId);
   }
 
   /// CRITICAL: Android Auto search support for voice commands
@@ -979,219 +450,25 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     String query, [
     Map<String, dynamic>? extras,
   ]) async {
-    AudioLogger.log(
-      '[INFO][AudioPlayerHandlerImpl] Search called with query: $query',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    if (query.isEmpty) return [];
-
-    final searchResults = <MediaItem>[];
-    final queryLower = query.toLowerCase();
-
-    // Search through current queue items
-    for (final item in queue.value) {
-      final titleMatch = item.title.toLowerCase().contains(queryLower);
-      final artistMatch =
-          item.artist?.toLowerCase().contains(queryLower) ?? false;
-      final albumMatch =
-          item.album?.toLowerCase().contains(queryLower) ?? false;
-
-      if (titleMatch || artistMatch || albumMatch) {
-        searchResults.add(item);
-      }
-    }
-
-    // Search through recent items
-    for (final item in _recentSubject.value) {
-      final titleMatch = item.title.toLowerCase().contains(queryLower);
-      final artistMatch =
-          item.artist?.toLowerCase().contains(queryLower) ?? false;
-      final albumMatch =
-          item.album?.toLowerCase().contains(queryLower) ?? false;
-
-      if (titleMatch || artistMatch || albumMatch) {
-        // Avoid duplicates
-        if (!searchResults.any((existing) => existing.id == item.id)) {
-          searchResults.add(item);
-        }
-      }
-    }
-
-    AudioLogger.log(
-      '[INFO][AudioPlayerHandlerImpl] Search returned ${searchResults.length} results',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    return searchResults
-        .take(50)
-        .toList(); // Limit to 50 results for performance
+    return _autoMediaBrowser.search(query, extras: extras);
   }
 
-  // Queue operation synchronization methods
-  Future<T> _synchronizeQueueOperation<T>(
-    Future<T> Function() operation,
-  ) async {
-    // If there's already an operation in progress, queue this one
-    if (_isQueueOperationInProgress) {
-      final completer = Completer<T>();
-      _queueOperationQueue.add(() async {
-        try {
-          final result = await operation();
-          completer.complete(result);
-        } catch (e) {
-          completer.completeError(e);
-        }
-      });
-      return completer.future;
-    }
-
-    // Mark operation as in progress
-    _isQueueOperationInProgress = true;
-    _currentQueueOperation = Completer<void>();
-
-    try {
-      final result = await operation();
-      return result;
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Queue operation failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      rethrow;
-    } finally {
-      // Mark operation as complete
-      _isQueueOperationInProgress = false;
-      _currentQueueOperation?.complete();
-      _currentQueueOperation = null;
-
-      // Process next queued operation if any
-      if (_queueOperationQueue.isNotEmpty) {
-        final nextOperation = _queueOperationQueue.removeAt(0);
-        // Don't await here to avoid blocking
-        nextOperation().catchError((e) {
-          AudioLogger.log(
-            '[ERROR][AudioPlayerHandlerImpl] Queued operation failed: $e',
-            name: 'AudioPlayerHandlerImpl',
-            error: e,
-          );
-        });
-      }
-    }
-  }
-
-  /// Helper that retries playlist clear when just_audio throws a concurrent
-  /// modification / addStream StateError. This can happen when internal
-  /// plugin streams are mutating the playlist concurrently.
-  Future<void> _safeClearPlaylist({int maxAttempts = 4}) async {
-    int attempt = 0;
-    while (true) {
-      try {
-        await _playlist.clear().timeout(const Duration(seconds: 2));
-        return;
-      } catch (e) {
-        attempt++;
-        final msg = e.toString().toLowerCase();
-        // Detect the specific concurrent-addStream error message and retry
-        if (attempt < maxAttempts &&
-            (msg.contains('addstream') ||
-                msg.contains('you cannot add items'))) {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] _safeClearPlaylist: concurrent modification detected, retry #$attempt',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          await Future.delayed(const Duration(milliseconds: 120));
-          continue;
-        }
-        // If we've exhausted retries, attempt a safer recovery by
-        // replacing the player's audio source with a fresh, empty
-        // ConcatenatingAudioSource instance. This avoids the addStream
-        // race inside just_audio which can leave the old playlist in a
-        // bad state.
-        try {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] _safeClearPlaylist: replacing playlist after failed clear',
-            name: 'AudioPlayerHandlerImpl',
-          );
-
-          // Create a fresh playlist and set it on the player. Also update
-          // our reference so subsequent operations operate on the new
-          // instance.
-          final newPlaylist = ConcatenatingAudioSource(children: []);
-          _playlist = newPlaylist;
-
-          // Replace the audio source on the player. Use preload=false to
-          // avoid network activity during this repair step.
-          await _player
-              .setAudioSource(newPlaylist, preload: false)
-              .timeout(const Duration(seconds: 3));
-
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] _safeClearPlaylist: replaced playlist successfully',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          return;
-        } catch (inner) {
-          AudioLogger.log(
-            '[ERROR][AudioPlayerHandlerImpl] _safeClearPlaylist: failed to replace playlist: $inner',
-            name: 'AudioPlayerHandlerImpl',
-            error: inner,
-          );
-          rethrow;
-        }
-      }
-    }
-  }
-
-  /// Helper that retries playlist.addAll when just_audio throws a concurrent
-  /// modification / addStream StateError. Uses small backoff between attempts.
-  Future<void> _safeAddAllToPlaylist(
-    List<AudioSource> sources, {
-    int maxAttempts = 10,
-  }) async {
-    int attempt = 0;
-    while (true) {
-      try {
-        await _playlist.addAll(sources).timeout(const Duration(seconds: 4));
-        return;
-      } catch (e) {
-        attempt++;
-        final msg = e.toString().toLowerCase();
-        final isConcurrentError =
-            msg.contains('addstream') ||
-            msg.contains('add stream') ||
-            msg.contains('you cannot add items');
-
-        if (attempt < maxAttempts && isConcurrentError) {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] _safeAddAllToPlaylist: concurrent modification detected, retry #$attempt',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          final baseDelay = 80 * attempt * attempt;
-          final clampedDelay = baseDelay < 80
-              ? 80
-              : (baseDelay > 800 ? 800 : baseDelay);
-          await Future.delayed(Duration(milliseconds: clampedDelay));
-          continue;
-        }
-        rethrow;
-      }
-    }
-  }
+  // Queue operation synchronization logic lives in [QueueSynchronizer].
 
   @override
   Future<void> addQueueItem(MediaItem mediaItem) async {
-    return _synchronizeQueueOperation(() async {
-      await _playlist.add(_itemToSource(mediaItem));
+    return _queueSynchronizer.synchronize(() async {
+      await _playlist.add(_audioSourceFactory.create(mediaItem));
     });
   }
 
   @override
   Future<void> addQueueItems(List<MediaItem> mediaItems) async {
     if (mediaItems.isEmpty) return;
-    return _synchronizeQueueOperation(() async {
-      await _safeAddAllToPlaylist(_itemsToSources(mediaItems));
+    return _queueSynchronizer.synchronize(() async {
+      await _queueSynchronizer.safeAddAllToPlaylist(
+        _audioSourceFactory.createAll(mediaItems),
+      );
 
       final currentQueue = List<MediaItem>.from(queue.valueOrNull ?? []);
       currentQueue.addAll(mediaItems);
@@ -1202,34 +479,36 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
 
   @override
   Future<void> insertQueueItem(int index, MediaItem mediaItem) async {
-    return _synchronizeQueueOperation(() async {
-      await _playlist.insert(index, _itemToSource(mediaItem));
+    return _queueSynchronizer.synchronize(() async {
+      await _playlist.insert(index, _audioSourceFactory.create(mediaItem));
     });
   }
 
   @override
-  Future<void> updateQueue(List<MediaItem> newQueue) async {
-    return _synchronizeQueueOperation(() async {
+  Future<void> updateQueue(List<MediaItem> queue) async {
+    return _queueSynchronizer.synchronize(() async {
       // Add shorter timeout to prevent hanging queue updates
-      await _performQueueUpdate(newQueue).timeout(
-        const Duration(seconds: 6), // Reduced from 10 to 6 seconds
-        onTimeout: () {
-          AudioLogger.log(
-            '[ERROR][AudioPlayerHandlerImpl] Queue update timed out after 6 seconds',
-            name: 'AudioPlayerHandlerImpl',
+      await _queueUpdater
+          .replaceQueue(queue)
+          .timeout(
+            const Duration(seconds: 6), // Reduced from 10 to 6 seconds
+            onTimeout: () {
+              AudioLogger.log(
+                '[ERROR][AudioPlayerHandlerImpl] Queue update timed out after 6 seconds',
+                name: 'AudioPlayerHandlerImpl',
+              );
+              throw TimeoutException(
+                'Queue update timeout after 6 seconds',
+                const Duration(seconds: 6),
+              );
+            },
           );
-          throw TimeoutException(
-            'Queue update timeout after 6 seconds',
-            const Duration(seconds: 6),
-          );
-        },
-      );
     });
   }
 
   @override
   Future<void> playSingle(MediaItem mediaItem) async {
-    return _synchronizeQueueOperation(() async {
+    return _queueSynchronizer.synchronize(() async {
       AudioLogger.log(
         '[AudioPlayerHandlerImpl] Instant play requested for ${mediaItem.title}',
         name: 'AudioPlayerHandlerImpl',
@@ -1248,8 +527,10 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       }
 
       // Replace playlist with single source for immediate playback
-      await _safeClearPlaylist();
-      await _safeAddAllToPlaylist([_itemToSource(mediaItem)]);
+      await _queueSynchronizer.safeClearPlaylist();
+      await _queueSynchronizer.safeAddAllToPlaylist([
+        _audioSourceFactory.create(mediaItem),
+      ]);
 
       try {
         await _player
@@ -1285,7 +566,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   @override
   Future<void> playInstantContext(List<MediaItem> mediaItems) async {
     if (mediaItems.isEmpty) return;
-    return _synchronizeQueueOperation(() async {
+    return _queueSynchronizer.synchronize(() async {
       AudioLogger.log(
         '[AudioPlayerHandlerImpl] Instant context play with ${mediaItems.length} items',
         name: 'AudioPlayerHandlerImpl',
@@ -1303,8 +584,10 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         );
       }
 
-      await _safeClearPlaylist();
-      await _safeAddAllToPlaylist(_itemsToSources(mediaItems));
+      await _queueSynchronizer.safeClearPlaylist();
+      await _queueSynchronizer.safeAddAllToPlaylist(
+        _audioSourceFactory.createAll(mediaItems),
+      );
 
       try {
         await _player
@@ -1342,277 +625,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     });
   }
 
-  Future<void> _performQueueUpdate(List<MediaItem> newQueue) async {
-    AudioLogger.log(
-      '[AudioPlayer] Updating queue with ${newQueue.length} items',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    if (newQueue.isNotEmpty) {
-      AudioLogger.log(
-        '[AudioPlayer] First song: ${newQueue[0].title}',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-
-    // Handle empty queue for clearing purposes
-    if (newQueue.isEmpty) {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Clearing queue - stopping playback and clearing playlist',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      try {
-        // Stop current playback
-        if (_player.playing) {
-          await _player.stop();
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] Stopped playbook for queue clearing',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        }
-
-        // Clear the playlist completely (use safe wrapper to handle concurrent plugin races)
-        await _safeClearPlaylist();
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Playlist cleared successfully',
-          name: 'AudioPlayerHandlerImpl',
-        );
-
-        // Update media library with empty queue
-        _mediaLibrary.updateQueue([]);
-
-        // Update the queue state explicitly
-        super.queue.add([]);
-
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Queue successfully cleared',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      } catch (e) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Failed to clear queue: $e',
-          name: 'AudioPlayerHandlerImpl',
-          error: e,
-        );
-      }
-
-      return;
-    }
-
-    // Log current queue state before replacement
-    final currentQueue = queue.value;
-    AudioLogger.log(
-      '[DEBUG][AudioPlayerHandlerImpl] Current queue has ${currentQueue.length} items',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    // PERFORMANCE OPTIMIZATION: Fast validation without blocking
-    final validQueue = <MediaItem>[];
-    for (final item in newQueue) {
-      try {
-        // Use actual_audio_url from extras for validation, not MediaItem ID
-        final audioUrl = item.extras?['actual_audio_url'] as String? ?? item.id;
-
-        // Quick validation - check if it's a valid URL format
-        if (audioUrl.startsWith('http') ||
-            audioUrl.startsWith('file') ||
-            audioUrl.contains('.mp3') ||
-            audioUrl.contains('.wav') ||
-            audioUrl.contains('.m4a') ||
-            audioUrl.contains('.aac')) {
-          validQueue.add(item);
-        } else {
-          AudioLogger.log(
-            '[WARNING][AudioPlayerHandlerImpl] Invalid audio URL for ${item.title}: $audioUrl',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        }
-      } catch (e) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Error validating URL for ${item.title}: $e',
-          name: 'AudioPlayerHandlerImpl',
-          error: e,
-        );
-      }
-    }
-
-    if (validQueue.isEmpty) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] No valid items in queue',
-        name: 'AudioPlayerHandlerImpl',
-      );
-      return;
-    }
-
-    try {
-      // Stop current playback to ensure clean queue replacement
-      if (_player.playing) {
-        try {
-          await _player.stop().timeout(const Duration(seconds: 2));
-        } on TimeoutException {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] Stop operation timed out during queue replacement',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        }
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Stopped current playback for queue replacement',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        // Shorter delay to improve responsiveness
-        await Future.delayed(
-          const Duration(milliseconds: 25),
-        ); // Reduced from 50ms
-      }
-
-      // Clear the existing playlist completely (use safe wrapper to handle concurrent plugin races)
-      try {
-        await _safeClearPlaylist();
-      } on TimeoutException {
-        AudioLogger.log(
-          '[WARN][AudioPlayerHandlerImpl] Playlist clear timed out',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Cleared existing playlist',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // PERFORMANCE OPTIMIZATION: Create sources in smaller batches for faster processing
-      final validSources = <AudioSource>[];
-      const batchSize = 3; // Reduced from 5 to 3 for faster processing
-
-      for (int i = 0; i < validQueue.length; i += batchSize) {
-        final batch = validQueue.skip(i).take(batchSize);
-        final batchSources = await Future.wait(
-          batch.map((item) async {
-            try {
-              final audioSource = _itemToSource(item);
-              AudioLogger.log(
-                '[DEBUG][AudioPlayerHandlerImpl] Created audio source for: ${item.title}',
-                name: 'AudioPlayerHandlerImpl',
-              );
-              return audioSource;
-            } catch (e) {
-              final errorString = e.toString().toLowerCase();
-              if (errorString.contains('connection') &&
-                  errorString.contains('abort')) {
-                AudioLogger.log(
-                  '[INFO][AudioPlayerHandlerImpl] Connection abort for ${item.title} - normal for network streams',
-                  name: 'AudioPlayerHandlerImpl',
-                );
-              } else {
-                AudioLogger.log(
-                  '[ERROR][AudioPlayerHandlerImpl] Failed to create source for ${item.title}: $e',
-                  name: 'AudioPlayerHandlerImpl',
-                  error: e,
-                );
-              }
-              return null;
-            }
-          }),
-          eagerError: false,
-        );
-
-        validSources.addAll(batchSources.whereType<AudioSource>());
-
-        // Micro-delay between batches to prevent blocking
-        await Future.delayed(const Duration(milliseconds: 1));
-      }
-
-      if (validSources.isNotEmpty) {
-        // Add all new sources to the playlist with timeout
-        try {
-          await _safeAddAllToPlaylist(validSources);
-        } on TimeoutException {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] Adding sources to playlist timed out',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        }
-
-        // Set the new audio source with enhanced error handling
-        try {
-          await _player
-              .setAudioSource(_playlist, preload: false)
-              .timeout(const Duration(seconds: 3));
-        } on TimeoutException {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] setAudioSource timed out during queue replacement',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        } catch (e) {
-          final errorString = e.toString().toLowerCase();
-          if (errorString.contains('connection') &&
-              errorString.contains('abort')) {
-            AudioLogger.log(
-              '[INFO][AudioPlayerHandlerImpl] Connection abort during setAudioSource - normal for network streams',
-              name: 'AudioPlayerHandlerImpl',
-            );
-            // Don't treat connection aborts as failures
-          } else {
-            AudioLogger.log(
-              '[WARN][AudioPlayerHandlerImpl] setAudioSource failed: $e, continuing anyway',
-              name: 'AudioPlayerHandlerImpl',
-            );
-          }
-        }
-
-        // Ensure player is in stopped state after queue update
-        if (_player.processingState != ProcessingState.idle) {
-          try {
-            await _player.stop().timeout(const Duration(seconds: 1));
-          } on TimeoutException {
-            AudioLogger.log(
-              '[WARN][AudioPlayerHandlerImpl] Final stop operation timed out',
-              name: 'AudioPlayerHandlerImpl',
-            );
-          } catch (e) {
-            AudioLogger.log(
-              '[WARN][AudioPlayerHandlerImpl] Final stop failed: $e',
-              name: 'AudioPlayerHandlerImpl',
-            );
-          }
-        }
-
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Successfully replaced queue with ${validSources.length} audio sources',
-          name: 'AudioPlayerHandlerImpl',
-        );
-
-        // Update the media library with new queue
-        _mediaLibrary.updateQueue(validQueue);
-
-        // Regenerate shuffle indices if shuffle is enabled
-        if (_isShuffleEnabled && validQueue.isNotEmpty) {
-          _generateShuffleIndices();
-        }
-
-        // Track history for the first song in the new queue if it's not empty
-        if (validQueue.isNotEmpty) {
-          _trackSongHistory(validQueue[0]);
-        }
-
-        // Log first few items in new queue for verification
-        for (int i = 0; i < validQueue.length && i < 3; i++) {
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] Queue item $i: ${validQueue[i].title}',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        }
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to replace queue: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      rethrow; // Re-throw to trigger timeout handling
-    }
-  }
-
   @override
   Future<void> updateMediaItem(MediaItem mediaItem) async {
     final index = queue.value.indexWhere((item) => item.id == mediaItem.id);
@@ -1639,7 +651,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
 
   @override
   Future<void> removeQueueItem(MediaItem mediaItem) async {
-    return _synchronizeQueueOperation(() async {
+    return _queueSynchronizer.synchronize(() async {
       final index = queue.value.indexOf(mediaItem);
       if (index >= 0 && index < _playlist.length) {
         await _playlist.removeAt(index);
@@ -1654,7 +666,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
 
   @override
   Future<void> moveQueueItem(int currentIndex, int newIndex) async {
-    return _synchronizeQueueOperation(() async {
+    return _queueSynchronizer.synchronize(() async {
       if (currentIndex >= 0 &&
           currentIndex < queue.value.length &&
           newIndex >= 0 &&
@@ -1674,225 +686,12 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   // Playback control methods
   @override
   Future<void> skipToNext() async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Attempting to skip to next track',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      final currentRepeatMode = playbackState.value.repeatMode;
-      final currentIndex = _player.currentIndex ?? 0;
-      final nextIndex = _getNextIndex(currentIndex);
-
-      // If user manually skips while in "repeat one" mode, change to "repeat all"
-      if (currentRepeatMode == AudioServiceRepeatMode.one) {
-        await setRepeatMode(AudioServiceRepeatMode.all);
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Changed repeat mode from "one" to "all" due to manual skip',
-          name: 'AudioPlayerHandlerImpl',
-        );
-
-        // Comment out: Toast message removed
-        // Fluttertoast.showToast(
-        //   msg: 'Repeat mode changed to "Repeat All"',
-        //   toastLength: Toast.LENGTH_SHORT,
-        //   timeInSecForIosWeb: 1,
-        //   backgroundColor: Colors.black87,
-        //   textColor: appColors().colorBackground,
-        //   fontSize: 14.0,
-        // );
-      }
-
-      if (nextIndex == null) {
-        // End of queue - handle repeat mode
-        final repeatMode = playbackState.value.repeatMode;
-        if (repeatMode == AudioServiceRepeatMode.all) {
-          final firstIndex = _isShuffleEnabled && _shuffledIndices.isNotEmpty
-              ? _shuffledIndices.first
-              : 0;
-          await _player.seek(Duration.zero, index: firstIndex);
-
-          // Track history for the song when wrapping around
-          if (queue.value.isNotEmpty && firstIndex < queue.value.length) {
-            _trackSongHistory(queue.value[firstIndex]);
-          }
-          await _ensureCurrentMediaItemImageIsNormalized();
-        } else {
-          // Comment out: Toast message removed
-          // Fluttertoast.showToast(
-          //   msg: 'Don\'t have track to play in next ',
-          //   toastLength: Toast.LENGTH_SHORT,
-          //   timeInSecForIosWeb: 1,
-          //   backgroundColor: appColors().black,
-          //   textColor: appColors().colorBackground,
-          //   fontSize: 14.0,
-          // );
-          return;
-        }
-      } else {
-        // Skip to the next song in our custom order
-        await _player.seek(Duration.zero, index: nextIndex);
-
-        // Track history for the next song
-        if (nextIndex < queue.value.length) {
-          _trackSongHistory(queue.value[nextIndex]);
-        }
-        await _ensureCurrentMediaItemImageIsNormalized();
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to skip to next: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
+    await _skipManager.skipToNext();
   }
 
   @override
   Future<void> skipToPrevious() async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Attempting to skip to previous track',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // CRITICAL FEATURE: Check current playback position for 4-second rule
-      final currentPosition = _player.position;
-      final fourSeconds = const Duration(seconds: 4);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Current position: ${currentPosition.inSeconds}s, 4-second threshold check',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // If within first 4 seconds, go to previous track; otherwise restart current song
-      if (currentPosition <= fourSeconds) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Within 4 seconds (${currentPosition.inSeconds}s) - going to previous track',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        await _skipToPreviousTrack();
-      } else {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] After 4 seconds (${currentPosition.inSeconds}s) - restarting current song',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        await _restartCurrentSong();
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to skip to previous: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
-  }
-
-  /// Restart the current song from the beginning
-  Future<void> _restartCurrentSong() async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Restarting current song from beginning',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // Seek to the beginning of the current track
-      await _player.seek(Duration.zero);
-
-      // Track history for restarting the current song
-      final currentIndex = _player.currentIndex ?? 0;
-      if (currentIndex < queue.value.length) {
-        _trackSongHistory(queue.value[currentIndex]);
-      }
-
-      // Immediate state broadcast for responsive UI
-      _performBroadcast(_player.playbackEvent);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Successfully restarted current song',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to restart current song: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      rethrow;
-    }
-  }
-
-  /// Skip to the actual previous track in the queue
-  Future<void> _skipToPreviousTrack() async {
-    try {
-      final currentRepeatMode = playbackState.value.repeatMode;
-      final currentIndex = _player.currentIndex ?? 0;
-      final previousIndex = _getPreviousIndex(currentIndex);
-
-      // If user manually skips while in "repeat one" mode, change to "repeat all"
-      if (currentRepeatMode == AudioServiceRepeatMode.one) {
-        await setRepeatMode(AudioServiceRepeatMode.all);
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Changed repeat mode from "one" to "all" due to manual skip',
-          name: 'AudioPlayerHandlerImpl',
-        );
-
-        // Comment out: Toast message removed
-        // Fluttertoast.showToast(
-        //   msg: 'Repeat mode changed to "Repeat All"',
-        //   toastLength: Toast.LENGTH_SHORT,
-        //   timeInSecForIosWeb: 1,
-        //   backgroundColor: Colors.black87,
-        //   textColor: appColors().colorBackground,
-        //   fontSize: 14.0,
-        // );
-      }
-
-      if (previousIndex == null) {
-        // Beginning of queue - handle repeat mode
-        final repeatMode = playbackState.value.repeatMode;
-        if (repeatMode == AudioServiceRepeatMode.all) {
-          final lastIndex = _isShuffleEnabled && _shuffledIndices.isNotEmpty
-              ? _shuffledIndices.last
-              : queue.value.length - 1;
-          await _player.seek(Duration.zero, index: lastIndex);
-
-          // Track history for the song when wrapping around
-          if (queue.value.isNotEmpty && lastIndex < queue.value.length) {
-            _trackSongHistory(queue.value[lastIndex]);
-          }
-          await _ensureCurrentMediaItemImageIsNormalized();
-        } else {
-          // Comment out: Toast message removed
-          // Fluttertoast.showToast(
-          //   msg: 'Don\'t have track in previous',
-          //   toastLength: Toast.LENGTH_SHORT,
-          //   timeInSecForIosWeb: 1,
-          //   backgroundColor: appColors().black,
-          //   textColor: appColors().colorBackground,
-          //   fontSize: 14.0,
-          // );
-          return;
-          // }
-        }
-      } else {
-        // Skip to the previous song in our custom order
-        await _player.seek(Duration.zero, index: previousIndex);
-
-        // Track history for the previous song
-        if (previousIndex < queue.value.length) {
-          _trackSongHistory(queue.value[previousIndex]);
-        }
-        await _ensureCurrentMediaItemImageIsNormalized();
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to skip to previous track: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      rethrow;
-    }
+    await _skipManager.skipToPrevious();
   }
 
   @override
@@ -2004,7 +803,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       }
 
       // Quick state broadcast for immediate UI update
-      _performBroadcast(_player.playbackEvent);
+      _stateBroadcaster.performBroadcast(_player.playbackEvent);
 
       AudioLogger.log(
         '[DEBUG][AudioPlayerHandlerImpl] ✅ Successfully skipped to queue item $index, was playing: $wasPlaying',
@@ -2021,7 +820,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
 
       // Track history for the new current song - do this async
       if (index < queue.value.length) {
-        _trackSongHistory(queue.value[index]);
+        _historyTracker.track(queue.value[index]);
       }
 
       // Note: We don't auto-resume playback here. The caller should explicitly call play() if needed.
@@ -2035,610 +834,24 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
     }
   }
 
-  // Play operation lock to prevent concurrent play calls
-  bool _isPlayOperationInProgress = false;
-  Completer<void>? _currentPlayOperation;
-
   @override
   Future<void> play() async {
-    // Prevent concurrent play operations but with better error handling
-    if (_isPlayOperationInProgress) {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Play operation already in progress, checking if stale...',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // Check if the operation has been running too long (stale lock)
-      if (_currentPlayOperation != null &&
-          !_currentPlayOperation!.isCompleted) {
-        try {
-          await _currentPlayOperation!.future.timeout(
-            const Duration(seconds: 2),
-          );
-        } catch (e) {
-          AudioLogger.log(
-            '[DEBUG][AudioPlayerHandlerImpl] Previous play operation timed out, continuing with new operation',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          _isPlayOperationInProgress = false; // Reset stale lock
-        }
-      }
-
-      if (_isPlayOperationInProgress) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Play operation still in progress, aborting duplicate attempt',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-    }
-
-    _isPlayOperationInProgress = true;
-    _currentPlayOperation = Completer<void>();
-
-    try {
-      // Check circuit breaker before attempting playback
-      _checkCircuitBreaker();
-      if (_circuitBreakerOpen) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Circuit breaker open - skipping playback attempt',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Starting playback - current queue index: ${_player.currentIndex}, queue length: ${queue.value.length}',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // CRITICAL FIX: Check if we have a valid queue first
-      if (queue.value.isEmpty) {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Cannot play - queue is empty',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-
-      // Track history for current song when play is called
-      final currentIndex = _player.currentIndex;
-      if (currentIndex != null && currentIndex < queue.value.length) {
-        final currentMediaItem = queue.value[currentIndex];
-        _trackSongHistory(currentMediaItem);
-      }
-
-      // CRITICAL FIX: Ensure audio session is active before playing
-      final session = await AudioSession.instance;
-      await session.setActive(true);
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Audio session activated',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // CRITICAL FIX: Enable wake lock for continuous playback
-      await _backgroundAudioManager.enableWakeLock();
-
-      // CRITICAL FIX: Check player state before attempting to play
-      final processingState = _player.processingState;
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Player processing state: $processingState',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // Handle different processing states appropriately
-      if (processingState == ProcessingState.idle) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Player idle, reloading current item',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        await _reloadCurrentItem();
-      }
-
-      if (processingState == ProcessingState.loading) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Player loading, waiting for ready state',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        // Wait for the player to become ready with shorter timeout for faster response
-        await _player.processingStateStream
-            .firstWhere(
-              (state) =>
-                  state == ProcessingState.ready ||
-                  state == ProcessingState.buffering,
-              orElse: () => ProcessingState.ready,
-            )
-            .timeout(
-              const Duration(seconds: 2), // Reduced timeout from 3 to 2 seconds
-              onTimeout: () {
-                AudioLogger.log(
-                  '[DEBUG][AudioPlayerHandlerImpl] Timeout waiting for ready state, proceeding anyway',
-                  name: 'AudioPlayerHandlerImpl',
-                );
-                return ProcessingState.ready;
-              },
-            );
-      }
-
-      // CRITICAL FIX: Actually start playback with connection abort protection
-      try {
-        await _player.play().timeout(
-          const Duration(
-            seconds: 1,
-          ), // Reduced timeout from 3 to 1 second for faster response
-          onTimeout: () {
-            AudioLogger.log(
-              '[WARN][AudioPlayerHandlerImpl] Play command timed out after 1 second, but playback may still start',
-              name: 'AudioPlayerHandlerImpl',
-            );
-            // Don't throw - allow the operation to complete and playback may start naturally
-          },
-        );
-      } catch (e) {
-        final errorString = e.toString().toLowerCase();
-        if (errorString.contains('connection') &&
-            errorString.contains('abort')) {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] Connection aborted during play - this is normal for network streams',
-            name: 'AudioPlayerHandlerImpl',
-          );
-          // Don't treat connection abort as a failure - it's normal for network streams
-        } else {
-          rethrow; // Re-throw other errors
-        }
-      }
-
-      // Immediate state broadcast for responsive UI
-      _performBroadcast(_player.playbackEvent);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Playback started successfully',
-        name: 'AudioPlayerHandlerImpl',
-      );
-      // Notify native (iOS) that playback started so native queries are accurate
-      try {
-        await _backgroundAudioManager.notifyNativePlayingState(true);
-        await _backgroundAudioManager.notifyNativeServiceRunning(true);
-        // Persist now that playback actually started
-        try {
-          final current = mediaItem.valueOrNull;
-          if (current != null) {
-            await _backgroundAudioManager.persistPlaybackState({
-              'id': current.id,
-              'title': current.title,
-              'artist': current.artist ?? '',
-              'album': current.album ?? '',
-              'position': _player.position.inMilliseconds.toString(),
-              'playing': 'true',
-            });
-          }
-        } catch (_) {}
-      } catch (e) {
-        AudioLogger.log(
-          '[WARN][AudioPlayerHandlerImpl] Failed to notify native playing state: $e',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-    } catch (e) {
-      final errorString = e.toString().toLowerCase();
-      if (errorString.contains('connection') && errorString.contains('abort')) {
-        AudioLogger.log(
-          '[WARN][AudioPlayerHandlerImpl] Connection abort during playback is normal for network streams',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      } else {
-        AudioLogger.log(
-          '[ERROR][AudioPlayerHandlerImpl] Playback failed: $e',
-          name: 'AudioPlayerHandlerImpl',
-          error: e,
-        );
-
-        // CRITICAL FIX: Implement error recovery for actual errors
-        await _handlePlaybackError(e);
-      }
-    } finally {
-      // Always release the play operation lock
-      _isPlayOperationInProgress = false;
-      if (_currentPlayOperation != null &&
-          !_currentPlayOperation!.isCompleted) {
-        _currentPlayOperation!.complete();
-      }
-    }
+    await _playbackCore.play();
   }
 
   @override
   Future<void> pause() async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Pause requested',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      // Check if we have a valid player state
-      if (_player.processingState == ProcessingState.idle) {
-        AudioLogger.log(
-          '[WARNING][AudioPlayerHandlerImpl] Cannot pause - player is idle',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-
-      // Only pause if actually playing
-      if (!_player.playing) {
-        AudioLogger.log(
-          '[DEBUG][AudioPlayerHandlerImpl] Already paused, no action needed',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-
-      // Perform the pause operation with timeout
-      await _player.pause().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          AudioLogger.log(
-            '[WARN][AudioPlayerHandlerImpl] Pause command timed out after 2 seconds',
-            name: 'AudioPlayerHandlerImpl',
-          );
-        },
-      );
-
-      // Immediate state broadcast for responsive UI
-      _performBroadcast(_player.playbackEvent);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Playback paused successfully',
-        name: 'AudioPlayerHandlerImpl',
-      );
-      // Sync native playing state
-      try {
-        await _backgroundAudioManager.notifyNativePlayingState(false);
-        // Persist paused state
-        try {
-          final current = mediaItem.valueOrNull;
-          if (current != null) {
-            await _backgroundAudioManager.persistPlaybackState({
-              'id': current.id,
-              'title': current.title,
-              'artist': current.artist ?? '',
-              'album': current.album ?? '',
-              'position': _player.position.inMilliseconds.toString(),
-              'playing': 'false',
-            });
-          }
-        } catch (_) {}
-      } catch (e) {
-        AudioLogger.log(
-          '[WARN][AudioPlayerHandlerImpl] Failed to notify native playing state on pause: $e',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Pause failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      // Don't rethrow to prevent cascade failures - pause should be tolerant
-    }
+    await _playbackCore.pause();
   }
 
   @override
   Future<void> stop() async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Stop requested',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      await _player.stop();
-      await _backgroundAudioManager.disableWakeLock();
-
-      // Sync native state: playback stopped and service no longer running
-      try {
-        await _backgroundAudioManager.notifyNativePlayingState(false);
-        await _backgroundAudioManager.notifyNativeServiceRunning(false);
-        // Persist stopped state (clear playing)
-        try {
-          final current = mediaItem.valueOrNull;
-          if (current != null) {
-            await _backgroundAudioManager.persistPlaybackState({
-              'id': current.id,
-              'title': current.title,
-              'artist': current.artist ?? '',
-              'album': current.album ?? '',
-              'position': _player.position.inMilliseconds.toString(),
-              'playing': 'false',
-            });
-          }
-        } catch (_) {}
-      } catch (e) {
-        AudioLogger.log(
-          '[WARN][AudioPlayerHandlerImpl] Failed to notify native service stopped: $e',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Playback stopped successfully',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Stop failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
+    await _playbackCore.stop();
   }
 
   @override
   Future<void> seek(Duration position) async {
-    try {
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Seek to ${position.inSeconds}s requested',
-        name: 'AudioPlayerHandlerImpl',
-      );
-
-      await _player.seek(position);
-
-      // Immediate state broadcast for responsive UI
-      _performBroadcast(_player.playbackEvent);
-
-      AudioLogger.log(
-        '[DEBUG][AudioPlayerHandlerImpl] Seek completed successfully',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Seek failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
-  }
-
-  Future<void> _reloadCurrentItem() async {
-    try {
-      final currentIndex = _player.currentIndex ?? 0;
-      if (_playlist.children.isNotEmpty &&
-          currentIndex < _playlist.children.length) {
-        // Add timeout to prevent hanging
-        await _player
-            .setAudioSource(
-              _playlist,
-              initialIndex: currentIndex,
-              preload: false,
-            )
-            .timeout(
-              const Duration(seconds: 5),
-              onTimeout: () {
-                AudioLogger.log(
-                  '[DEBUG][AudioPlayerHandlerImpl] Reload current item timed out after 5 seconds',
-                  name: 'AudioPlayerHandlerImpl',
-                );
-                return;
-              },
-            );
-      } else {
-        AudioLogger.log(
-          '[WARNING][AudioPlayerHandlerImpl] _reloadCurrentItem: Playlist is empty or index out of range',
-          name: 'AudioPlayerHandlerImpl',
-        );
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to reload current item: \\$e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-      // Don't rethrow to prevent cascade failures
-    }
-  }
-
-  /// Enhanced error recovery with circuit breaker pattern
-  bool _circuitBreakerOpen = false;
-  DateTime _lastFailureTime = DateTime(0);
-  int _failureCount = 0;
-  static const int _maxFailureCount = 5;
-  static const Duration _circuitBreakerTimeout = Duration(minutes: 2);
-
-  Future<void> _handlePlaybackError(dynamic error) async {
-    try {
-      final errorString = error.toString().toLowerCase();
-      _failureCount++;
-      _lastFailureTime = DateTime.now();
-
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Handling playback error (failure count: $_failureCount): $error',
-        name: 'AudioPlayerHandlerImpl',
-        error: error,
-      );
-
-      // Circuit breaker pattern - if too many failures, temporarily stop recovery attempts
-      if (_failureCount >= _maxFailureCount) {
-        _circuitBreakerOpen = true;
-        AudioLogger.log(
-          '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Circuit breaker opened - too many failures',
-          name: 'AudioPlayerHandlerImpl',
-        );
-        return;
-      }
-
-      if (errorString.contains('mediacodec') ||
-          errorString.contains('exoplayer') ||
-          errorString.contains('codec')) {
-        await _recoverFromCodecError();
-      } else if (errorString.contains('network') ||
-          errorString.contains('connection') ||
-          errorString.contains('timeout')) {
-        await _recoverFromNetworkError();
-      } else if (errorString.contains('format') ||
-          errorString.contains('source')) {
-        await _recoverFromSourceError();
-      } else {
-        await _performGenericRecovery();
-      }
-    } catch (recoveryError) {
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Recovery failed: $recoveryError',
-        name: 'AudioPlayerHandlerImpl',
-        error: recoveryError,
-      );
-    }
-  }
-
-  /// Check and reset circuit breaker if timeout has passed
-  void _checkCircuitBreaker() {
-    if (_circuitBreakerOpen &&
-        DateTime.now().difference(_lastFailureTime) > _circuitBreakerTimeout) {
-      _circuitBreakerOpen = false;
-      _failureCount = 0;
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Circuit breaker reset',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-  }
-
-  Future<void> _recoverFromCodecError() async {
-    AudioLogger.log(
-      '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Recovering from codec error',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    try {
-      await _player.stop();
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _reloadCurrentItem();
-      await Future.delayed(const Duration(milliseconds: 300));
-      await _player.play();
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Codec error recovery failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-  }
-
-  Future<void> _recoverFromNetworkError() async {
-    AudioLogger.log(
-      '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Recovering from network error',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    try {
-      // Wait longer for network recovery
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Try to reload the current item with fresh network connection
-      await _reloadCurrentItem();
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Attempt playback with shorter timeout
-      await _player.play().timeout(const Duration(seconds: 3));
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Network error recovery failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-  }
-
-  Future<void> _recoverFromSourceError() async {
-    AudioLogger.log(
-      '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Recovering from source error',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    try {
-      final currentIndex = _player.currentIndex;
-      if (currentIndex != null && currentIndex < queue.value.length) {
-        // Try to skip to next valid source
-        if (currentIndex + 1 < queue.value.length) {
-          await skipToQueueItem(currentIndex + 1);
-        } else {
-          // Loop back to beginning if at end
-          await skipToQueueItem(0);
-        }
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Source error recovery failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-  }
-
-  Future<void> _performGenericRecovery() async {
-    AudioLogger.log(
-      '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Performing generic recovery',
-      name: 'AudioPlayerHandlerImpl',
-    );
-
-    try {
-      // Simple stop and restart
-      await _player.stop();
-      await Future.delayed(const Duration(milliseconds: 1000));
-      await _player.play();
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR_RECOVERY][AudioPlayerHandlerImpl] Generic recovery failed: $e',
-        name: 'AudioPlayerHandlerImpl',
-      );
-    }
-  }
-
-  /// Broadcast state changes to listeners
-  void _broadcastState(PlaybackEvent event) {
-    try {
-      final isPlaying = _player.playing;
-      final processingState = _player.processingState;
-      final speed = _player.speed;
-      final position = _player.position;
-      final bufferedPosition = _player.bufferedPosition;
-      final currentIndex = _player.currentIndex;
-
-      playbackState.add(
-        playbackState.value.copyWith(
-          controls: [
-            MediaControl.skipToPrevious,
-            if (isPlaying) MediaControl.pause else MediaControl.play,
-            MediaControl.skipToNext,
-            MediaControl.stop,
-          ],
-          systemActions: const {
-            MediaAction.seek,
-            MediaAction.seekForward,
-            MediaAction.seekBackward,
-          },
-          androidCompactActionIndices: const [0, 1, 2],
-          processingState: const {
-            ProcessingState.idle: AudioProcessingState.idle,
-            ProcessingState.loading: AudioProcessingState.loading,
-            ProcessingState.buffering: AudioProcessingState.buffering,
-            ProcessingState.ready: AudioProcessingState.ready,
-            ProcessingState.completed: AudioProcessingState.completed,
-          }[processingState]!,
-          playing: isPlaying,
-          updatePosition: position,
-          bufferedPosition: bufferedPosition,
-          speed: speed,
-          queueIndex: currentIndex,
-        ),
-      );
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Error broadcasting state: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
-  }
-
-  /// Perform immediate state broadcast
-  void _performBroadcast(PlaybackEvent event) {
-    _broadcastState(event);
+    await _playbackCore.seek(position);
   }
 
   /// Ensure current media item has normalized image URL
