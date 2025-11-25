@@ -60,6 +60,40 @@ class SingleSongSource {
     return result;
   }
 
+  Future<DataMusic?> fetchOrFallback(
+    String songId, {
+    String? songName,
+    String? artistName,
+    String? fallbackImagePath,
+    String? fallbackAudioPath,
+  }) async {
+    final resolved = await fetchById(songId);
+    if (resolved != null) return resolved;
+
+    final int numericId =
+        int.tryParse(songId) ?? DateTime.now().millisecondsSinceEpoch;
+    return DataMusic(
+      numericId,
+      fallbackImagePath ?? '',
+      fallbackAudioPath ?? '',
+      '',
+      songName ?? 'Unknown Title',
+      '',
+      0,
+      '',
+      artistName ?? 'Unknown Artist',
+      '',
+      0,
+      0,
+      0,
+      '',
+      0,
+      '',
+      '',
+      '',
+    );
+  }
+
   Future<List<DataMusic>> fetchMany(List<String> songIds) async {
     final List<DataMusic> songs = [];
     for (final id in songIds) {

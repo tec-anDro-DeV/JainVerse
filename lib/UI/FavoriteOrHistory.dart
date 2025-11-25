@@ -15,6 +15,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/services/audio/common/audio_player_selectors.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
@@ -787,8 +788,11 @@ class StateClass extends State<Favorite> {
                       Builder(
                         builder: (context) {
                           final musicManager = MusicManager();
-                          final currentItem = musicManager
-                              .getCurrentMediaItem();
+                          final currentItem =
+                              AudioPlayerSelectors.currentMediaItemSnapshot(
+                                musicManager.audioHandler,
+                                fallback: musicManager.currentMediaItem,
+                              );
                           final currentAudioId = currentItem
                               ?.extras?['audio_id']
                               ?.toString();

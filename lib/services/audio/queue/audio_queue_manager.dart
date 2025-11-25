@@ -103,4 +103,34 @@ class AudioQueueManager {
   Future<void> skipToPrevious() async {
     await _audioHandler.skipToPrevious();
   }
+
+  Future<void> clearQueue() async {
+    await _lock.synchronized(() async {
+      await _audioHandler.updateQueue(const <MediaItem>[]);
+      _state = const AudioQueueState(queue: <MediaItem>[], queueIndex: null);
+    });
+  }
+
+  Future<void> updateCurrentSongFavoriteStatus(String newFavoriteStatus) async {
+    final MediaItem? current = _audioHandler.mediaItem.valueOrNull;
+    if (current == null) return;
+
+    final Map<String, dynamic> extras = Map<String, dynamic>.from(
+      current.extras ?? const {},
+    );
+    extras['favourite'] = newFavoriteStatus;
+    final MediaItem updated = current.copyWith(extras: extras);
+
+    await _audioHandler.updateMediaItem(updated);
+
+    await _lock.synchronized(() async {
+      final List<MediaItem> queueSnapshot = List<MediaItem>.from(
+        _audioHandler.queue.value,
+      );
+      final List<MediaItem> updatedQueue = queueSnapshot
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList(growable: false);
+      _state = _state.copyWith(queue: updatedQueue);
+    });
+  }
 }

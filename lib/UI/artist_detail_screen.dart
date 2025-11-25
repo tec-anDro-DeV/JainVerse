@@ -15,6 +15,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/services/audio/common/audio_player_selectors.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -938,8 +939,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                       Expanded(
                         child: Builder(
                           builder: (context) {
-                            final currentItem = MusicManager.instance
-                                .getCurrentMediaItem();
+                            final currentItem =
+                                AudioPlayerSelectors.currentMediaItemSnapshot(
+                                  MusicManager.instance.audioHandler,
+                                  fallback:
+                                      MusicManager.instance.currentMediaItem,
+                                );
                             final currentAudioId = currentItem
                                 ?.extras?['audio_id']
                                 ?.toString();

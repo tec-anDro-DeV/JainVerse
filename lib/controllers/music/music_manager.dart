@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/controllers/download_controller.dart';
-import 'package:jainverse/controllers/music/download_state_linker.dart';
 import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/services/audio/common/audio_event_bus.dart';
 import 'package:jainverse/services/audio/common/audio_logger.dart';
@@ -24,6 +22,8 @@ import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
+import 'ui_playback_state.dart';
+
 /// Public façade consumed by UI. Coordinates the lower-level modules that now
 /// exist under `lib/services/audio/**` while preserving the legacy API surface
 /// exposed by `lib/managers/music_manager.dart`.
@@ -36,8 +36,10 @@ class MusicManager extends ChangeNotifier {
       _retryHandler = AudioRetryHandler(const AudioPlayerErrorHandler()),
       _singleSongSource = SingleSongSource(service: SingleMusicService()),
       _stationSource = StationSource(),
-      _downloadLinker = DownloadStateLinker(DownloadController()),
-      processingAudioId = ValueNotifier<String?>(null);
+      _uiState = UIPlaybackState() {
+    _downloadListener = (_) => _safeNotifyListeners();
+    _uiState.addDownloadListener(_downloadListener);
+  }
 
   static MusicManager? _instance;
 
@@ -52,13 +54,11 @@ class MusicManager extends ChangeNotifier {
   final AudioRetryHandler _retryHandler;
   final SingleSongSource _singleSongSource;
   final StationSource _stationSource;
-  final DownloadStateLinker _downloadLinker;
-  final Map<String, Future<void>> _inflightOperations = {};
-  final Map<String, DateTime> _operationStartTimes = {};
+  final UIPlaybackState _uiState;
+  late final DownloadUpdateListener _downloadListener;
   final List<StreamSubscription<dynamic>> _subscriptions = [];
-  final Duration _lockTtl = const Duration(seconds: 8);
 
-  final ValueNotifier<String?> processingAudioId;
+  ValueNotifier<String?> get processingAudioId => _uiState.processingAudioId;
 
   AudioPlayerHandler? _audioHandler;
   AudioQueueManager? _queueManager;
@@ -71,9 +71,6 @@ class MusicManager extends ChangeNotifier {
   bool _isPlaying = false;
   bool _isLoading = true;
   bool _isBuffering = false;
-  bool _autoPlayEnabled = true;
-  bool _shuffleEnabled = false;
-  AudioServiceRepeatMode _repeatMode = AudioServiceRepeatMode.none;
   bool _notifyScheduled = false;
   bool _isDisposed = false;
 
@@ -84,12 +81,14 @@ class MusicManager extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
   bool get isBuffering => _isBuffering;
-  bool get autoPlayEnabled => _autoPlayEnabled;
-  bool get shuffleEnabled => _shuffleEnabled;
-  AudioServiceRepeatMode get repeatMode => _repeatMode;
+  bool get autoPlayEnabled => _playbackController?.autoPlayEnabled ?? true;
+  bool get shuffleEnabled => _playbackController?.shuffleEnabled ?? false;
+  AudioServiceRepeatMode get repeatMode =>
+      _playbackController?.repeatMode ?? AudioServiceRepeatMode.none;
   Duration get position => _position;
   List<MediaItem> get queue => List.unmodifiable(_queue);
   int? get currentIndex => _currentIndex;
+  MediaItem? get currentMediaItem => _currentMediaItem;
   AudioPlayerHandler? get audioHandler => _audioHandler;
 
   /// Configure the singleton with the background [AudioHandler]. Must be called
@@ -108,9 +107,12 @@ class MusicManager extends ChangeNotifier {
     );
     _playbackController = AudioPlaybackController(
       queueManager: _queueManager!,
+      queueBuilder: _queueBuilder,
       preloadManager: _preloadManager,
       retryHandler: _retryHandler,
       audioHandler: handler,
+      singleSongSource: _singleSongSource,
+      stationSource: _stationSource,
     );
 
     _subscriptions.add(
@@ -140,8 +142,6 @@ class MusicManager extends ChangeNotifier {
         _safeNotifyListeners();
       }),
     );
-
-    _downloadLinker.start((_) => _safeNotifyListeners());
   }
 
   Future<void> playContext(
@@ -160,24 +160,11 @@ class MusicManager extends ChangeNotifier {
     String? contextId,
   }) async {
     if (!_ensureReady('playDataMusicContext')) return;
-    if (musicList.isEmpty) return;
-
-    final mediaItems = await _queueBuilder.buildFromDataMusic(
+    await _playbackController!.playDataMusicContext(
       musicList: musicList,
+      startIndex: startIndex,
       contextType: contextType,
       contextId: contextId,
-    );
-
-    if (mediaItems.isEmpty) {
-      AudioLogger.log(
-        '[WARN][MusicManager] Resolver returned 0 media items for context $contextType',
-      );
-      return;
-    }
-
-    await _playbackController!.playMediaItems(
-      mediaItems,
-      startIndex.clamp(0, mediaItems.length - 1),
     );
     MusicPlayerStateManager().showMiniPlayerForMusicStart();
   }
@@ -189,36 +176,23 @@ class MusicManager extends ChangeNotifier {
     String? contextId,
   }) async {
     if (!_ensureReady('playStationContext')) return;
-    if (orderedSongs.isEmpty) return;
-
-    final mediaItems = await _queueBuilder.buildFromDataMusic(
-      musicList: orderedSongs,
-      contextType: 'station',
+    await _playbackController!.playStationContext(
+      orderedSongs: orderedSongs,
+      resumePosition: resumePosition,
+      resumePlayback: resumePlayback,
       contextId: contextId,
     );
-    if (mediaItems.isEmpty) return;
-
-    await _playbackController!.playMediaItems(
-      mediaItems,
-      0,
-      resumePosition: resumePosition,
-      autostart: resumePlayback,
-    );
+    if (resumePlayback) {
+      MusicPlayerStateManager().showMiniPlayerForMusicStart();
+    }
   }
 
   Future<void> playStationFromSeed(DataMusic seed) async {
     if (!_ensureReady('playStationFromSeed')) return;
-    final station = await _stationSource.buildStationFromSeed(seed);
-    if (station == null || station.songs.isEmpty) return;
-    await replaceQueue(
-      musicList: station.songs,
-      startIndex: 0,
-      pathImage: station.imagePath,
-      audioPath: station.audioPath,
-      contextType: 'station',
-      contextId: station.contextId,
-      callSource: 'MusicManager.playStationFromSeed',
-    );
+    await _uiState.runWithProcessing(seed.id.toString(), () async {
+      await _playbackController!.playStationFromSeed(seed);
+      MusicPlayerStateManager().showMiniPlayerForMusicStart();
+    });
   }
 
   Future<void> playInstant({
@@ -244,14 +218,11 @@ class MusicManager extends ChangeNotifier {
 
     final String optimisticId =
         payload.extras['audio_id']?.toString() ?? payload.id;
-    processingAudioId.value = optimisticId.isEmpty ? null : optimisticId;
 
-    try {
+    await _uiState.runWithProcessing(optimisticId, () async {
       await _playbackController!.playPayloads(normalized, 0);
       MusicPlayerStateManager().showMiniPlayerForMusicStart();
-    } finally {
-      processingAudioId.value = null;
-    }
+    });
   }
 
   Future<void> playSongById({
@@ -262,37 +233,21 @@ class MusicManager extends ChangeNotifier {
     String? contextId,
     String? callSource,
   }) async {
+    if (!_ensureReady('playSongById')) return;
     if (musicList.isEmpty) return;
     final int normalizedIndex = startIndex.clamp(0, musicList.length - 1);
     final String audioId = musicList[normalizedIndex].id.toString();
-    final Future<void>? inFlight = _inflightOperations[audioId];
-    if (inFlight != null) return inFlight;
 
-    final completer = Completer<void>();
-    _inflightOperations[audioId] = completer.future;
-    _operationStartTimes[audioId] = DateTime.now();
-    processingAudioId.value = audioId;
-
-    () async {
-      try {
-        await replaceQueue(
-          musicList: musicList,
-          startIndex: normalizedIndex,
-          pathImage: pathImage,
-          audioPath: audioPath,
-          contextType: 'playlist',
-          contextId: contextId,
-          callSource: callSource ?? 'MusicManager.playSongById',
-        );
-      } finally {
-        _inflightOperations.remove(audioId);
-        _operationStartTimes.remove(audioId);
-        processingAudioId.value = null;
-        if (!completer.isCompleted) completer.complete();
-      }
-    }();
-
-    return completer.future;
+    await _uiState.runWithProcessing(audioId, () async {
+      await _playbackController!.playSongById(
+        musicList: musicList,
+        startIndex: normalizedIndex,
+        contextType: 'playlist',
+        contextId: contextId,
+        callSource: callSource ?? 'MusicManager.playSongById',
+      );
+      MusicPlayerStateManager().showMiniPlayerForMusicStart();
+    });
   }
 
   Future<void> replaceQueue({
@@ -308,25 +263,17 @@ class MusicManager extends ChangeNotifier {
     if (musicList.isEmpty) return;
 
     final int normalizedIndex = startIndex.clamp(0, musicList.length - 1);
-    final mediaItems = await _queueBuilder.buildFromDataMusic(
-      musicList: musicList,
-      contextType: contextType,
-      contextId: contextId,
-    );
-    if (mediaItems.isEmpty) {
-      AudioLogger.log('[WARN][MusicManager] replaceQueue resolved no items');
-      return;
-    }
-
     final String optimisticId = musicList[normalizedIndex].id.toString();
-    processingAudioId.value = optimisticId;
 
-    try {
-      await _playbackController!.playMediaItems(mediaItems, normalizedIndex);
+    await _uiState.runWithProcessing(optimisticId, () async {
+      await _playbackController!.playDataMusicContext(
+        musicList: musicList,
+        startIndex: normalizedIndex,
+        contextType: contextType,
+        contextId: contextId,
+      );
       MusicPlayerStateManager().showMiniPlayerForMusicStart();
-    } finally {
-      processingAudioId.value = null;
-    }
+    });
   }
 
   Future<void> replaceQueueWithStation({
@@ -342,86 +289,24 @@ class MusicManager extends ChangeNotifier {
       '[MusicManager] replaceQueueWithStation stationSize=${stationSongs.length} currentSong=${currentSong.audio_title} path=$pathImage audioPath=$audioPath',
     );
 
-    final orderedSongs = <DataMusic>[];
-    final seenIds = <int>{};
-
-    void append(DataMusic song) {
-      if (seenIds.add(song.id)) {
-        orderedSongs.add(song);
-      }
-    }
-
-    append(currentSong);
-    for (final song in stationSongs) {
-      append(song);
-    }
-
-    if (orderedSongs.isEmpty) {
-      AudioLogger.log(
-        '[MusicManager] Station songs collapsed to 0 after de-dupe',
-      );
-      return;
-    }
-
-    processingAudioId.value = currentSong.id.toString();
-
-    try {
-      final mediaItems = await _queueBuilder.buildFromDataMusic(
-        musicList: orderedSongs,
-        contextType: 'station',
+    await _uiState.runWithProcessing(currentSong.id.toString(), () async {
+      await _playbackController!.replaceQueueWithStation(
+        stationSongs: stationSongs,
+        currentSong: currentSong,
         contextId: 'station_${currentSong.id}',
       );
-
-      if (mediaItems.isEmpty) {
-        AudioLogger.log(
-          '[MusicManager] replaceQueueWithStation resolved no items',
-        );
-        return;
-      }
-
-      final playbackState = _audioHandler!.playbackState.value;
-      final currentAudioId =
-          _currentMediaItem?.extras?['audio_id']?.toString() ??
-          _currentMediaItem?.id;
-      final stationAudioId =
-          mediaItems.first.extras?['audio_id']?.toString() ??
-          mediaItems.first.id;
-      final preservePosition =
-          currentAudioId != null && currentAudioId == stationAudioId;
-
-      await _playbackController!.playMediaItems(
-        mediaItems,
-        0,
-        resumePosition: preservePosition ? playbackState.updatePosition : null,
-        autostart: preservePosition ? playbackState.playing : true,
-      );
-
       MusicPlayerStateManager().showMiniPlayerForMusicStart();
-    } finally {
-      processingAudioId.value = null;
-    }
+    });
   }
 
   Future<void> insertPlayNext(DataMusic track) async {
     if (!_ensureReady('insertPlayNext')) return;
-    final mediaItem = await _buildSingleItem(
-      track,
-      contextType: 'play_next',
-      contextId: 'play_next_${track.id}',
-    );
-    if (mediaItem == null) return;
-    await _queueManager!.insertAfterCurrent(mediaItem);
+    await _playbackController!.insertPlayNext(track);
   }
 
   Future<void> addToQueue(DataMusic track) async {
     if (!_ensureReady('addToQueue')) return;
-    final mediaItem = await _buildSingleItem(
-      track,
-      contextType: 'add_to_queue',
-      contextId: 'add_to_queue_${track.id}',
-    );
-    if (mediaItem == null) return;
-    await _queueManager!.appendItems(<MediaItem>[mediaItem]);
+    await _playbackController!.addToQueue(track);
   }
 
   Future<void> insertPlayNextById(
@@ -431,15 +316,14 @@ class MusicManager extends ChangeNotifier {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
-    final track = await _fetchSongById(
+    if (!_ensureReady('insertPlayNextById')) return;
+    await _playbackController!.insertPlayNextById(
       songId,
-      songName: songName,
-      artistName: artistName,
+      songName,
+      artistName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );
-    if (track == null) return;
-    await insertPlayNext(track);
   }
 
   Future<void> addToQueueById(
@@ -449,15 +333,14 @@ class MusicManager extends ChangeNotifier {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
-    final track = await _fetchSongById(
+    if (!_ensureReady('addToQueueById')) return;
+    await _playbackController!.addToQueueById(
       songId,
-      songName: songName,
-      artistName: artistName,
+      songName,
+      artistName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );
-    if (track == null) return;
-    await addToQueue(track);
   }
 
   Future<void> play() async {
@@ -477,57 +360,37 @@ class MusicManager extends ChangeNotifier {
 
   Future<void> stopAndDisposeAll({String reason = 'media-switch'}) async {
     if (!_ensureReady('stopAndDisposeAll')) return;
-    await _queueLock.synchronized(() async {
-      await _audioHandler!.stop();
-      await _audioHandler!.updateQueue(<MediaItem>[]);
-      _queue = const <MediaItem>[];
-      _currentMediaItem = null;
-      _currentIndex = null;
-      _safeNotifyListeners();
-    });
+    await _playbackController!.stopAndDisposeAll(reason: reason);
   }
 
   Future<void> skipToNext() async {
     if (!_ensureReady('skipToNext')) return;
-    await _audioHandler!.skipToNext();
+    await _playbackController!.skipToNext();
   }
 
   Future<void> skipToPrevious() async {
     if (!_ensureReady('skipToPrevious')) return;
-    await _audioHandler!.skipToPrevious();
+    await _playbackController!.skipToPrevious();
   }
 
   Future<void> seek(Duration newPosition) async {
     if (!_ensureReady('seek')) return;
-    await _audioHandler!.seek(newPosition);
+    await _playbackController!.seek(newPosition);
   }
 
   Future<void> setRepeatMode(AudioServiceRepeatMode mode) async {
     if (!_ensureReady('setRepeatMode')) return;
-    _repeatMode = mode;
-    await _audioHandler!.setRepeatMode(mode);
-    if (mode != AudioServiceRepeatMode.none) {
-      _autoPlayEnabled = false;
-    }
-    _safeNotifyListeners();
+    await _playbackController!.setRepeatMode(mode);
   }
 
   Future<void> toggleShuffle() async {
     if (!_ensureReady('toggleShuffle')) return;
-    final bool enableShuffle = !_shuffleEnabled;
-    await _audioHandler!.setShuffleMode(
-      enableShuffle
-          ? AudioServiceShuffleMode.all
-          : AudioServiceShuffleMode.none,
-    );
-    _shuffleEnabled = enableShuffle;
-    _safeNotifyListeners();
+    await _playbackController!.toggleShuffle();
   }
 
   Future<void> toggleAutoPlay() async {
-    if (_repeatMode != AudioServiceRepeatMode.none) return;
-    _autoPlayEnabled = !_autoPlayEnabled;
-    _safeNotifyListeners();
+    if (!_ensureReady('toggleAutoPlay')) return;
+    _playbackController!.toggleAutoPlay();
   }
 
   Future<void> preloadAround(int index) async {
@@ -535,85 +398,24 @@ class MusicManager extends ChangeNotifier {
     await _playbackController!.preloadAroundIndex(index);
   }
 
-  Future<MediaItem?> _buildSingleItem(
-    DataMusic track, {
-    required String contextType,
-    String? contextId,
-  }) async {
-    final items = await _queueBuilder.buildFromDataMusic(
-      musicList: <DataMusic>[track],
-      contextType: contextType,
-      contextId: contextId,
-    );
-    if (items.isEmpty) {
-      AudioLogger.log(
-        '[WARN][MusicManager] Failed to build media item for ${track.audio_title}',
-      );
-      return null;
-    }
-    return items.first;
-  }
-
-  MediaItem? getCurrentMediaItem() {
-    return _currentMediaItem ?? _audioHandler?.mediaItem.valueOrNull;
-  }
-
-  Future<Duration> getCurrentPosition() async {
-    if (_audioHandler == null) return _position;
-    final Duration latest = _audioHandler!.playbackState.value.updatePosition;
-    _position = latest;
-    return latest;
-  }
-
   void updateCurrentSongFavoriteStatus(String newFavoriteStatus) {
-    final MediaItem? current = _audioHandler?.mediaItem.valueOrNull;
-    if (current == null) return;
-    final Map<String, dynamic> extras = Map<String, dynamic>.from(
-      current.extras ?? const {},
+    if (!_ensureReady('updateCurrentSongFavoriteStatus')) return;
+    unawaited(
+      _queueManager!.updateCurrentSongFavoriteStatus(newFavoriteStatus),
     );
-    extras['favourite'] = newFavoriteStatus;
-    final MediaItem updated = current.copyWith(extras: extras);
-    try {
-      _audioHandler?.updateMediaItem(updated);
-      _currentMediaItem = updated;
-      _queue = _queue
-          .map((item) => item.id == updated.id ? updated : item)
-          .toList(growable: false);
-      _safeNotifyListeners();
-    } catch (error, stackTrace) {
-      AudioLogger.log(
-        '[ERROR][MusicManager] Failed to update favorite status',
-        error: error,
-        stackTrace: stackTrace,
-        isError: true,
-      );
-    }
   }
 
   void clearProcessingAudioId() {
-    processingAudioId.value = null;
+    _uiState.clearProcessingAudioId();
   }
 
   void autoCleanupStaleLocks() {
-    if (_operationStartTimes.isEmpty) return;
-    final DateTime threshold = DateTime.now().subtract(_lockTtl);
-    final List<String> stale = _operationStartTimes.entries
-        .where((entry) => entry.value.isBefore(threshold))
-        .map((entry) => entry.key)
-        .toList(growable: false);
-    for (final id in stale) {
-      _operationStartTimes.remove(id);
-      _inflightOperations.remove(id);
-    }
-    if (stale.isNotEmpty) {
-      processingAudioId.value = null;
-    }
+    _playbackController?.autoCleanupStaleLocks();
   }
 
   void forceClearLocks() {
-    _operationStartTimes.clear();
-    _inflightOperations.clear();
-    processingAudioId.value = null;
+    _playbackController?.forceClearLocks();
+    _uiState.clearProcessingAudioId();
   }
 
   @override
@@ -621,8 +423,7 @@ class MusicManager extends ChangeNotifier {
     if (_isDisposed) return;
     _isDisposed = true;
     _teardownStreams();
-    processingAudioId.dispose();
-    _downloadLinker.dispose();
+    _uiState.removeDownloadListener(_downloadListener);
     super.dispose();
   }
 
@@ -636,41 +437,6 @@ class MusicManager extends ChangeNotifier {
       '[WARN][MusicManager] $action aborted - audio handler not configured',
     );
     return false;
-  }
-
-  Future<DataMusic?> _fetchSongById(
-    String songId, {
-    String? songName,
-    String? artistName,
-    String? fallbackImagePath,
-    String? fallbackAudioPath,
-  }) async {
-    if (songId.isEmpty) return null;
-    final DataMusic? resolved = await _singleSongSource.fetchById(songId);
-    if (resolved != null) return resolved;
-
-    final int numericId =
-        int.tryParse(songId) ?? DateTime.now().millisecondsSinceEpoch;
-    return DataMusic(
-      numericId,
-      fallbackImagePath ?? '',
-      fallbackAudioPath ?? '',
-      '',
-      songName ?? 'Unknown Title',
-      '',
-      0,
-      '',
-      artistName ?? 'Unknown Artist',
-      '',
-      0,
-      0,
-      0,
-      '',
-      0,
-      '',
-      '',
-      '',
-    );
   }
 
   void _teardownStreams() {

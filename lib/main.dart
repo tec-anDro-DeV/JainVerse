@@ -15,7 +15,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/controllers/user_music_controller.dart';
+import 'package:jainverse/controllers/music/download_state_linker.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/controllers/music/ui_playback_state.dart';
 import 'package:jainverse/models/downloaded_music.dart';
 import 'package:jainverse/providers/favorites_provider.dart';
 import 'package:jainverse/services/app_router_manager.dart';
@@ -186,6 +188,10 @@ Future<void> main() async {
           onTimeout: () {
             debugPrint('DownloadController initialization timed out');
           },
+        );
+        UIPlaybackState()..attachDownloadLinker(
+          DownloadStateLinker(downloadController),
+          startImmediately: true,
         );
 
         debugPrint('Initializing startupController...');

@@ -15,6 +15,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/services/audio/common/audio_player_selectors.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -781,7 +782,10 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
 
     // Determine if this item is the currently playing one
     final musicManager = MusicManager();
-    final currentItem = musicManager.getCurrentMediaItem();
+    final currentItem = AudioPlayerSelectors.currentMediaItemSnapshot(
+      musicManager.audioHandler,
+      fallback: musicManager.currentMediaItem,
+    );
     final currentAudioId = currentItem?.extras?['audio_id']?.toString();
     final thisAudioId = post.id.toString();
     final isCurrentItem =

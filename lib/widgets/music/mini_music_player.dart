@@ -9,6 +9,7 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/services/audio/common/audio_player_selectors.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/enhanced_audio_visualizer.dart';
 import 'package:jainverse/services/media_overlay_manager.dart';
@@ -587,7 +588,10 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
   }
 
   Future<void> _dismissMiniPlayer() async {
-    final dismissedMedia = widget.musicManager.getCurrentMediaItem();
+    final dismissedMedia = AudioPlayerSelectors.currentMediaItemSnapshot(
+      widget.musicManager.audioHandler,
+      fallback: widget.musicManager.currentMediaItem,
+    );
     String? dismissedToken;
     if (dismissedMedia != null && dismissedMedia.id.isNotEmpty) {
       dismissedToken = dismissedMedia.id;
@@ -685,7 +689,10 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           // Always use the latest state or fallback to cached data
           final currentMediaItem =
               mediaState?.mediaItem ??
-              widget.musicManager.getCurrentMediaItem();
+              AudioPlayerSelectors.currentMediaItemSnapshot(
+                widget.musicManager.audioHandler,
+                fallback: widget.musicManager.currentMediaItem,
+              );
           final currentPosition =
               mediaState?.position ??
               Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt());
@@ -897,7 +904,12 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
       widget.musicManager.audioHandler?.mediaItem ?? Stream<MediaItem?>.empty(),
       // Fallback: simplified music manager current media item
       Stream.periodic(const Duration(milliseconds: 2000))
-          .map((_) => widget.musicManager.getCurrentMediaItem())
+          .map(
+            (_) => AudioPlayerSelectors.currentMediaItemSnapshot(
+              widget.musicManager.audioHandler,
+              fallback: widget.musicManager.currentMediaItem,
+            ),
+          )
           .where((item) => item != null),
       // Emergency fallback: static cached data
       Stream.periodic(const Duration(milliseconds: 5000))
@@ -922,15 +934,15 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     return Rx.merge([
       // Primary: AudioService position (works in all states)
       AudioService.position,
-      // Secondary: Music manager position (with fallback)
-      Stream.periodic(const Duration(milliseconds: 1000)).asyncMap((_) async {
-        try {
-          return await widget.musicManager.getCurrentPosition();
-        } catch (e) {
-          // Fallback to cached position
-          return Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt());
-        }
-      }),
+      // Secondary: Music manager snapshot position (with fallback)
+      Stream.periodic(const Duration(milliseconds: 1000)).map(
+        (_) => AudioPlayerSelectors.currentPositionSnapshot(
+          widget.musicManager.audioHandler,
+          fallback: Duration(
+            milliseconds: MiniMusicPlayer.mainPosition.toInt(),
+          ),
+        ),
+      ),
       // Tertiary: Static cached position when all else fails
       Stream.periodic(const Duration(milliseconds: 2000)).map(
         (_) => Duration(milliseconds: MiniMusicPlayer.mainPosition.toInt()),

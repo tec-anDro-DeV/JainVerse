@@ -49,6 +49,25 @@ class AudioQueueBuilder {
     return items;
   }
 
+  Future<MediaItem?> buildSingleItem({
+    required DataMusic track,
+    String contextType = 'playlist',
+    String? contextId,
+  }) async {
+    final items = await buildFromDataMusic(
+      musicList: <DataMusic>[track],
+      contextType: contextType,
+      contextId: contextId,
+    );
+    if (items.isEmpty) {
+      AudioLogger.log(
+        '[WARN][AudioQueueBuilder] Failed to build media item for ${track.audio_title}',
+      );
+      return null;
+    }
+    return items.first;
+  }
+
   MediaItem _mediaItemFromPayload(SongPlaybackPayload payload) {
     final extras = Map<String, dynamic>.from(payload.extras);
     extras['audio_id'] ??= payload.id;
