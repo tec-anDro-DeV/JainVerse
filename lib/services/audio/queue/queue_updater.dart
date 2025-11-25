@@ -8,7 +8,7 @@ import 'package:jainverse/services/audio/analytics/playback_history_tracker.dart
 import 'package:jainverse/services/audio/common/audio_logger.dart';
 import 'package:jainverse/services/audio/queue/queue_synchronizer.dart';
 import 'package:jainverse/services/audio/queue/shuffle_manager.dart';
-import 'package:jainverse/services/audio/source/audio_source_factory.dart';
+import 'package:jainverse/services/audio/core/audio_source_factory.dart';
 
 /// Encapsulates queue replacement logic for [AudioPlayerHandlerImpl].
 class QueueUpdater {

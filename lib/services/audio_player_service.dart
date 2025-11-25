@@ -24,7 +24,7 @@ import 'package:jainverse/services/audio/queue/audio_queue_state.dart';
 import 'package:jainverse/services/audio/queue/queue_synchronizer.dart';
 import 'package:jainverse/services/audio/queue/queue_updater.dart';
 import 'package:jainverse/services/audio/queue/shuffle_manager.dart';
-import 'package:jainverse/services/audio/source/audio_source_factory.dart';
+import 'package:jainverse/services/audio/core/audio_source_factory.dart';
 
 /// Abstract interface for audio player handler
 abstract class AudioPlayerHandler implements AudioHandler {
