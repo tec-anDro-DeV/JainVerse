@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 
-import '../managers/music_manager.dart';
+import '../controllers/music/music_manager.dart';
 import 'enhanced_audio_visualizer.dart';
 
 /// Service that integrates the enhanced audio visualizer with the music playback system

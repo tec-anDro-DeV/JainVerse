@@ -15,7 +15,7 @@ import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:jainverse/utils/AppConstant.dart';

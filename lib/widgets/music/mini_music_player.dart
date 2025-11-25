@@ -8,7 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/enhanced_audio_visualizer.dart';
 import 'package:jainverse/services/media_overlay_manager.dart';
@@ -54,12 +54,7 @@ class MiniMusicPlayer {
   static double mainPosition = 0.0;
   static double maxDuration = 0.0;
 
-  MiniMusicPlayer(this._audioHandler) {
-    // Set the audio handler in the music manager if needed
-    if (_audioHandler != null) {
-      _musicManager.setAudioHandler(_audioHandler);
-    }
-  }
+  MiniMusicPlayer(this._audioHandler);
 
   /// Main widget builder for the mini music player with animation
   Widget buildMiniPlayer(BuildContext context) {

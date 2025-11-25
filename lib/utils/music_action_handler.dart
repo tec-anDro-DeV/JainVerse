@@ -8,7 +8,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart'; // Add access to global data
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart'; // Import favorites hook
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';

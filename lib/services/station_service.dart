@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelStationResponse.dart';
 import 'package:jainverse/Presenter/StationPresenter.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 /// Service for managing station creation and queue replacement

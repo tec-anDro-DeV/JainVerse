@@ -7,9 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/enhanced_audio_visualizer.dart';
+import 'package:jainverse/services/audio/queue/audio_queue_state.dart';
 import 'package:jainverse/widgets/musicplayer/integrated_lyrics_overlay.dart';
 import 'package:jainverse/widgets/musicplayer/playback_controls.dart';
 import 'package:jainverse/widgets/musicplayer/seek_bar.dart';
@@ -90,26 +91,28 @@ class _ModernControlPanelState extends State<ModernControlPanel>
     );
 
     // Define the height animation for queue section
-    _queueHeightAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0, // Will be multiplied by actual height
-    ).animate(
-      CurvedAnimation(
-        parent: _queueAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _queueHeightAnimation =
+        Tween<double>(
+          begin: 0.0,
+          end: 1.0, // Will be multiplied by actual height
+        ).animate(
+          CurvedAnimation(
+            parent: _queueAnimationController,
+            curve: Curves.easeInOut,
+          ),
+        );
 
     // Define the height animation for lyrics section
-    _lyricsHeightAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0, // Will be multiplied by actual height
-    ).animate(
-      CurvedAnimation(
-        parent: _lyricsAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _lyricsHeightAnimation =
+        Tween<double>(
+          begin: 0.0,
+          end: 1.0, // Will be multiplied by actual height
+        ).animate(
+          CurvedAnimation(
+            parent: _lyricsAnimationController,
+            curve: Curves.easeInOut,
+          ),
+        );
 
     // Start animation if queue is already visible (with mutual exclusivity)
     if (widget.isQueueVisible) {
@@ -179,11 +182,10 @@ class _ModernControlPanelState extends State<ModernControlPanel>
         List<MediaItem> displayQueue;
         if (shuffleIndices != null && shuffleIndices.isNotEmpty) {
           // Show queue in shuffled order
-          displayQueue =
-              shuffleIndices
-                  .where((index) => index >= 0 && index < originalQueue.length)
-                  .map((index) => originalQueue[index])
-                  .toList();
+          displayQueue = shuffleIndices
+              .where((index) => index >= 0 && index < originalQueue.length)
+              .map((index) => originalQueue[index])
+              .toList();
         } else {
           // Show queue in original order
           displayQueue = originalQueue;
@@ -216,16 +218,15 @@ class _ModernControlPanelState extends State<ModernControlPanel>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors:
-                      widget.colorScheme != null
-                          ? [
-                            widget.colorScheme!.surface.withOpacity(0.4),
-                            widget.colorScheme!.surface.withOpacity(0.4),
-                          ]
-                          : [
-                            Colors.grey.shade900.withOpacity(0.4),
-                            Colors.black.withOpacity(0.4),
-                          ],
+                  colors: widget.colorScheme != null
+                      ? [
+                          widget.colorScheme!.surface.withOpacity(0.4),
+                          widget.colorScheme!.surface.withOpacity(0.4),
+                        ]
+                      : [
+                          Colors.grey.shade900.withOpacity(0.4),
+                          Colors.black.withOpacity(0.4),
+                        ],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -245,23 +246,23 @@ class _ModernControlPanelState extends State<ModernControlPanel>
                       final animatedHeight =
                           _queueHeightAnimation.value * queueMaxHeight;
                       // Add minimum height constraint to prevent layout overflow
-                      final constrainedHeight =
-                          animatedHeight < 100.w ? 0.0 : animatedHeight;
+                      final constrainedHeight = animatedHeight < 100.w
+                          ? 0.0
+                          : animatedHeight;
 
                       return SizedBox(
                         height: constrainedHeight,
-                        child:
-                            constrainedHeight > 0
-                                ? ClipRect(
-                                  child: Opacity(
-                                    opacity: _queueAnimationController.value,
-                                    child: _buildQueueList(
-                                      displayQueue,
-                                      currentIndex,
-                                    ),
+                        child: constrainedHeight > 0
+                            ? ClipRect(
+                                child: Opacity(
+                                  opacity: _queueAnimationController.value,
+                                  child: _buildQueueList(
+                                    displayQueue,
+                                    currentIndex,
                                   ),
-                                )
-                                : null,
+                                ),
+                              )
+                            : null,
                       );
                     },
                   ),
@@ -275,25 +276,25 @@ class _ModernControlPanelState extends State<ModernControlPanel>
                       final animatedHeight =
                           _lyricsHeightAnimation.value * lyricsMaxHeight;
                       // Add minimum height constraint to prevent layout overflow
-                      final constrainedHeight =
-                          animatedHeight < 100.w ? 0.0 : animatedHeight;
+                      final constrainedHeight = animatedHeight < 100.w
+                          ? 0.0
+                          : animatedHeight;
 
                       return SizedBox(
                         height: constrainedHeight,
-                        child:
-                            constrainedHeight > 0
-                                ? ClipRect(
-                                  child: Opacity(
-                                    opacity: _lyricsAnimationController.value,
-                                    child: IntegratedLyricsOverlay(
-                                      mediaItem: widget.mediaItem,
-                                      onClose: widget.onLyrics,
-                                      isVisible: widget.isLyricsVisible,
-                                      colorScheme: widget.colorScheme,
-                                    ),
+                        child: constrainedHeight > 0
+                            ? ClipRect(
+                                child: Opacity(
+                                  opacity: _lyricsAnimationController.value,
+                                  child: IntegratedLyricsOverlay(
+                                    mediaItem: widget.mediaItem,
+                                    onClose: widget.onLyrics,
+                                    isVisible: widget.isLyricsVisible,
+                                    colorScheme: widget.colorScheme,
                                   ),
-                                )
-                                : null,
+                                ),
+                              )
+                            : null,
                       );
                     },
                   ),
@@ -308,26 +309,24 @@ class _ModernControlPanelState extends State<ModernControlPanel>
                       // Max content width on large screens to keep widgets centered
                       final maxContentWidth = 540.0.w;
 
-                      final horizontalPadding =
-                          screenWidth >= tabletThreshold
-                              ? ((screenWidth - maxContentWidth) / 2)
-                                  .clamp(16.0.w, 64.0.w)
-                                  .toDouble()
-                              : 24.w;
+                      final horizontalPadding = screenWidth >= tabletThreshold
+                          ? ((screenWidth - maxContentWidth) / 2)
+                                .clamp(16.0.w, 64.0.w)
+                                .toDouble()
+                          : 24.w;
 
                       return Padding(
                         padding: EdgeInsets.only(
-                          top:
-                              24.w, // Increased top padding since drag handle is removed
+                          top: 24
+                              .w, // Increased top padding since drag handle is removed
                           left: horizontalPadding,
                           right: horizontalPadding,
                         ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            maxWidth:
-                                screenWidth >= tabletThreshold
-                                    ? maxContentWidth
-                                    : double.infinity,
+                            maxWidth: screenWidth >= tabletThreshold
+                                ? maxContentWidth
+                                : double.infinity,
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -436,10 +435,9 @@ class _ModernControlPanelState extends State<ModernControlPanel>
   Widget _buildQueueList(List<MediaItem> queue, int currentIndex) {
     final primaryColor = widget.colorScheme?.primary ?? Colors.blue;
     final textColor = widget.colorScheme?.onSurface ?? Colors.white;
-    final secondaryTextColor =
-        widget.colorScheme != null
-            ? widget.colorScheme!.onSurface.withOpacity(0.7)
-            : Colors.white.withOpacity(0.7);
+    final secondaryTextColor = widget.colorScheme != null
+        ? widget.colorScheme!.onSurface.withOpacity(0.7)
+        : Colors.white.withOpacity(0.7);
 
     if (queue.isEmpty) {
       return Center(
@@ -454,21 +452,17 @@ class _ModernControlPanelState extends State<ModernControlPanel>
     final screenWidth = MediaQuery.of(context).size.width;
     const tabletThreshold = 600.0;
     final maxContentWidth = 540.0.w;
-    final horizontalPadding =
-        screenWidth >= tabletThreshold
-            ? ((screenWidth - maxContentWidth) / 2)
-                .clamp(16.0.w, 64.0.w)
-                .toDouble()
-            : 20.w;
+    final horizontalPadding = screenWidth >= tabletThreshold
+        ? ((screenWidth - maxContentWidth) / 2).clamp(16.0.w, 64.0.w).toDouble()
+        : 20.w;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth:
-              screenWidth >= tabletThreshold
-                  ? maxContentWidth
-                  : double.infinity,
+          maxWidth: screenWidth >= tabletThreshold
+              ? maxContentWidth
+              : double.infinity,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,203 +517,188 @@ class _ModernControlPanelState extends State<ModernControlPanel>
 
             // Queue tracks - use Expanded and handle small heights gracefully
             Expanded(
-              child:
-                  queue.isEmpty
-                      ? const SizedBox.shrink()
-                      : ListView.builder(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20.w,
-                          vertical: 8.w,
-                        ),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: queue.length,
-                        itemBuilder: (context, displayIndex) {
-                          final mediaItem = queue[displayIndex];
-                          final isCurrentSong = displayIndex == currentIndex;
+              child: queue.isEmpty
+                  ? const SizedBox.shrink()
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.w,
+                        vertical: 8.w,
+                      ),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: queue.length,
+                      itemBuilder: (context, displayIndex) {
+                        final mediaItem = queue[displayIndex];
+                        final isCurrentSong = displayIndex == currentIndex;
 
-                          // Find the original index of this media item for proper navigation
-                          final originalQueue = widget.audioHandler.queue.value;
-                          final originalIndex = originalQueue.indexWhere(
-                            (item) => item.id == mediaItem.id,
-                          );
+                        // Find the original index of this media item for proper navigation
+                        final originalQueue = widget.audioHandler.queue.value;
+                        final originalIndex = originalQueue.indexWhere(
+                          (item) => item.id == mediaItem.id,
+                        );
 
-                          return GestureDetector(
-                            onTap:
-                                () => widget.onSongSelected?.call(
-                                  originalIndex >= 0
-                                      ? originalIndex
-                                      : displayIndex,
-                                ),
-                            child: Container(
-                              margin: EdgeInsets.symmetric(vertical: 4.w),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12.w,
-                                vertical: 8.w,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    isCurrentSong
-                                        ? primaryColor.withOpacity(0.15)
-                                        : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12.r),
-                                border:
-                                    isCurrentSong
-                                        ? Border.all(
-                                          color: primaryColor.withOpacity(0.3),
-                                          width: 1.w,
-                                        )
-                                        : null,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Album artwork with playing indicator overlay
-                                  Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      // Album artwork
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          8.r,
-                                        ),
-                                        child: SizedBox(
-                                          width: 52.w,
-                                          height: 52.w,
-                                          child: StreamBuilder<PlaybackState>(
-                                            stream:
-                                                widget
-                                                    .audioHandler
-                                                    .playbackState,
-                                            builder: (
-                                              context,
-                                              playbackSnapshot,
-                                            ) {
-                                              final isPlaying =
-                                                  playbackSnapshot
-                                                      .data
-                                                      ?.playing ??
-                                                  false;
+                        return GestureDetector(
+                          onTap: () => widget.onSongSelected?.call(
+                            originalIndex >= 0 ? originalIndex : displayIndex,
+                          ),
+                          child: Container(
+                            margin: EdgeInsets.symmetric(vertical: 4.w),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 8.w,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isCurrentSong
+                                  ? primaryColor.withOpacity(0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: isCurrentSong
+                                  ? Border.all(
+                                      color: primaryColor.withOpacity(0.3),
+                                      width: 1.w,
+                                    )
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                // Album artwork with playing indicator overlay
+                                Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Album artwork
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8.r),
+                                      child: SizedBox(
+                                        width: 52.w,
+                                        height: 52.w,
+                                        child: StreamBuilder<PlaybackState>(
+                                          stream:
+                                              widget.audioHandler.playbackState,
+                                          builder: (context, playbackSnapshot) {
+                                            final isPlaying =
+                                                playbackSnapshot
+                                                    .data
+                                                    ?.playing ??
+                                                false;
 
-                                              // Build a robust ImageProvider fallback depending on URI scheme
-                                              final uri = mediaItem.artUri;
-                                              ImageProvider imageProvider;
-                                              if (uri == null) {
+                                            // Build a robust ImageProvider fallback depending on URI scheme
+                                            final uri = mediaItem.artUri;
+                                            ImageProvider imageProvider;
+                                            if (uri == null) {
+                                              imageProvider = const AssetImage(
+                                                'assets/images/song_placeholder.png',
+                                              );
+                                            } else if (uri.scheme == 'http' ||
+                                                uri.scheme == 'https') {
+                                              imageProvider = NetworkImage(
+                                                uri.toString(),
+                                              );
+                                            } else if (uri.scheme == 'file') {
+                                              imageProvider = FileImage(
+                                                File(uri.toFilePath()),
+                                              );
+                                            } else if (uri.scheme == 'data') {
+                                              try {
+                                                final data = uri.data;
+                                                if (data != null) {
+                                                  imageProvider = MemoryImage(
+                                                    data.contentAsBytes(),
+                                                  );
+                                                } else {
+                                                  imageProvider = const AssetImage(
+                                                    'assets/images/song_placeholder.png',
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                debugPrint(
+                                                  'Failed to decode data URI artwork: $e',
+                                                );
                                                 imageProvider = const AssetImage(
                                                   'assets/images/song_placeholder.png',
                                                 );
-                                              } else if (uri.scheme == 'http' ||
-                                                  uri.scheme == 'https') {
+                                              }
+                                            } else {
+                                              try {
                                                 imageProvider = NetworkImage(
                                                   uri.toString(),
                                                 );
-                                              } else if (uri.scheme == 'file') {
-                                                imageProvider = FileImage(
-                                                  File(uri.toFilePath()),
+                                              } catch (_) {
+                                                debugPrint(
+                                                  'Unsupported artwork URI scheme: ${uri.scheme}',
                                                 );
-                                              } else if (uri.scheme == 'data') {
-                                                try {
-                                                  final data = uri.data;
-                                                  if (data != null) {
-                                                    imageProvider = MemoryImage(
-                                                      data.contentAsBytes(),
-                                                    );
-                                                  } else {
-                                                    imageProvider =
-                                                        const AssetImage(
-                                                          'assets/images/song_placeholder.png',
-                                                        );
-                                                  }
-                                                } catch (e) {
-                                                  debugPrint(
-                                                    'Failed to decode data URI artwork: $e',
-                                                  );
-                                                  imageProvider = const AssetImage(
-                                                    'assets/images/song_placeholder.png',
-                                                  );
-                                                }
-                                              } else {
-                                                try {
-                                                  imageProvider = NetworkImage(
-                                                    uri.toString(),
-                                                  );
-                                                } catch (_) {
-                                                  debugPrint(
-                                                    'Unsupported artwork URI scheme: ${uri.scheme}',
-                                                  );
-                                                  imageProvider = const AssetImage(
-                                                    'assets/images/song_placeholder.png',
-                                                  );
-                                                }
+                                                imageProvider = const AssetImage(
+                                                  'assets/images/song_placeholder.png',
+                                                );
                                               }
+                                            }
 
-                                              return EnhancedAlbumArtWithVisualizer(
-                                                image: imageProvider,
-                                                isCurrent: isCurrentSong,
-                                                isPlaying:
-                                                    isCurrentSong && isPlaying,
-                                                size: 52.w,
-                                                color: primaryColor,
-                                                visualizerPadding:
-                                                    EdgeInsets.all(6.w),
-                                              );
-                                            },
-                                          ),
+                                            return EnhancedAlbumArtWithVisualizer(
+                                              image: imageProvider,
+                                              isCurrent: isCurrentSong,
+                                              isPlaying:
+                                                  isCurrentSong && isPlaying,
+                                              size: 52.w,
+                                              color: primaryColor,
+                                              visualizerPadding: EdgeInsets.all(
+                                                6.w,
+                                              ),
+                                            );
+                                          },
                                         ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                SizedBox(width: 12.w),
+
+                                // Song info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        mediaItem.title,
+                                        style: TextStyle(
+                                          color: isCurrentSong
+                                              ? primaryColor
+                                              : textColor,
+                                          fontSize: 14.sp,
+                                          fontWeight: isCurrentSong
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      SizedBox(height: 4.w),
+                                      Text(
+                                        mediaItem.artist ?? 'Unknown Artist',
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontSize: 12.sp,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ),
+                                ),
 
-                                  SizedBox(width: 12.w),
-
-                                  // Song info
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          mediaItem.title,
-                                          style: TextStyle(
-                                            color:
-                                                isCurrentSong
-                                                    ? primaryColor
-                                                    : textColor,
-                                            fontSize: 14.sp,
-                                            fontWeight:
-                                                isCurrentSong
-                                                    ? FontWeight.w600
-                                                    : FontWeight.normal,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        SizedBox(height: 4.w),
-                                        Text(
-                                          mediaItem.artist ?? 'Unknown Artist',
-                                          style: TextStyle(
-                                            color: secondaryTextColor,
-                                            fontSize: 12.sp,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
+                                // Track duration
+                                Text(
+                                  _formatDuration(mediaItem.duration),
+                                  style: TextStyle(
+                                    color: secondaryTextColor,
+                                    fontSize: 12.sp,
                                   ),
-
-                                  // Track duration
-                                  Text(
-                                    _formatDuration(mediaItem.duration),
-                                    style: TextStyle(
-                                      color: secondaryTextColor,
-                                      fontSize: 12.sp,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -742,10 +721,9 @@ class _ModernControlPanelState extends State<ModernControlPanel>
           child: Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color:
-                  isShuffleEnabled
-                      ? primaryColor.withOpacity(0.2)
-                      : textColor.withOpacity(0.1),
+              color: isShuffleEnabled
+                  ? primaryColor.withOpacity(0.2)
+                  : textColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: AnimatedSwitcher(
@@ -788,20 +766,18 @@ class _ModernControlPanelState extends State<ModernControlPanel>
         final canToggleAutoPlay = repeatMode == AudioServiceRepeatMode.none;
 
         return GestureDetector(
-          onTap:
-              canToggleAutoPlay
-                  ? () {
-                    HapticFeedback.lightImpact();
-                    widget.onAutoPlay?.call();
-                  }
-                  : null,
+          onTap: canToggleAutoPlay
+              ? () {
+                  HapticFeedback.lightImpact();
+                  widget.onAutoPlay?.call();
+                }
+              : null,
           child: Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color:
-                  isAutoPlayEnabled && canToggleAutoPlay
-                      ? primaryColor.withOpacity(0.2)
-                      : textColor.withOpacity(0.1),
+              color: isAutoPlayEnabled && canToggleAutoPlay
+                  ? primaryColor.withOpacity(0.2)
+                  : textColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: AnimatedSwitcher(

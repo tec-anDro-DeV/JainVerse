@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../videoplayer/services/video_player_theme_service.dart';
 import '../managers/media_coordinator.dart';
-import '../managers/music_manager.dart';
+import '../controllers/music/music_manager.dart';
 import '../videoplayer/models/video_item.dart';
 import '../videoplayer/screens/video_player_view.dart';
 import '../videoplayer/managers/video_player_state_provider.dart';

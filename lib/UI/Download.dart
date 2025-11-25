@@ -14,7 +14,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/databasefolder/ListEntity.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/offline_mode_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';

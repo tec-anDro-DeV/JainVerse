@@ -12,7 +12,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/main.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/tab_navigation_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/widgets/common/app_header.dart';

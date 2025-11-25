@@ -7,7 +7,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/managers/music_manager.dart';
+import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/visualizer_music_integration.dart';
 import 'package:provider/provider.dart';
 
