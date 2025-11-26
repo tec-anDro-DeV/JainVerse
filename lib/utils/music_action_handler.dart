@@ -118,8 +118,6 @@ class MusicActionHandler {
         await musicManager.replaceQueue(
           musicList: listCopy,
           startIndex: targetIndex >= 0 ? targetIndex : 0,
-          pathImage: '', // Will be resolved by _createMediaItems
-          audioPath: '', // Will be resolved by _createMediaItems
           callSource: 'MusicActionHandler.handlePlaySong.smartReplace',
         );
       } else {
@@ -138,8 +136,6 @@ class MusicActionHandler {
         await musicManager.replaceQueue(
           musicList: [fetchedSong],
           startIndex: 0,
-          pathImage: '',
-          audioPath: '',
           callSource: 'MusicActionHandler.handlePlaySong.singleSong',
         );
       }

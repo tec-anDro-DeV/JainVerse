@@ -30,10 +30,10 @@ class HomeResponse {
   }
 
   Map<String, dynamic> toJson() => {
-        'status': status,
-        'msg': message,
-        'data': data?.toJson(),
-      };
+    'status': status,
+    'msg': message,
+    'data': data?.toJson(),
+  };
 }
 
 /// Container for all sections exposed by the home endpoint.
@@ -69,14 +69,14 @@ class HomeData {
   }
 
   Map<String, dynamic> toJson() => {
-        'featuredVideos': featuredVideos.map((e) => e.toJson()).toList(),
-        'channels': channels.map((e) => e.toJson()).toList(),
-        'featuredSongs': featuredSongs.map((e) => e.toJson()).toList(),
-        'latestSongs': latestSongs.map((e) => e.toJson()).toList(),
-        'popularVideos': popularVideos.map((e) => e.toJson()).toList(),
-        'trendingGenres': trendingGenres.map((e) => e.toJson()).toList(),
-        'newVideos': newVideos.map((e) => e.toJson()).toList(),
-      };
+    'featuredVideos': featuredVideos.map((e) => e.toJson()).toList(),
+    'channels': channels.map((e) => e.toJson()).toList(),
+    'featuredSongs': featuredSongs.map((e) => e.toJson()).toList(),
+    'latestSongs': latestSongs.map((e) => e.toJson()).toList(),
+    'popularVideos': popularVideos.map((e) => e.toJson()).toList(),
+    'trendingGenres': trendingGenres.map((e) => e.toJson()).toList(),
+    'newVideos': newVideos.map((e) => e.toJson()).toList(),
+  };
 }
 
 //
@@ -112,13 +112,13 @@ class GenreModel {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'slug': slug,
-        'description': description,
-        'image': image,
-        'image_url': imageUrl,
-      };
+    'id': id,
+    'name': name,
+    'slug': slug,
+    'description': description,
+    'image': image,
+    'image_url': imageUrl,
+  };
 }
 
 //
@@ -129,12 +129,24 @@ List<T> _parseList<T>(
   dynamic source,
   T Function(Map<String, dynamic>) builder,
 ) {
+  // The API sometimes returns a List for collections, and sometimes a
+  // Map with numeric string keys (e.g. { "0": {...}, "10": {...} }).
+  // Support both shapes here so callers (like HomeData.fromJson)
+  // receive a proper List<T> regardless of the server shape.
   if (source is List) {
     return source
         .whereType<Map<String, dynamic>>()
         .map(builder)
         .toList(growable: false);
   }
+
+  if (source is Map) {
+    return source.values
+        .whereType<Map<String, dynamic>>()
+        .map(builder)
+        .toList(growable: false);
+  }
+
   return const [];
 }
 

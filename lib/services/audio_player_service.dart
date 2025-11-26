@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 // import 'package:jainverse/ThemeMain/appColors.dart';  // Comment out: unused import after removing toast messages
-import 'package:jainverse/services/media_item_image_fixer.dart';
 import 'package:jainverse/utils/BackgroundAudioManager.dart';
 // import 'package:flutter/material.dart';  // Comment out: unused import after removing toast messages
 // import 'package:fluttertoast/fluttertoast.dart';  // Comment out: unused import after removing toast messages
@@ -89,8 +88,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       shuffleManager: _shuffleManager,
       playbackState: playbackState,
       setRepeatMode: (mode) => setRepeatMode(mode),
-      normalizeCurrentMediaImage: () =>
-          _ensureCurrentMediaItemImageIsNormalized(),
     );
     _audioSourceFactory = AudioSourceFactory(_mediaItemExpando);
     _queueUpdater = QueueUpdater(
@@ -823,9 +820,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
           name: 'AudioPlayerHandlerImpl',
         );
       }
-      // Ensure the new current MediaItem has normalized image URL - do this async
-      _ensureCurrentMediaItemImageIsNormalized();
-
       // Track history for the new current song - do this async
       if (index < queue.value.length) {
         _historyTracker.track(queue.value[index]);
@@ -860,25 +854,6 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   @override
   Future<void> seek(Duration position) async {
     await _playbackCore.seek(position);
-  }
-
-  /// Ensure current media item has normalized image URL
-  Future<void> _ensureCurrentMediaItemImageIsNormalized() async {
-    try {
-      final currentItem = mediaItem.value;
-      if (currentItem != null) {
-        final fixedItem = MediaItemImageFixer.fixMediaItemImageUrl(currentItem);
-        if (fixedItem != currentItem) {
-          mediaItem.add(fixedItem);
-        }
-      }
-    } catch (e) {
-      AudioLogger.log(
-        '[ERROR][AudioPlayerHandlerImpl] Failed to normalize current media item image: $e',
-        name: 'AudioPlayerHandlerImpl',
-        error: e,
-      );
-    }
   }
 
   void _reportError(Object error, [StackTrace? stackTrace]) {

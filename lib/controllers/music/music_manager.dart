@@ -228,8 +228,6 @@ class MusicManager extends ChangeNotifier {
   Future<void> playSongById({
     required List<DataMusic> musicList,
     required int startIndex,
-    required String pathImage,
-    required String audioPath,
     String? contextId,
     String? callSource,
   }) async {
@@ -253,8 +251,6 @@ class MusicManager extends ChangeNotifier {
   Future<void> replaceQueue({
     required List<DataMusic> musicList,
     required int startIndex,
-    required String pathImage,
-    required String audioPath,
     String contextType = 'playlist',
     String? contextId,
     String? callSource,
@@ -279,14 +275,12 @@ class MusicManager extends ChangeNotifier {
   Future<void> replaceQueueWithStation({
     required List<DataMusic> stationSongs,
     required DataMusic currentSong,
-    required String pathImage,
-    required String audioPath,
   }) async {
     if (!_ensureReady('replaceQueueWithStation')) return;
     if (stationSongs.isEmpty) return;
 
     AudioLogger.log(
-      '[MusicManager] replaceQueueWithStation stationSize=${stationSongs.length} currentSong=${currentSong.audio_title} path=$pathImage audioPath=$audioPath',
+      '[MusicManager] replaceQueueWithStation stationSize=${stationSongs.length} currentSong=${currentSong.audio_title}',
     );
 
     await _uiState.runWithProcessing(currentSong.id.toString(), () async {

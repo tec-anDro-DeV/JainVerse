@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/Model/ModelStationResponse.dart';
+import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/services/token_expiration_handler.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 
@@ -68,9 +69,7 @@ class StationPresenter {
         return ModelStationResponse(
           false,
           'Failed to create station',
-          [],
-          '',
-          '',
+          const <SongModel>[],
         );
       }
     } on DioException catch (e) {
@@ -84,7 +83,11 @@ class StationPresenter {
       } catch (_) {}
 
       // Return empty response on error (safe fallback)
-      return ModelStationResponse(false, 'Error creating station', [], '', '');
+      return ModelStationResponse(
+        false,
+        'Error creating station',
+        const <SongModel>[],
+      );
     } catch (error) {
       if (kDebugMode) {
         print('[StationPresenter] Error creating station: $error');
@@ -94,9 +97,7 @@ class StationPresenter {
       return ModelStationResponse(
         false,
         'Error creating station: $error',
-        [],
-        '',
-        '',
+        const <SongModel>[],
       );
     }
   }

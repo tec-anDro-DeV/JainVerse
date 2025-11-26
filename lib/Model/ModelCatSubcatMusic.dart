@@ -10,8 +10,9 @@ class ModelCatSubcatMusic {
   factory ModelCatSubcatMusic.fromJson(dynamic json) {
     // Handle API returning list directly or object with 'data'
     if (json is List) {
-      final List<DataCat> d =
-          json.map((x) => DataCat.fromJson(x as Map<String, dynamic>)).toList();
+      final List<DataCat> d = json
+          .map((x) => DataCat.fromJson(x as Map<String, dynamic>))
+          .toList();
       return ModelCatSubcatMusic(true, '', d);
     } else if (json is Map<String, dynamic>) {
       // Existing logic for object response
@@ -38,29 +39,26 @@ class ModelCatSubcatMusic {
 
 class DataCat {
   String cat_name = "";
-  String imagePath = "";
   List<SubData> sub_category;
 
-  DataCat(this.cat_name, this.imagePath, this.sub_category);
+  DataCat(this.cat_name, this.sub_category);
 
   factory DataCat.fromJson(Map<String, dynamic> json) {
     // Optimize list parsing with null safety
     List<SubData> d = [];
     if (json["sub_category"] != null && json["sub_category"] is List) {
-      d =
-          (json["sub_category"] as List)
-              .map((x) => SubData.fromJson(x))
-              .toList();
+      d = (json["sub_category"] as List)
+          .map((x) => SubData.fromJson(x))
+          .toList();
     }
 
-    return DataCat(json['cat_name'] ?? '', json['imagePath'] ?? '', d);
+    return DataCat(json['cat_name'] ?? '', d);
   }
 
   // Add toJson method
   Map<String, dynamic> toJson() {
     return {
       'cat_name': cat_name,
-      'imagePath': imagePath,
       'sub_category': sub_category.map((subCat) => subCat.toJson()).toList(),
     };
   }
@@ -100,10 +98,9 @@ class SubData {
     List<SongData>? songList;
     if (json.containsKey('song_list') && json['song_list'] != null) {
       if (json['song_list'] is List) {
-        songList =
-            (json['song_list'] as List)
-                .map((x) => SongData.fromJson(x))
-                .toList();
+        songList = (json['song_list'] as List)
+            .map((x) => SongData.fromJson(x))
+            .toList();
       }
     }
 
@@ -112,8 +109,9 @@ class SubData {
     if (json.containsKey('artist') && json['artist'] != null) {
       final art = json['artist'];
       if (art is List) {
-        artistList =
-            art.map((e) => Artist.fromJson(e as Map<String, dynamic>)).toList();
+        artistList = art
+            .map((e) => Artist.fromJson(e as Map<String, dynamic>))
+            .toList();
       } else if (art is Map<String, dynamic>) {
         artistList = [Artist.fromJson(art)];
       }

@@ -1618,7 +1618,7 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
     } else if (currentQueue.isNotEmpty) {
       // Fallback: create minimal DataMusic objects from MediaItems
       currentMusicList = currentQueue.map((mediaItem) {
-        return DataMusic(
+        return SongModel.legacy(
           int.tryParse(mediaItem.id) ?? 0, // id
           mediaItem.artUri?.toString() ?? '', // image
           mediaItem.id, // audio (URL)
@@ -1662,9 +1662,6 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
         MaterialPageRoute(
           builder: (context) => MusicPlayerUI(
             widget.audioHandler!,
-            MiniMusicPlayer.musicImage.isNotEmpty
-                ? MiniMusicPlayer.musicImage
-                : 'assets/images/song_placeholder.png', // pathImage
             "miniPlayer", // audioPath - source identifier
             currentMusicList, // listData
             '', // catImages - not needed for mini player navigation

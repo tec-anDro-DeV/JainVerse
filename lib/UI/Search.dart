@@ -73,7 +73,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
 
   // String yt_key = '', yt_code = ''; // COMMENTED OUT - YouTube API keys
   List<DataMusic> list = [];
-  String pathImage = '', audioPath = '';
   // Ads removed
 
   final WeSlideController _controller = WeSlideController();
@@ -195,8 +194,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
 
       if (!mounted) return;
 
-      pathImage = mList.imagePath;
-      audioPath = mList.audioPath;
       list = mList.data;
 
       print('[DEBUG] Music search results: ${list.length} items found');
@@ -314,12 +311,8 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         'lyrics': song.lyrics,
       };
 
-      // Pass image and audio paths to cache manager
-      await CacheManager.saveRecentSearch(
-        songData,
-        imagePath: pathImage,
-        audioPath: audioPath,
-      );
+      // Save recent search
+      await CacheManager.saveRecentSearch(songData);
       await _loadRecentSearches();
     } catch (e) {
       debugPrint('Error saving recent search: $e');
@@ -991,9 +984,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       ),
       child: RecentSearchCard(
         item: item,
-        pathImage:
-            item['imagePath'] ??
-            pathImage, // Use cached image path if available
         index: 0, // Index not used in this context
         onTap: () async {
           // Create DataMusic object from cached data using CacheManager utility
@@ -1008,8 +998,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
             await musicManager.replaceQueue(
               musicList: [songData],
               startIndex: 0,
-              pathImage: item['imagePath'] ?? pathImage,
-              audioPath: item['audioPath'] ?? audioPath,
               callSource: 'Search.onRecentSearchTap',
             );
 
@@ -1094,7 +1082,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
             );
             print('[DEBUG] Song ID: ${list[index].id}');
             print('[DEBUG] Audio URL: ${list[index].audio}');
-            print('[DEBUG] Audio path: $audioPath');
             print('[DEBUG] List length: ${list.length}');
             print('[DEBUG] INDEX BEING PASSED TO MUSIC WIDGET: $index');
 
@@ -1125,8 +1112,6 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               await musicManager.replaceQueue(
                 musicList: list,
                 startIndex: index,
-                pathImage: pathImage,
-                audioPath: audioPath.isNotEmpty ? audioPath : "images/audio/",
                 callSource: 'Search.onMusicCardTap',
               );
 
@@ -1150,7 +1135,12 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                     width: 60.w,
                     height: 60.w,
                     child: Image.network(
-                      AppConstant.ImageUrl + pathImage + list[index].image,
+                      (list[index].image.toString().startsWith('http://') ||
+                              list[index].image.toString().startsWith(
+                                'https://',
+                              ))
+                          ? list[index].image.toString()
+                          : AppConstant.ImageUrl + list[index].image.toString(),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         print('[DEBUG] Error loading image: $error');

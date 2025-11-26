@@ -1,35 +1,27 @@
-import 'ModelMusicList.dart';
+import 'song_model.dart';
 
 /// Model for station creation API response
 class ModelStationResponse {
-  bool status;
-  String msg;
-  String imagePath;
-  String audioPath;
-  List<DataMusic> data;
+  final bool status;
+  final String msg;
+  final List<SongModel> data;
 
-  ModelStationResponse(
-    this.status,
-    this.msg,
-    this.data,
-    this.imagePath,
-    this.audioPath,
-  );
+  const ModelStationResponse(this.status, this.msg, this.data);
 
   factory ModelStationResponse.fromJson(Map<String, dynamic> json) {
-    List<DataMusic> songs = [];
-    if (json["data"] != null && json["data"] is List) {
-      songs = List<DataMusic>.from(
-        json["data"].map((x) => DataMusic.fromJson(x)),
-      );
-    }
+    final List<dynamic> rawSongs = json['data'] is List
+        ? json['data'] as List<dynamic>
+        : const [];
+
+    final songs = rawSongs
+        .whereType<Map<String, dynamic>>()
+        .map(SongModel.fromJson)
+        .toList(growable: false);
 
     return ModelStationResponse(
       json['status'] ?? false,
       json['msg'] ?? '',
       songs,
-      json['imagePath'] ?? '',
-      json['audioPath'] ?? '',
     );
   }
 
@@ -37,8 +29,6 @@ class ModelStationResponse {
     return {
       'status': status,
       'msg': msg,
-      'imagePath': imagePath,
-      'audioPath': audioPath,
       'data': data.map((x) => x.toJson()).toList(),
     };
   }

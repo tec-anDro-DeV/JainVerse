@@ -110,27 +110,26 @@ class FavoriteService {
       if (entry_point.listCopy.isNotEmpty) {
         final song = entry_point.listCopy.firstWhere(
           (song) => song.id.toString() == songId,
-          orElse:
-              () => DataMusic(
-                0,
-                '',
-                '',
-                '',
-                '',
-                '',
-                0,
-                '',
-                '',
-                '',
-                0,
-                0,
-                0,
-                '',
-                0,
-                '0',
-                '',
-                '',
-              ),
+          orElse: () => SongModel.legacy(
+            0,
+            '',
+            '',
+            '',
+            '',
+            '',
+            0,
+            '',
+            '',
+            '',
+            0,
+            0,
+            0,
+            '',
+            0,
+            '0',
+            '',
+            '',
+          ),
         );
         return song.favourite == "1";
       }

@@ -6,7 +6,6 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 
 import '../controllers/download_controller.dart';
-import '../services/image_url_normalizer.dart';
 import '../services/startup_controller.dart';
 
 /// Utility class for managing assets with offline support
@@ -41,10 +40,9 @@ class AssetManager {
         if (imagePath != null &&
             (imagePath.startsWith('/') || imagePath.startsWith('file://'))) {
           // Local file path - remove file:// prefix if present
-          final localPath =
-              imagePath.startsWith('file://')
-                  ? imagePath.replaceFirst('file://', '')
-                  : imagePath;
+          final localPath = imagePath.startsWith('file://')
+              ? imagePath.replaceFirst('file://', '')
+              : imagePath;
 
           return _buildLocalImage(
             localPath,
@@ -94,10 +92,9 @@ class AssetManager {
   ) async {
     try {
       // Check if we have a local copy
-      final downloadedTrack =
-          _downloadController.downloadedTracks
-              .where((track) => track.id == trackId && track.isDownloadComplete)
-              .firstOrNull;
+      final downloadedTrack = _downloadController.downloadedTracks
+          .where((track) => track.id == trackId && track.isDownloadComplete)
+          .firstOrNull;
 
       final localPath = downloadedTrack?.localImagePath;
 
@@ -114,18 +111,8 @@ class AssetManager {
 
       // Return network URL if available and we have connectivity
       if (networkImageUrl.isNotEmpty && _startupController.hasConnectivity) {
-        // Use ImageUrlNormalizer for consistent URL construction
-        String finalImageUrl;
-        if (networkImageUrl.startsWith('http')) {
-          finalImageUrl = networkImageUrl;
-        } else {
-          // Construct URL using the normalizer
-          finalImageUrl = ImageUrlNormalizer.normalizeImageUrl(
-            imageFileName: networkImageUrl,
-            pathImage: 'images/audio/thumb/',
-          );
-        }
-        return finalImageUrl;
+        // Backend now provides fully qualified URLs, so return as-is
+        return networkImageUrl;
       }
 
       return null;
@@ -133,16 +120,7 @@ class AssetManager {
       debugPrint('Error getting best image path: $e');
       // Even if there's an error, try to return a valid network URL
       if (networkImageUrl.isNotEmpty) {
-        String finalImageUrl = networkImageUrl;
-        if (!finalImageUrl.startsWith('http')) {
-          const baseUrl = '${AppConstant.SiteUrl}public/';
-          if (finalImageUrl.startsWith('/')) {
-            finalImageUrl = '$baseUrl${finalImageUrl.substring(1)}';
-          } else {
-            finalImageUrl = '${baseUrl}images/audio/thumb/$finalImageUrl';
-          }
-        }
-        return finalImageUrl;
+        return networkImageUrl;
       }
       return null;
     }
@@ -155,10 +133,9 @@ class AssetManager {
   ) async {
     try {
       // Check if we have a local copy
-      final downloadedTrack =
-          _downloadController.downloadedTracks
-              .where((track) => track.id == trackId && track.isDownloadComplete)
-              .firstOrNull;
+      final downloadedTrack = _downloadController.downloadedTracks
+          .where((track) => track.id == trackId && track.isDownloadComplete)
+          .firstOrNull;
 
       final localPath = downloadedTrack?.localAudioPath;
 
@@ -252,8 +229,8 @@ class AssetManager {
       width: width,
       height: height,
       fit: fit,
-      placeholder:
-          (context, url) => _buildPlaceholder(width, height, placeholder),
+      placeholder: (context, url) =>
+          _buildPlaceholder(width, height, placeholder),
       errorWidget: (context, url, error) {
         debugPrint('Network image error: $error');
         return _buildErrorWidget(width, height, errorWidget);
@@ -325,8 +302,9 @@ class AssetManager {
             child: Icon(
               Icons.music_note,
               color: appColors().gray[400],
-              size:
-                  (width != null && height != null) ? (width + height) / 6 : 32,
+              size: (width != null && height != null)
+                  ? (width + height) / 6
+                  : 32,
             ),
           ),
           if (showOfflineIcon)
@@ -395,10 +373,9 @@ class AssetManager {
   /// Check if track assets are fully downloaded
   Future<bool> areTrackAssetsComplete(String trackId) async {
     try {
-      final downloadedTrack =
-          _downloadController.downloadedTracks
-              .where((track) => track.id == trackId && track.isDownloadComplete)
-              .firstOrNull;
+      final downloadedTrack = _downloadController.downloadedTracks
+          .where((track) => track.id == trackId && track.isDownloadComplete)
+          .firstOrNull;
 
       if (downloadedTrack == null) return false;
 
@@ -420,10 +397,9 @@ class AssetManager {
   /// Get assets status for a track
   Future<Map<String, bool>> getTrackAssetsStatus(String trackId) async {
     try {
-      final downloadedTrack =
-          _downloadController.downloadedTracks
-              .where((track) => track.id == trackId && track.isDownloadComplete)
-              .firstOrNull;
+      final downloadedTrack = _downloadController.downloadedTracks
+          .where((track) => track.id == trackId && track.isDownloadComplete)
+          .firstOrNull;
 
       final audioPath = downloadedTrack?.localAudioPath;
       final artworkPath = downloadedTrack?.localImagePath;

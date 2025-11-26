@@ -37,8 +37,6 @@ class _PlaylistScreenState extends State<PlaylistScreen>
   List<DataCat> _playlists = [];
   bool _isLoading = true;
   String _error = '';
-  String _imagePath = '';
-  String _audioPath = '';
   bool _isDeleting = false;
 
   // Track when screen becomes visible to refresh data
@@ -102,13 +100,6 @@ class _PlaylistScreenState extends State<PlaylistScreen>
       if (mounted) {
         setState(() {
           _playlists = response.data;
-          // API now returns relative paths; combine with AppConstant.ImageUrl which includes the public/ base
-          _imagePath = response.imagePath.isNotEmpty
-              ? '${AppConstant.ImageUrl}${response.imagePath}'
-              : '';
-          _audioPath = response.audioPath.isNotEmpty
-              ? '${AppConstant.ImageUrl}${response.audioPath}'
-              : '';
           _isLoading = false;
           _lastRefreshTime = DateTime.now();
         });
@@ -307,19 +298,10 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                   final messenger = ScaffoldMessenger.of(
                                     context,
                                   );
-                                  final pathImage = _imagePath.isNotEmpty
-                                      ? _imagePath
-                                      : '';
-                                  final audioPath = _audioPath.isNotEmpty
-                                      ? _audioPath
-                                      : '';
-
                                   try {
                                     await MusicManager().replaceQueue(
                                       musicList: playlist.song_list,
                                       startIndex: 0,
-                                      pathImage: pathImage,
-                                      audioPath: audioPath,
                                       contextType: 'playlist',
                                       contextId: playlist.id.toString(),
                                       callSource: 'PlaylistScreen.options.play',
@@ -370,19 +352,10 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                   );
                                   shuffled.shuffle(math.Random());
 
-                                  final pathImage = _imagePath.isNotEmpty
-                                      ? _imagePath
-                                      : '';
-                                  final audioPath = _audioPath.isNotEmpty
-                                      ? _audioPath
-                                      : '';
-
                                   try {
                                     await MusicManager().replaceQueue(
                                       musicList: shuffled,
                                       startIndex: 0,
-                                      pathImage: pathImage,
-                                      audioPath: audioPath,
                                       contextType: 'playlist',
                                       contextId: playlist.id.toString(),
                                       callSource:
@@ -708,15 +681,11 @@ class _PlaylistScreenState extends State<PlaylistScreen>
   void _onSongTap(DataMusic song, DataCat playlist, int index) async {
     // Play the tapped song directly in the mini player by replacing the queue.
     // This avoids opening the full player screen.
-    final pathImage = _imagePath.isNotEmpty ? _imagePath : '';
-    final audioPath = _audioPath.isNotEmpty ? _audioPath : '';
 
     try {
       await MusicManager().replaceQueue(
         musicList: playlist.song_list,
         startIndex: index,
-        pathImage: pathImage,
-        audioPath: audioPath,
         contextType: 'playlist',
         contextId: playlist.id.toString(),
         callSource: 'PlaylistScreen.onSongTap',
@@ -1114,9 +1083,9 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                       decoration: BoxDecoration(
                         image: DecorationImage(
                           image: NetworkImage(
-                            _imagePath.isNotEmpty
-                                ? '$_imagePath${playlist.song_list.first.image}'
-                                : '${AppConstant.ImageUrl}images/audio/thumb/${playlist.song_list.first.image}',
+                            playlist.song_list.first.image.startsWith('http')
+                                ? playlist.song_list.first.image
+                                : '${AppConstant.ImageUrl}${playlist.song_list.first.image}',
                           ),
                           fit: BoxFit.cover,
                           onError: (exception, stackTrace) {
@@ -1377,9 +1346,9 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                     // Image or placeholder
                     s.image.isNotEmpty
                         ? Image.network(
-                            _imagePath.isNotEmpty
-                                ? '$_imagePath${s.image}'
-                                : '${AppConstant.ImageUrl}images/audio/thumb/${s.image}',
+                            s.image.startsWith('http')
+                                ? s.image
+                                : '${AppConstant.ImageUrl}${s.image}',
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 Container(

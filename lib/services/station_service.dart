@@ -61,14 +61,6 @@ class StationService {
       await MusicManager().replaceQueueWithStation(
         stationSongs: stationQueue,
         currentSong: currentSong,
-        pathImage:
-            response.imagePath.isNotEmpty
-                ? response.imagePath
-                : 'images/audio/thumb/',
-        audioPath:
-            response.audioPath.isNotEmpty
-                ? response.audioPath
-                : 'images/audio/',
       );
 
       if (kDebugMode) {

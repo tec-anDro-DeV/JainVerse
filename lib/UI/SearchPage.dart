@@ -17,7 +17,6 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
-import 'package:jainverse/utils/AdHelper.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
@@ -52,7 +51,6 @@ class _SearchPageState extends State<SearchPage> {
 
   int isYt = 0;
   String lastStatus = '', searchTag = '', token = '';
-  String pathImage = '', audioPath = '';
   List<DataMusic> list = [];
   final PagingController<int, DataMusic> _pagingController = PagingController(
     firstPageKey: 1,
@@ -173,12 +171,7 @@ class _SearchPageState extends State<SearchPage> {
         'lyrics': song.lyrics,
       };
 
-      // Pass image and audio paths to cache manager
-      await CacheManager.saveRecentSearch(
-        songData,
-        imagePath: pathImage,
-        audioPath: audioPath,
-      );
+      await CacheManager.saveRecentSearch(songData);
       await _loadRecentSearches(); // Refresh the list
     } catch (e) {
       debugPrint('Error saving recent search: $e');
@@ -230,8 +223,7 @@ class _SearchPageState extends State<SearchPage> {
       String? sett = await sharePrefs.getSettings();
       if (sett != null && sett.isNotEmpty) {
         final Map<String, dynamic> parsed = json.decode(sett);
-        ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-
+        modelSettings = ModelSettings.fromJson(parsed);
 
         if (mounted) {
           setState(() {});
@@ -301,10 +293,6 @@ class _SearchPageState extends State<SearchPage> {
 
       Map<String, dynamic> parsed = json.decode(response.toString());
       ModelMusicList all = ModelMusicList.fromJson(parsed);
-
-      // Update paths
-      pathImage = all.imagePath;
-      audioPath = all.audioPath;
 
       List<DataMusic> postList = all.data;
       print('[DEBUG] Page $pageKey returned ${postList.length} items');
@@ -607,8 +595,6 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildRecentSearchItem(Map<String, dynamic> item, int index) {
     return RecentSearchCard(
       item: item,
-      pathImage:
-          item['imagePath'] ?? pathImage, // Use cached image path if available
       index: index,
       onTap: () async {
         // Create DataMusic object from cached data using CacheManager utility
@@ -621,8 +607,6 @@ class _SearchPageState extends State<SearchPage> {
           await musicManager.replaceQueue(
             musicList: [songData],
             startIndex: 0,
-            pathImage: pathImage,
-            audioPath: item['audioPath'] ?? audioPath,
             callSource: 'SearchPage.onRecentSearchTap',
           );
 
@@ -678,7 +662,6 @@ class _SearchPageState extends State<SearchPage> {
 
     return SearchMusicCard(
       item: item,
-      pathImage: pathImage,
       onTap: () async {
         print('🎯🎯🎯 SEARCH PAGE MUSIC CARD TAPPED 🎯🎯🎯');
         print(
@@ -738,8 +721,6 @@ class _SearchPageState extends State<SearchPage> {
           await musicManager.replaceQueue(
             musicList: currentList,
             startIndex: actualIndex >= 0 ? actualIndex : 0,
-            pathImage: pathImage,
-            audioPath: audioPath.isNotEmpty ? audioPath : "images/audio/",
             callSource: 'SearchPage.onRecentSearchTap',
           );
 

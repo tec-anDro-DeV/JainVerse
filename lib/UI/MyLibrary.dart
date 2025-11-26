@@ -87,8 +87,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   ModelMusicList? _cachedHistoryData;
   bool _isHistoryLoading = true;
   bool _hasHistoryError = false;
-  String _historyImagePath = '';
-  String _historyAudioPath = '';
 
   // Use HomeController (same as HomeDiscover) for unified home sections
   late final HomeController _homeController;
@@ -264,8 +262,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
         if (mounted) {
           setState(() {
             _cachedHistoryData = modelData;
-            _historyImagePath = modelData.imagePath;
-            _historyAudioPath = modelData.audioPath;
             _isHistoryLoading = false;
             _hasHistoryError = false;
             print('Loaded history data from cache in MyLibrary');
@@ -322,8 +318,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       if (mounted) {
         setState(() {
           _cachedHistoryData = historyData;
-          _historyImagePath = historyData.imagePath;
-          _historyAudioPath = historyData.audioPath;
           _isHistoryLoading = false;
           _hasHistoryError = false;
         });
@@ -930,10 +924,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
               itemBuilder: (context, index) {
                 final historyItem = _cachedHistoryData!.data[index];
                 return HistoryCard(
-                  imagePath:
-                      AppConstant.ImageUrl +
-                      _historyImagePath +
-                      historyItem.image,
+                  imagePath: historyItem.image.startsWith('http')
+                      ? historyItem.image
+                      : AppConstant.ImageUrl + historyItem.image,
                   songName: historyItem.audio_title,
                   artistName: historyItem.artists_name,
                   sharedPreThemeData: sharedPreThemeData,
@@ -1169,8 +1162,6 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
       await musicManager.replaceQueue(
         musicList: _cachedHistoryData!.data,
         startIndex: index,
-        pathImage: "images/audio/thumb/",
-        audioPath: _historyAudioPath,
         callSource: 'MyLibrary.handleHistoryItemTap',
       );
 
@@ -1190,7 +1181,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
             historyItem.id.toString(),
             'Songs',
             _cachedHistoryData!.data,
-            _historyAudioPath,
+            '', // audioPath no longer needed
             index,
             false,
             '',

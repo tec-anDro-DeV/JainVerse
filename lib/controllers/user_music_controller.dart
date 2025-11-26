@@ -99,17 +99,14 @@ class UserMusicController extends ChangeNotifier {
       }
 
       final FavMusicPresenter favPresenter = FavMusicPresenter();
-      final ModelMusicList mList =
-          resolvedContext != null
-              ? await favPresenter.getFavMusicListWithContext(
-                resolvedContext,
-                _token,
-              )
-              : await favPresenter.getFavMusicList(_token);
+      final ModelMusicList mList = resolvedContext != null
+          ? await favPresenter.getFavMusicListWithContext(
+              resolvedContext,
+              _token,
+            )
+          : await favPresenter.getFavMusicList(_token);
 
       _favoritesList = mList.data;
-      _favoritesImagePath = mList.imagePath;
-      _favoritesAudioPath = mList.audioPath;
 
       developer.log(
         '[DEBUG][UserMusicController][loadFavorites] Loaded ${_favoritesList.length} favorites',
@@ -140,8 +137,6 @@ class UserMusicController extends ChangeNotifier {
       final ModelMusicList mList = ModelMusicList.fromJson(parsed);
 
       _historyList = mList.data;
-      _historyImagePath = mList.imagePath;
-      _historyAudioPath = mList.audioPath;
 
       developer.log(
         '[DEBUG][UserMusicController][loadHistory] Loaded ${_historyList.length} history items',

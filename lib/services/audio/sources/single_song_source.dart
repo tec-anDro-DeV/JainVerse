@@ -72,7 +72,7 @@ class SingleSongSource {
 
     final int numericId =
         int.tryParse(songId) ?? DateTime.now().millisecondsSinceEpoch;
-    return DataMusic(
+    return SongModel.legacy(
       numericId,
       fallbackImagePath ?? '',
       fallbackAudioPath ?? '',

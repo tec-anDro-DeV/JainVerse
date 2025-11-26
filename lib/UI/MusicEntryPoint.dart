@@ -228,8 +228,9 @@ class QueueOperationManager {
       'isOperationInProgress': _isOperationInProgress,
       'currentOperationOwner': _currentOperationOwner,
       'lastOperationTime': _lastOperationTime.toIso8601String(),
-      'timeSinceLastOperation':
-          DateTime.now().difference(_lastOperationTime).inMilliseconds,
+      'timeSinceLastOperation': DateTime.now()
+          .difference(_lastOperationTime)
+          .inMilliseconds,
       'hasPendingDebounce': _debounceTimer?.isActive ?? false,
     };
   }
@@ -724,10 +725,9 @@ class _MusicState extends State<Music> {
   /// Replace queue in background without blocking UI - ULTRA OPTIMIZED
   Future<void> _replaceQueueInBackground() async {
     // Use current music list if available, fallback to controller's list
-    final musicListToUse =
-        _currentMusicList.isNotEmpty
-            ? _currentMusicList
-            : musicController.listCopy;
+    final musicListToUse = _currentMusicList.isNotEmpty
+        ? _currentMusicList
+        : musicController.listCopy;
 
     if (musicListToUse.isEmpty || widget.audioHandler == null) {
       developer.log(
@@ -741,18 +741,6 @@ class _MusicState extends State<Music> {
       developer.log(
         '[Music] Music list to use: ${musicListToUse.length} songs, type: ${widget.typeGet}',
       );
-
-      // Determine the correct image and audio paths
-      String imagePathToUse =
-          _currentMusicList.isNotEmpty
-              ? widget
-                  .audioPath // For search and direct lists, use the provided audioPath
-              : musicController.imagePath;
-      String audioPathToUse =
-          _currentMusicList.isNotEmpty
-              ? widget
-                  .audioPath // For search and direct lists, use the provided audioPath
-              : musicController.audioPathMain;
 
       // Use the simplified queue replacement
       developer.log(
@@ -768,10 +756,9 @@ class _MusicState extends State<Music> {
       await MusicManager().replaceQueue(
         musicList: musicListToUse,
         startIndex: widget.index,
-        pathImage: imagePathToUse,
-        audioPath: audioPathToUse,
-        contextType:
-            widget.typeGet.isNotEmpty ? widget.typeGet : 'music_player',
+        contextType: widget.typeGet.isNotEmpty
+            ? widget.typeGet
+            : 'music_player',
         contextId: widget.idGet,
         callSource:
             'MusicEntryPoint._replaceQueueInBackground.${widget.typeGet}:${widget.idGet}',
@@ -793,8 +780,6 @@ class _MusicState extends State<Music> {
           await MusicManager().replaceQueue(
             musicList: [selectedSong],
             startIndex: 0,
-            pathImage: widget.audioPath,
-            audioPath: widget.audioPath,
             contextType: 'single_song',
             callSource: 'MusicEntryPoint._replaceQueueInBackground.fallback',
           );
@@ -868,22 +853,6 @@ class _MusicState extends State<Music> {
       );
     }
 
-    // Determine the correct image path to pass to MusicPlayerUI
-    String imagePathToPass =
-        widget.audioPath.isNotEmpty &&
-                !widget.audioPath.contains('search') &&
-                !widget.audioPath.contains('bottomSlider')
-            ? widget
-                .idGet // Use the category ID for compatibility when data is already loaded
-            : musicController.imagePath.isNotEmpty
-            ? musicController.imagePath
-            : widget.idGet;
-
-    developer.log(
-      '[DEBUG][Music][build] Passing image path to MusicPlayerUI: $imagePathToPass',
-      name: 'Music',
-    );
-
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: musicController),
@@ -894,7 +863,6 @@ class _MusicState extends State<Music> {
       ],
       child: MusicPlayerUI(
         widget.audioHandler!,
-        imagePathToPass, // pathImage - now using correct image path
         widget.audioPath,
         _currentMusicList, // Use loaded data instead of widget.listMain
         widget.typeGet, // catImages
@@ -902,13 +870,13 @@ class _MusicState extends State<Music> {
         false, // isOffline - defaulting to false for online music
         widget.audioPath, // audioPathMain
         isOpn: widget.isOpn,
-        ontap:
-            widget.ontap is VoidCallback ? widget.ontap as VoidCallback : null,
+        ontap: widget.ontap is VoidCallback
+            ? widget.ontap as VoidCallback
+            : null,
         skipQueueSetup:
             true, // Always skip queue setup in MusicPlayerLogic since we handle it here
-        queueAlreadySetup:
-            _currentMusicList
-                .isNotEmpty, // Indicate if we've already set up the queue
+        queueAlreadySetup: _currentMusicList
+            .isNotEmpty, // Indicate if we've already set up the queue
       ),
     );
   }

@@ -10,14 +10,12 @@ import 'package:jainverse/utils/performance_debouncer.dart';
 
 class SearchMusicCard extends StatelessWidget {
   final DataMusic item;
-  final String pathImage;
   final VoidCallback onTap;
   final VoidCallback? onActionCompleted;
 
   const SearchMusicCard({
     super.key,
     required this.item,
-    required this.pathImage,
     required this.onTap,
     this.onActionCompleted,
   });
@@ -55,25 +53,43 @@ class SearchMusicCard extends StatelessWidget {
                   child: SizedBox(
                     width: 60.w,
                     height: 60.w,
-                    child: Image.network(
-                      AppConstant.ImageUrl + pathImage + item.image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Image.asset(
-                          'assets/images/song_placeholder.png',
-                          fit: BoxFit.cover,
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: appColors().gray[100],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5.w,
-                              color: appColors().primaryColorApp,
-                            ),
-                          ),
+                    child: Builder(
+                      builder: (context) {
+                        // Use full URL if provided by backend, otherwise build from base + path
+                        final raw = item.image;
+                        if (raw.isEmpty) {
+                          return Image.asset(
+                            'assets/images/song_placeholder.png',
+                            fit: BoxFit.cover,
+                          );
+                        }
+
+                        final imageUrl =
+                            (raw.startsWith('http://') ||
+                                raw.startsWith('https://'))
+                            ? raw
+                            : AppConstant.ImageUrl + raw;
+
+                        return Image.network(
+                          imageUrl,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/images/song_placeholder.png',
+                              fit: BoxFit.cover,
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: appColors().gray[100],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5.w,
+                                  color: appColors().primaryColorApp,
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -156,91 +172,86 @@ class SearchMusicCard extends StatelessWidget {
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
-      builder:
-          (context) => Stack(
-            children: [
-              // Invisible barrier to close dialog when tapping outside
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                  color: Colors.transparent,
-                ),
-              ),
-              // Positioned dialog below the three-dot button
-              Positioned(
-                left: position.dx - 130.w,
-                top: position.dy + size.height + 4.w,
-                child: Material(
-                  elevation: 8.w,
-                  borderRadius: BorderRadius.circular(12.w),
-                  color: Colors.white,
-                  child: Container(
-                    width: 200.w,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.w),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10.w,
-                          spreadRadius: 2.w,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildOptionItem(
-                          context: context,
-                          icon:
-                              item.favourite == "1"
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                          text:
-                              item.favourite == "1"
-                                  ? 'Remove Favorite'
-                                  : 'Add to Favorite',
-                          iconColor:
-                              item.favourite == "1"
-                                  ? appColors().primaryColorApp
-                                  : Colors.grey[600]!,
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _toggleFavorite();
-                          },
-                        ),
-                        Divider(height: 1, color: Colors.grey[200]),
-                        _buildOptionItem(
-                          context: context,
-                          icon: Icons.playlist_add,
-                          text: 'Add to Playlist',
-                          iconColor: Colors.grey[600]!,
-                          onTap: () {
-                            Navigator.pop(context);
-                            PerformanceDebouncer.safePush(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) =>
-                                        CreatePlaylist(item.id.toString()),
-                                settings: const RouteSettings(
-                                  name: '/search_card_to_create_playlist',
-                                ),
-                              ),
-                              navigationKey: 'search_card_to_create_playlist',
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      builder: (context) => Stack(
+        children: [
+          // Invisible barrier to close dialog when tapping outside
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              color: Colors.transparent,
+            ),
           ),
+          // Positioned dialog below the three-dot button
+          Positioned(
+            left: position.dx - 130.w,
+            top: position.dy + size.height + 4.w,
+            child: Material(
+              elevation: 8.w,
+              borderRadius: BorderRadius.circular(12.w),
+              color: Colors.white,
+              child: Container(
+                width: 200.w,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12.w),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10.w,
+                      spreadRadius: 2.w,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildOptionItem(
+                      context: context,
+                      icon: item.favourite == "1"
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      text: item.favourite == "1"
+                          ? 'Remove Favorite'
+                          : 'Add to Favorite',
+                      iconColor: item.favourite == "1"
+                          ? appColors().primaryColorApp
+                          : Colors.grey[600]!,
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _toggleFavorite();
+                      },
+                    ),
+                    Divider(height: 1, color: Colors.grey[200]),
+                    _buildOptionItem(
+                      context: context,
+                      icon: Icons.playlist_add,
+                      text: 'Add to Playlist',
+                      iconColor: Colors.grey[600]!,
+                      onTap: () {
+                        Navigator.pop(context);
+                        PerformanceDebouncer.safePush(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                CreatePlaylist(item.id.toString()),
+                            settings: const RouteSettings(
+                              name: '/search_card_to_create_playlist',
+                            ),
+                          ),
+                          navigationKey: 'search_card_to_create_playlist',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -346,7 +346,6 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       }
 
       ModelAllCat allCat = ModelAllCat.fromJson(parsed);
-      path = allCat.imagePath;
       List<SubData> postList = allCat.sub_category;
 
       if (postList.isNotEmpty) {
@@ -1369,8 +1368,6 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
           await musicManager.replaceQueue(
             musicList: response.data,
             startIndex: 0, // Start from the first song
-            pathImage: response.imagePath,
-            audioPath: response.audioPath,
             callSource: 'AllCategoryByName.playContent',
             contextType: apiType,
             contextId: "${post.id}",

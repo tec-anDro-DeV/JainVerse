@@ -14,14 +14,12 @@ class SkipManager {
     required ShuffleManager shuffleManager,
     required ValueStream<PlaybackState> playbackState,
     required Future<void> Function(AudioServiceRepeatMode mode) setRepeatMode,
-    required Future<void> Function() normalizeCurrentMediaImage,
   }) : _player = player,
        _queueStream = queueStream,
        _historyTracker = historyTracker,
        _shuffleManager = shuffleManager,
        _playbackState = playbackState,
-       _setRepeatMode = setRepeatMode,
-       _normalizeCurrentMediaImage = normalizeCurrentMediaImage;
+       _setRepeatMode = setRepeatMode;
 
   final AudioPlayer _player;
   final BehaviorSubject<List<MediaItem>> _queueStream;
@@ -29,7 +27,6 @@ class SkipManager {
   final ShuffleManager _shuffleManager;
   final ValueStream<PlaybackState> _playbackState;
   final Future<void> Function(AudioServiceRepeatMode mode) _setRepeatMode;
-  final Future<void> Function() _normalizeCurrentMediaImage;
 
   Future<void> skipToNext() async {
     try {
@@ -64,7 +61,6 @@ class SkipManager {
               firstIndex < _queueStream.value.length) {
             _historyTracker.track(_queueStream.value[firstIndex]);
           }
-          await _normalizeCurrentMediaImage();
         } else {
           return;
         }
@@ -73,7 +69,6 @@ class SkipManager {
         if (nextIndex < _queueStream.value.length) {
           _historyTracker.track(_queueStream.value[nextIndex]);
         }
-        await _normalizeCurrentMediaImage();
       }
     } catch (e) {
       AudioLogger.log(
@@ -120,7 +115,6 @@ class SkipManager {
       if (currentIndex < _queueStream.value.length) {
         _historyTracker.track(_queueStream.value[currentIndex]);
       }
-      await _normalizeCurrentMediaImage();
     } catch (e) {
       AudioLogger.log(
         '[ERROR][SkipManager] Failed to restart current song: $e',
@@ -162,7 +156,6 @@ class SkipManager {
               lastIndex < _queueStream.value.length) {
             _historyTracker.track(_queueStream.value[lastIndex]);
           }
-          await _normalizeCurrentMediaImage();
         } else {
           return;
         }
@@ -171,7 +164,6 @@ class SkipManager {
         if (previousIndex < _queueStream.value.length) {
           _historyTracker.track(_queueStream.value[previousIndex]);
         }
-        await _normalizeCurrentMediaImage();
       }
     } catch (e) {
       AudioLogger.log(

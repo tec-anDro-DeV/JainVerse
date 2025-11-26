@@ -58,7 +58,6 @@ class ArtistDetailScreen extends StatefulWidget {
 class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
   // Dominant color for status bar
   List<DataMusic> list = [];
-  String pathImage = '', audioPath = '';
   bool tillLoading = true;
   bool isOpen = false;
   String token = "";
@@ -132,8 +131,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
       if (mounted) {
         setState(() {
           list = mList.data;
-          pathImage = mList.imagePath;
-          audioPath = mList.audioPath;
           parentData = mList.parent; // Store parent data
 
           // Initialize a single fallback image URL if not set
@@ -1027,14 +1024,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
-        audioPath: audioPath,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
-        audioPath: audioPath,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
         song.audio_title,
@@ -1135,8 +1130,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
       await musicManager.replaceQueue(
         musicList: list,
         startIndex: startIndex,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'ArtistDetailScreen._playAllSongs',
       );
 
@@ -1163,8 +1156,6 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
       await musicManager.replaceQueue(
         musicList: list,
         startIndex: index,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'ArtistDetailScreen._playMusic',
       );
 

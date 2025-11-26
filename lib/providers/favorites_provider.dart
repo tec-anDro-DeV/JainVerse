@@ -94,17 +94,14 @@ class FavoritesProvider extends ChangeNotifier {
         resolvedContext = null;
       }
 
-      final ModelMusicList mList =
-          resolvedContext != null
-              ? await _favMusicPresenter.getFavMusicListWithContext(
-                resolvedContext,
-                _token,
-              )
-              : await _favMusicPresenter.getFavMusicList(_token);
+      final ModelMusicList mList = resolvedContext != null
+          ? await _favMusicPresenter.getFavMusicListWithContext(
+              resolvedContext,
+              _token,
+            )
+          : await _favMusicPresenter.getFavMusicList(_token);
 
       _favoritesList = mList.data;
-      _favoritesImagePath = mList.imagePath;
-      _favoritesAudioPath = mList.audioPath;
 
       // Update favorites IDs set for fast lookup
       _favoriteIds.clear();

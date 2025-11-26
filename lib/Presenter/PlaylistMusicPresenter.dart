@@ -42,7 +42,7 @@ class PlaylistMusicPresenter extends BasePresenter {
       } on DioException catch (e) {
         // If the error indicates token expiry, handle it and return a safe fallback
         await TokenExpirationHandler().checkAndHandleResponse(e.response);
-        return ModelPlayList(false, '', [], '', '');
+        return ModelPlayList(false, '', []);
       }
     }
 
@@ -60,7 +60,7 @@ class PlaylistMusicPresenter extends BasePresenter {
       }
     } catch (error) {
       // Return an empty playlist on parse/failure to avoid crashing the app.
-      return ModelPlayList(false, '', [], '', '');
+      return ModelPlayList(false, '', []);
     }
   }
 

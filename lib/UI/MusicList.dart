@@ -70,7 +70,6 @@ class StateClass extends State<MusicList> {
   String? _currentPlaylistId; // non-null when opened from PlaylistScreen
   AudioPlayerHandler? _audioHandler;
   List<DataMusic> list = [];
-  String pathImage = '', audioPath = '';
   bool tillLoading = true;
   bool isOpen = false;
   String token = "";
@@ -140,13 +139,11 @@ class StateClass extends State<MusicList> {
     ModelMusicList mList = await CatSubcatMusicPresenter()
         .getMusicListByCategory(idTag, typ, token);
     list = mList.data;
-    pathImage = mList.imagePath;
-    audioPath = mList.audioPath;
     parentData = mList.parent; // Store parent data
     if (kDebugMode) {
       // ignore: avoid_print
       print(
-        '[MusicList] getCate - fetched ${list.length} songs, pathImage=$pathImage, audioPath=$audioPath, parent=${parentData?.toString()}',
+        '[MusicList] getCate - fetched ${list.length} songs, parent=${parentData?.toString()}',
       );
     }
     // Initialize a single fallback image URL if not set
@@ -157,8 +154,10 @@ class StateClass extends State<MusicList> {
       if (songsWithImages.isNotEmpty) {
         final randomSong =
             songsWithImages[math.Random().nextInt(songsWithImages.length)];
-        _fallbackImageUrl =
-            '${AppConstant.ImageUrl}images/audio/thumb/${randomSong.image}';
+        final rawImage = randomSong.image;
+        _fallbackImageUrl = rawImage.startsWith('http')
+            ? rawImage
+            : AppConstant.ImageUrl + rawImage;
       }
     }
     tillLoading = false;
@@ -894,14 +893,12 @@ class StateClass extends State<MusicList> {
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
-        audioPath: audioPath,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
-        audioPath: audioPath,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
         song.audio_title,
@@ -1196,8 +1193,6 @@ class StateClass extends State<MusicList> {
       await musicManager.replaceQueue(
         musicList: queueForPlayback,
         startIndex: startIndex,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'MusicList._playAllSongs',
       );
 
@@ -1256,8 +1251,6 @@ class StateClass extends State<MusicList> {
       await musicManager.replaceQueue(
         musicList: list,
         startIndex: index,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'MusicList._playMusic',
       );
 

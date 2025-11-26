@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
-import 'package:jainverse/services/image_url_normalizer.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -290,7 +289,6 @@ class CacheManager {
   // Save recent search (song that was tapped) - Updated to include complete audio URL
   static Future<bool> saveRecentSearch(
     Map<String, dynamic> songData, {
-    String? imagePath,
     String? audioPath,
   }) async {
     try {
@@ -325,7 +323,6 @@ class CacheManager {
       recentSearches.insert(0, {
         ...songData,
         'audio': completeAudioUrl, // Store the complete audio URL
-        'imagePath': imagePath ?? '', // Store the base image path
         'audioPath': audioPath ?? '', // Store the base audio path
         'artists_name':
             songData['artists_name'] ?? '', // Ensure artist name is preserved
@@ -423,7 +420,7 @@ class CacheManager {
       audioUrl = '';
     }
 
-    return DataMusic(
+    return SongModel.legacy(
       int.tryParse(item['id'].toString()) ?? 0,
       item['image'] ?? '',
       audioUrl, // Use the complete audio URL
@@ -447,7 +444,6 @@ class CacheManager {
 
   // Helper method to get full image URL from cached data with improved URL construction
   static String getFullImageUrl(Map<String, dynamic> item) {
-    final imagePath = item['imagePath'] ?? '';
     final image = item['image'] ?? '';
 
     if (image.isEmpty) {
@@ -459,23 +455,8 @@ class CacheManager {
       return image;
     }
 
-    // Construct URL using ImageUrlNormalizer for consistency
-    try {
-      // Use the ImageUrlNormalizer for consistent URL construction
-      final normalizedUrl = ImageUrlNormalizer.normalizeImageUrl(
-        imageFileName: image,
-        pathImage: imagePath.isNotEmpty ? imagePath : null,
-      );
-      return normalizedUrl;
-    } catch (e) {
-      // Fallback to simple concatenation if normalizer fails
-      if (imagePath.isNotEmpty && image.isNotEmpty) {
-        return AppConstant.ImageUrl + imagePath + image;
-      } else if (image.isNotEmpty) {
-        return AppConstant.ImageUrl + image;
-      }
-      return '';
-    }
+    // Backend now sends complete URLs; return whatever value we have.
+    return image;
   }
 
   // Update cached music data to include artist names if missing

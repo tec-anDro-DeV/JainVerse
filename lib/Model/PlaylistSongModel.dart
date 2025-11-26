@@ -1,4 +1,4 @@
-import 'package:jainverse/Model/SongModel.dart';
+import 'package:jainverse/Model/song_model.dart';
 
 class PlaylistSongModel {
   final int id;
@@ -19,10 +19,9 @@ class PlaylistSongModel {
     List<SongModel> songs = [];
 
     if (json['song_list'] != null && json['song_list'] is List) {
-      songs =
-          (json['song_list'] as List)
-              .map((songJson) => SongModel.fromJson(songJson))
-              .toList();
+      songs = (json['song_list'] as List)
+          .map((songJson) => SongModel.fromJson(songJson))
+          .toList();
     }
 
     return PlaylistSongModel(

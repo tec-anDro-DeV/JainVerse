@@ -433,7 +433,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(section),
           ),
           SizedBox(
-            height: 210.w,
+            height: 190.w,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -503,7 +503,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(_HomeSection.trendingGenres),
           ),
           SizedBox(
-            height: 190.w,
+            height: 170.w,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),

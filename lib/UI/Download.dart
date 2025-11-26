@@ -115,31 +115,30 @@ class StateClass extends State {
   /// Load existing downloads from controller and update UI
   void _loadExistingDownloads() {
     // Convert DownloadedMusic objects to DataMusic objects for UI compatibility
-    downloadedTracks =
-        _downloadController.downloadedTracks
-            .map(
-              (downloaded) => DataMusic(
-                downloaded.id.isNotEmpty ? int.tryParse(downloaded.id) ?? 0 : 0,
-                downloaded.imageUrl, // image
-                downloaded.audioUrl, // audio
-                downloaded.duration, // audio_duration
-                downloaded.title, // audio_title
-                downloaded.albumName, // audio_slug
-                0, // audio_genre_id
-                '', // artist_id
-                downloaded.artist, // artists_name
-                '', // audio_language
-                0, // listening_count
-                0, // is_featured
-                0, // is_trending
-                '', // created_at
-                0, // is_recommended
-                '', // favourite
-                '', // download_price
-                '', // lyrics
-              ),
-            )
-            .toList();
+    downloadedTracks = _downloadController.downloadedTracks
+        .map(
+          (downloaded) => SongModel.legacy(
+            downloaded.id.isNotEmpty ? int.tryParse(downloaded.id) ?? 0 : 0,
+            downloaded.imageUrl, // image
+            downloaded.audioUrl, // audio
+            downloaded.duration, // audio_duration
+            downloaded.title, // audio_title
+            downloaded.albumName, // audio_slug
+            0, // audio_genre_id
+            '', // artist_id
+            downloaded.artist, // artists_name
+            '', // audio_language
+            0, // listening_count
+            0, // is_featured
+            0, // is_trending
+            '', // created_at
+            0, // is_recommended
+            '', // favourite
+            '', // download_price
+            '', // lyrics
+          ),
+        )
+        .toList();
 
     // Refresh the UI list immediately and trigger UI update
     getDb();
@@ -229,11 +228,10 @@ class StateClass extends State {
     final searchText = txtSearch.text.toLowerCase();
 
     // Filter downloadedTracks directly instead of using service
-    final filteredTracks =
-        downloadedTracks.where((track) {
-          return track.audio_title.toLowerCase().contains(searchText) ||
-              track.artists_name.toLowerCase().contains(searchText);
-        }).toList();
+    final filteredTracks = downloadedTracks.where((track) {
+      return track.audio_title.toLowerCase().contains(searchText) ||
+          track.artists_name.toLowerCase().contains(searchText);
+    }).toList();
 
     // Convert filtered results to ListEntity using same logic as getDb
     listMain = [];
@@ -543,10 +541,9 @@ class StateClass extends State {
         stream: _audioHandler?.mediaItem,
         builder: (context, snapshot) {
           // Dynamic bottom padding for mini player
-          final bottomPadding =
-              _offlineModeService.isOfflineMode
-                  ? 165.w
-                  : AppSizes.basePadding + 140.w;
+          final bottomPadding = _offlineModeService.isOfflineMode
+              ? 165.w
+              : AppSizes.basePadding + 140.w;
 
           return SafeArea(
             child: Column(
@@ -571,10 +568,9 @@ class StateClass extends State {
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _refreshDownloads,
-                    color:
-                        connected && !_offlineModeService.isOfflineMode
-                            ? appColors().primaryColorApp
-                            : Colors.orange[600],
+                    color: connected && !_offlineModeService.isOfflineMode
+                        ? appColors().primaryColorApp
+                        : Colors.orange[600],
                     backgroundColor: Colors.white,
                     strokeWidth: 3.w,
                     displacement: 50.0,
@@ -613,39 +609,38 @@ class StateClass extends State {
                             right: 16.w,
                             bottom: bottomPadding,
                           ),
-                          sliver:
-                              isLoading
-                                  ? SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.5,
-                                      child: _buildLoadingState(),
-                                    ),
-                                  )
-                                  : listMain.isEmpty
-                                  ? SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: _buildEmptyState(),
-                                    ),
-                                  )
-                                  : SliverList(
-                                    delegate: SliverChildBuilderDelegate((
-                                      context,
-                                      index,
-                                    ) {
-                                      return AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 300,
-                                        ),
-                                        curve: Curves.easeOut,
-                                        child: _buildDownloadCard(index),
-                                      );
-                                    }, childCount: listMain.length),
+                          sliver: isLoading
+                              ? SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.5,
+                                    child: _buildLoadingState(),
                                   ),
+                                )
+                              : listMain.isEmpty
+                              ? SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.6,
+                                    child: _buildEmptyState(),
+                                  ),
+                                )
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    return AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeOut,
+                                      child: _buildDownloadCard(index),
+                                    );
+                                  }, childCount: listMain.length),
+                                ),
                         ),
                       ],
                     ),
@@ -943,10 +938,9 @@ class StateClass extends State {
             ),
           ],
           border: Border.all(
-            color:
-                isBeingDeleted
-                    ? appColors().primaryColorApp.withOpacity(0.2)
-                    : Colors.grey.shade100,
+            color: isBeingDeleted
+                ? appColors().primaryColorApp.withOpacity(0.2)
+                : Colors.grey.shade100,
             width: 1.w,
           ),
         ),
@@ -1271,9 +1265,6 @@ class StateClass extends State {
         await musicManager.replaceQueue(
           musicList: downloadedTracks,
           startIndex: index,
-          pathImage:
-              "images/audio/thumb/", // Default path for downloaded tracks
-          audioPath: "audio/", // Default audio path
           contextType: 'downloaded_music',
           contextId: 'offline_mode',
           callSource: 'Download._playTrack',
@@ -1380,56 +1371,55 @@ class StateClass extends State {
       // Show confirmation dialog
       final bool? confirmed = await showDialog<bool>(
         context: context,
-        builder:
-            (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-              title: Text(
-                'Remove Download',
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Poppins',
-                  color: Colors.black87,
-                ),
-              ),
-              content: Text(
-                'Are you sure you want to remove "${listMain[index].name}" from downloads?',
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.r),
+          ),
+          title: Text(
+            'Remove Download',
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+              color: Colors.black87,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to remove "${listMain[index].name}" from downloads?',
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w400,
+              fontFamily: 'Poppins',
+              color: appColors().gray[500],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
                 style: TextStyle(
                   fontSize: 14.sp,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w500,
                   fontFamily: 'Poppins',
                   color: appColors().gray[500],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Poppins',
-                      color: appColors().gray[500],
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(
-                    'Remove',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Poppins',
-                      color: appColors().primaryColorApp.withOpacity(0.6),
-                    ),
-                  ),
-                ),
-              ],
             ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Remove',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Poppins',
+                  color: appColors().primaryColorApp.withOpacity(0.6),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
 
       if (confirmed != true) return;

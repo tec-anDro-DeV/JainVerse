@@ -92,8 +92,11 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
 
     // Recalculate and cache
     final raw = _getRawArtists() ?? '';
-    _cachedArtistNames =
-        raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    _cachedArtistNames = raw
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     _lastMediaItemId = currentMediaItemId;
 
     return _cachedArtistNames!;
@@ -122,25 +125,22 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
         final screenWidth = MediaQuery.of(context).size.width;
         const tabletThreshold = 600.0;
         // Allow track info to use more width on tablets: 98% of available screen width
-        final maxContentWidth =
-            screenWidth >= tabletThreshold
-                ? screenWidth * 0.98
-                : double.infinity;
-        final horizontalPadding =
-            screenWidth >= tabletThreshold
-                ? ((screenWidth - maxContentWidth) / 2)
-                    .clamp(4.0.w, 96.0.w)
-                    .toDouble()
-                : 0.0;
+        final maxContentWidth = screenWidth >= tabletThreshold
+            ? screenWidth * 0.98
+            : double.infinity;
+        final horizontalPadding = screenWidth >= tabletThreshold
+            ? ((screenWidth - maxContentWidth) / 2)
+                  .clamp(4.0.w, 96.0.w)
+                  .toDouble()
+            : 0.0;
 
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth:
-                  screenWidth >= tabletThreshold
-                      ? maxContentWidth
-                      : double.infinity,
+              maxWidth: screenWidth >= tabletThreshold
+                  ? maxContentWidth
+                  : double.infinity,
             ),
             child: Row(
               children: [
@@ -195,20 +195,15 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
                                         fontSize: AppSizes.fontMedium,
                                         color: Colors.white.withOpacity(0.8),
                                       ),
-                                      recognizer:
-                                          TapGestureRecognizer()
-                                            ..onTap = () {
-                                              final artistId =
-                                                  idx < ids.length
-                                                      ? ids[idx]
-                                                      : '';
-                                              final artistName = names[idx];
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () {
+                                          final artistId = idx < ids.length
+                                              ? ids[idx]
+                                              : '';
+                                          final artistName = names[idx];
 
-                                              _onArtistTap(
-                                                artistId,
-                                                artistName,
-                                              );
-                                            },
+                                          _onArtistTap(artistId, artistName);
+                                        },
                                     );
                                   } else {
                                     final sepIdx = i ~/ 2;
@@ -295,7 +290,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
           // Create DataMusic object from MediaItem as fallback
           final currentStatus =
               widget.mediaItem!.extras?['favourite']?.toString() ?? '0';
-          songData = DataMusic(
+          songData = SongModel.legacy(
             int.parse(audioId),
             widget.mediaItem!.extras?['image'] ?? '',
             widget.mediaItem!.extras?['actual_audio_url'] ??
@@ -377,7 +372,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
       }
 
       // Create DataMusic object from MediaItem
-      final track = DataMusic(
+      final track = SongModel.legacy(
         int.parse(audioId),
         widget.mediaItem!.artUri?.toString() ?? '',
         widget.mediaItem?.extras?['actual_audio_url']?.toString() ?? '',
@@ -472,7 +467,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
       } catch (e) {
         print('Current song not found in listCopy, creating from MediaItem');
         // Create DataMusic object from MediaItem as fallback
-        currentSong = DataMusic(
+        currentSong = SongModel.legacy(
           int.parse(audioId),
           widget.mediaItem?.extras?['image'] ?? '',
           widget.mediaItem?.extras?['actual_audio_url'] ?? '',
@@ -575,12 +570,11 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
     if (rawArtists == null || rawArtists.trim().isEmpty) {
       return 'Unknown Artist';
     }
-    final parts =
-        rawArtists
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+    final parts = rawArtists
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     if (parts.length == 1) return parts[0];
     if (parts.length == 2) return '${parts[0]} and ${parts[1]}';
     return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
@@ -684,13 +678,12 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
     // Defer push into the current tab's nested navigator
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final route = MaterialPageRoute(
-        builder:
-            (_) => ArtistDetailScreen(
-              audioHandler: widget.audioHandler,
-              idTag: artistId,
-              typ: 'Artists',
-              catName: artistName,
-            ),
+        builder: (_) => ArtistDetailScreen(
+          audioHandler: widget.audioHandler,
+          idTag: artistId,
+          typ: 'Artists',
+          catName: artistName,
+        ),
         settings: const RouteSettings(name: '/track_info_to_artist_songs'),
       );
 

@@ -183,12 +183,10 @@ class DownloadController extends ChangeNotifier {
         throw Exception('Failed to fetch server download list');
       }
 
-      _imagePath = serverData.imagePath;
-      _audioPath = serverData.audioPath;
-
       // --- BEGIN: Remove local tracks not in server list ---
-      final serverTrackIds =
-          serverData.data.map((track) => track.id.toString()).toSet();
+      final serverTrackIds = serverData.data
+          .map((track) => track.id.toString())
+          .toSet();
       final localTrackIds = _downloadedTracks.map((track) => track.id).toSet();
       final orphanedTrackIds = localTrackIds.difference(serverTrackIds);
       if (orphanedTrackIds.isNotEmpty) {
@@ -244,21 +242,20 @@ class DownloadController extends ChangeNotifier {
       // Check if track already exists in local storage
       final existingTrack = _downloadedTracks.firstWhere(
         (d) => d.id == trackId,
-        orElse:
-            () => DownloadedMusic(
-              id: '',
-              title: '',
-              artist: '',
-              albumName: '',
-              imageUrl: '',
-              audioUrl: '',
-              duration: '',
-              localAudioPath: '',
-              localImagePath: '',
-              downloadedAt: DateTime.now(),
-              fileSize: 0,
-              isDownloadComplete: false,
-            ),
+        orElse: () => DownloadedMusic(
+          id: '',
+          title: '',
+          artist: '',
+          albumName: '',
+          imageUrl: '',
+          audioUrl: '',
+          duration: '',
+          localAudioPath: '',
+          localImagePath: '',
+          downloadedAt: DateTime.now(),
+          fileSize: 0,
+          isDownloadComplete: false,
+        ),
       );
 
       if (existingTrack.id.isNotEmpty && existingTrack.isDownloadComplete) {
@@ -559,12 +556,11 @@ class DownloadController extends ChangeNotifier {
       AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         channelId,
         channelName,
-        channelDescription:
-            isCompleted
-                ? 'Notifies when downloads are complete'
-                : isFailed
-                ? 'Notifies when downloads fail'
-                : 'Shows real-time download progress with progress bar',
+        channelDescription: isCompleted
+            ? 'Notifies when downloads are complete'
+            : isFailed
+            ? 'Notifies when downloads fail'
+            : 'Shows real-time download progress with progress bar',
         importance: importance,
         priority: priority,
         showWhen: false,
@@ -579,12 +575,11 @@ class DownloadController extends ChangeNotifier {
         largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         color: notificationColor,
         colorized: true, // Use the color for the entire notification
-        category:
-            isCompleted
-                ? AndroidNotificationCategory.status
-                : isFailed
-                ? AndroidNotificationCategory.error
-                : AndroidNotificationCategory.progress,
+        category: isCompleted
+            ? AndroidNotificationCategory.status
+            : isFailed
+            ? AndroidNotificationCategory.error
+            : AndroidNotificationCategory.progress,
         visibility: NotificationVisibility.public,
         subText: subText,
         // Enhanced styling for better UX
@@ -940,21 +935,20 @@ class DownloadController extends ChangeNotifier {
     try {
       final track = _downloadedTracks.firstWhere(
         (d) => d.id == trackId,
-        orElse:
-            () => DownloadedMusic(
-              id: '',
-              title: '',
-              artist: '',
-              albumName: '',
-              imageUrl: '',
-              audioUrl: '',
-              duration: '',
-              localAudioPath: '',
-              localImagePath: '',
-              downloadedAt: DateTime.now(),
-              fileSize: 0,
-              isDownloadComplete: false,
-            ),
+        orElse: () => DownloadedMusic(
+          id: '',
+          title: '',
+          artist: '',
+          albumName: '',
+          imageUrl: '',
+          audioUrl: '',
+          duration: '',
+          localAudioPath: '',
+          localImagePath: '',
+          downloadedAt: DateTime.now(),
+          fileSize: 0,
+          isDownloadComplete: false,
+        ),
       );
 
       if (track.id.isNotEmpty) {
@@ -1014,21 +1008,20 @@ class DownloadController extends ChangeNotifier {
     try {
       final track = _downloadedTracks.firstWhere(
         (d) => d.id == trackId,
-        orElse:
-            () => DownloadedMusic(
-              id: '',
-              title: '',
-              artist: '',
-              albumName: '',
-              imageUrl: '',
-              audioUrl: '',
-              duration: '',
-              localAudioPath: '',
-              localImagePath: '',
-              downloadedAt: DateTime.now(),
-              fileSize: 0,
-              isDownloadComplete: false,
-            ),
+        orElse: () => DownloadedMusic(
+          id: '',
+          title: '',
+          artist: '',
+          albumName: '',
+          imageUrl: '',
+          audioUrl: '',
+          duration: '',
+          localAudioPath: '',
+          localImagePath: '',
+          downloadedAt: DateTime.now(),
+          fileSize: 0,
+          isDownloadComplete: false,
+        ),
       );
 
       if (track.id.isEmpty || !track.isDownloadComplete) {
@@ -1126,21 +1119,20 @@ class DownloadController extends ChangeNotifier {
   String? getLocalAudioPath(String trackId) {
     final track = _downloadedTracks.firstWhere(
       (d) => d.id == trackId && d.isDownloadComplete,
-      orElse:
-          () => DownloadedMusic(
-            id: '',
-            title: '',
-            artist: '',
-            albumName: '',
-            imageUrl: '',
-            audioUrl: '',
-            duration: '',
-            localAudioPath: '',
-            localImagePath: '',
-            downloadedAt: DateTime.now(),
-            fileSize: 0,
-            isDownloadComplete: false,
-          ),
+      orElse: () => DownloadedMusic(
+        id: '',
+        title: '',
+        artist: '',
+        albumName: '',
+        imageUrl: '',
+        audioUrl: '',
+        duration: '',
+        localAudioPath: '',
+        localImagePath: '',
+        downloadedAt: DateTime.now(),
+        fileSize: 0,
+        isDownloadComplete: false,
+      ),
     );
 
     return track.id.isNotEmpty ? track.localAudioPath : null;

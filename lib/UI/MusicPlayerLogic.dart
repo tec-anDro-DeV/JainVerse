@@ -64,7 +64,6 @@ class StateClass extends State<MusicList> {
   late String typ;
   AudioPlayerHandler? _audioHandler;
   List<DataMusic> list = [];
-  String pathImage = '', audioPath = '';
   bool tillLoading = true;
   bool isOpen = false;
   String token = "";
@@ -135,7 +134,7 @@ class StateClass extends State<MusicList> {
       // If favorites haven't loaded yet, check the song's favorite field directly
       final song = list.firstWhere(
         (s) => s.id.toString() == songId,
-        orElse: () => DataMusic(
+        orElse: () => SongModel.legacy(
           0,
           '',
           '',
@@ -169,8 +168,6 @@ class StateClass extends State<MusicList> {
     ModelMusicList mList = await CatSubcatMusicPresenter()
         .getMusicListByCategory(idTag, typ, token);
     list = mList.data;
-    pathImage = mList.imagePath;
-    audioPath = mList.audioPath;
     parentData = mList.parent; // Store parent data
     // Initialize a single fallback image URL if not set
     if (_fallbackImageUrl == null) {
@@ -180,8 +177,10 @@ class StateClass extends State<MusicList> {
       if (songsWithImages.isNotEmpty) {
         final randomSong =
             songsWithImages[math.Random().nextInt(songsWithImages.length)];
-        _fallbackImageUrl =
-            '${AppConstant.ImageUrl}images/audio/thumb/${randomSong.image}';
+        final rawImage = randomSong.image;
+        _fallbackImageUrl = rawImage.startsWith('http')
+            ? rawImage
+            : AppConstant.ImageUrl + rawImage;
       }
     }
     tillLoading = false;
@@ -1019,8 +1018,6 @@ class StateClass extends State<MusicList> {
       await musicManager.playSongById(
         musicList: list,
         startIndex: startIndex,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'MusicList._playAllSongs',
       );
 
@@ -1057,8 +1054,6 @@ class StateClass extends State<MusicList> {
       await musicManager.playSongById(
         musicList: list,
         startIndex: index,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'MusicList._playMusic',
       );
 

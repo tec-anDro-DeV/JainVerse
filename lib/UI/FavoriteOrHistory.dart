@@ -58,7 +58,7 @@ class StateClass extends State<Favorite> {
   List<DataMusic> list = [];
   List<DataMusic> filteredList = []; // For search functionality
   String searchQuery = '';
-  String pathImage = '', audioPath = '', token = '';
+  String token = '';
   bool showArrow = false, isLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
@@ -85,8 +85,6 @@ class StateClass extends State<Favorite> {
   Future<void> favAPI() async {
     ModelMusicList mList = await FavMusicPresenter().getFavMusicList(token);
     mList.data.length;
-    pathImage = mList.imagePath;
-    audioPath = mList.audioPath;
     list = mList.data;
     filteredList = List.from(list); // Initialize filtered list
     isLoading = false;
@@ -109,8 +107,6 @@ class StateClass extends State<Favorite> {
     final Map<String, dynamic> parsed = json.decode(data.toString());
     ModelMusicList mList = ModelMusicList.fromJson(parsed);
     mList.data.length;
-    pathImage = mList.imagePath;
-    audioPath = mList.audioPath;
     list = mList.data;
     filteredList = List.from(list); // Initialize filtered list
     isLoading = false;
@@ -266,12 +262,14 @@ class StateClass extends State<Favorite> {
     }
   }
 
-  // Compose full image URL safely, handling missing base/path segments.
+  // Compose full image URL safely
   String _composeImageUrl(String imageName) {
     if (imageName.isEmpty) return '';
-    // Ensure pathImage and AppConstant.ImageUrl are combined safely.
+    // If image already has http, use as-is
+    if (imageName.startsWith('http')) return imageName;
+    // Otherwise combine with base URL
     final base = AppConstant.ImageUrl;
-    String combined = '$base$pathImage$imageName';
+    String combined = '$base$imageName';
     // Replace any double slashes (except after protocol) to avoid malformed URLs.
     combined = combined.replaceAll(RegExp(r'(?<!:)//+'), '/');
     return combined;
@@ -662,8 +660,6 @@ class StateClass extends State<Favorite> {
       await musicManager.replaceQueue(
         musicList: filteredList, // Use filtered list for search results
         startIndex: startIndex,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'FavoriteOrHistory._playAllSongs',
       );
 
@@ -706,21 +702,18 @@ class StateClass extends State<Favorite> {
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-        audioPath: audioPath,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-        audioPath: audioPath,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
         song.audio_title,
         "song",
         song.id.toString(),
         imagePath: imageUrl.isNotEmpty ? imageUrl : null,
-        audioPath: audioPath,
       ),
       onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
         song.id.toString(),
@@ -1094,8 +1087,6 @@ class StateClass extends State<Favorite> {
       await musicManager.replaceQueue(
         musicList: list,
         startIndex: index,
-        pathImage: pathImage,
-        audioPath: audioPath,
         callSource: 'FavoriteOrHistory.onSongTap',
       );
 
@@ -1124,7 +1115,7 @@ class StateClass extends State<Favorite> {
               "favorite_error", // idGet (source identifier)
               "error_fallback", // typeGet (path type)
               list, // listMain
-              audioPath, // audioPath
+              '', // audioPath no longer needed
               index, // index
               false, // isOpn - regular behavior
               () {

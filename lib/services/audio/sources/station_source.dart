@@ -56,17 +56,10 @@ class StationSource {
       }
     }
 
-    final imagePath = response.imagePath.isNotEmpty
-        ? response.imagePath
-        : 'images/audio/thumb/';
-    final audioPath = response.audioPath.isNotEmpty
-        ? response.audioPath
-        : 'images/audio/';
-
     return StationSourceResult(
       songs: orderedSongs,
-      imagePath: imagePath,
-      audioPath: audioPath,
+      imagePath: '', // No longer needed - songs have full URLs
+      audioPath: '', // No longer needed - songs have full URLs
       contextId: 'station_${seed.id}',
     );
   }

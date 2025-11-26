@@ -9,6 +9,7 @@ import 'package:jainverse/Model/ModelPlanList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
+import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
@@ -17,7 +18,6 @@ import 'package:jainverse/Presenter/PlanPresenter.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/audio_preloader_service.dart';
-import 'package:jainverse/services/image_url_normalizer.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
 /// Music controller responsible for managing music playback state,
@@ -36,15 +36,13 @@ class MusicController extends ChangeNotifier {
   bool _isDisposed = false;
 
   // State variables
-  List<DataMusic> _listCopy = [];
+  List<SongModel> _listCopy = [];
   int _currentIndex = 0;
   int _indexOnScreenSelect = 0;
   late UserModel _model;
   String _token = '';
   String _type = '';
   String _idTag = '';
-  String _audioPathMain = '';
-  String _imagePath = '';
   List<MediaItem> _listData = [];
   ModelTheme _sharedPreThemeData = ModelTheme('', '', '', '', '', '');
   bool _checkCurrent = false;
@@ -56,6 +54,8 @@ class MusicController extends ChangeNotifier {
   List<SubData> _listPlans = [];
   bool _isOpen = false;
   final bool _local = false;
+  String _imagePath = 'images/audio/thumb/';
+  String _audioPathMain = 'images/audio/';
   Duration? _remaining;
   Duration? _start;
   String _playing = '0:00';
@@ -72,15 +72,13 @@ class MusicController extends ChangeNotifier {
   StreamSubscription? _mediaItemSubscription;
 
   // Getters
-  List<DataMusic> get listCopy => _listCopy;
+  List<SongModel> get listCopy => _listCopy;
   int get currentIndex => _currentIndex;
   int get indexOnScreenSelect => _indexOnScreenSelect;
   UserModel get model => _model;
   String get token => _token;
   String get type => _type;
   String get idTag => _idTag;
-  String get audioPathMain => _audioPathMain;
-  String get imagePath => _imagePath;
   List<MediaItem> get listData => _listData;
   ModelTheme get sharedPreThemeData => _sharedPreThemeData;
   bool get checkCurrent => _checkCurrent;
@@ -102,14 +100,17 @@ class MusicController extends ChangeNotifier {
   MediaItem get currentData => _currentData;
   String get downloading => _downloading;
   String get progressString => _progressString;
+  String get imagePath => _imagePath;
+  String get audioPathMain => _audioPathMain;
 
   /// Initialize the music controller with provided data
   Future<void> initialize({
     required String idGet,
     required String typeGet,
-    required List<DataMusic> listMain,
-    required String audioPath,
+    required List<SongModel> listMain,
     required int index,
+    String? audioPath,
+    String? imagePath,
   }) async {
     if (_isDisposed) return;
 
@@ -125,9 +126,16 @@ class MusicController extends ChangeNotifier {
       _listCopy = listMain;
     }
 
+    if (audioPath != null && audioPath.isNotEmpty) {
+      _audioPathMain = audioPath;
+    }
+
+    if (imagePath != null && imagePath.isNotEmpty) {
+      _imagePath = imagePath;
+    }
+
     _idTag = idGet;
     _type = typeGet;
-    _audioPathMain = audioPath;
     _checkCurrent = false;
 
     await _loadUserData();
@@ -329,11 +337,10 @@ class MusicController extends ChangeNotifier {
       );
 
       _listCopy = mList.data;
-      _audioPathMain = mList.audioPath;
-      _imagePath = mList.imagePath; // Store the correct image path from API
+      // imagePath and audioPath no longer needed - songs have full URLs
 
       // Convert to MediaItems
-      _listData = _convertToMediaItems(mList.data, mList.imagePath);
+      _listData = _convertToMediaItems(mList.data);
 
       developer.log(
         '🔥 [QUEUE_FIX] MusicController _convertToMediaItems completed, generated ${_listData.length} MediaItems',
@@ -345,7 +352,7 @@ class MusicController extends ChangeNotifier {
       }
 
       developer.log(
-        '[DEBUG][MusicController][loadMusicByCategory] Loaded ${_listCopy.length} songs, imagePath: $_imagePath',
+        '[DEBUG][MusicController][loadMusicByCategory] Loaded ${_listCopy.length} songs',
         name: 'MusicController',
       );
     } catch (e) {
@@ -357,77 +364,74 @@ class MusicController extends ChangeNotifier {
     }
   }
 
-  /// Convert DataMusic list to MediaItem list
-  List<MediaItem> _convertToMediaItems(
-    List<DataMusic> musicList,
-    String imagePath,
-  ) {
+  /// Convert SongModel list to MediaItem list
+  List<MediaItem> _convertToMediaItems(List<SongModel> musicList) {
     developer.log(
       '🔥 [QUEUE_FIX] MusicController converting ${musicList.length} music items to MediaItems',
       name: 'MusicController',
     );
-    developer.log('🔥 [QUEUE_FIX] MusicController Image path: $imagePath');
 
     return musicList.map((item) {
-      String s = item.audio_duration.trim();
+      final parsedDuration = _parseDurationSafely(item.audioDuration);
 
-      // Remove any newline characters from the duration string
-      s = s.replaceAll('\n', '').trim();
-
-      Duration duration;
-      try {
-        List idx = s.split(':');
-
-        if (idx.length == 3) {
-          duration = Duration(
-            hours: int.parse(idx[0]),
-            minutes: int.parse(idx[1]),
-            seconds: int.parse(double.parse(idx[2]).round().toString()),
-          );
-        } else {
-          duration = Duration(
-            minutes: int.parse(idx[0]),
-            seconds: int.parse(idx[1]),
-          );
-        }
-      } catch (e) {
-        // Fallback to a default duration if parsing fails
-        debugPrint(
-          'Error parsing duration "${item.audio_duration}" for ${item.audio_title}: $e',
-        );
-        duration = const Duration(minutes: 3); // Default to 3 minutes
-      }
-
-      // Create unique MediaItem ID to ensure proper queue replacement
-      // Format: audioUrl + contextual info (controller + timestamp)
       final uniqueId =
-          '${item.audio}?controller=music&ts=${DateTime.now().millisecondsSinceEpoch}';
+          '${item.audioUrl}?controller=music&ts=${DateTime.now().millisecondsSinceEpoch}';
 
       developer.log(
-        '🔥 [QUEUE_FIX] MusicController creating MediaItem with unique ID: $uniqueId for song: ${item.audio_title}',
+        '🔥 [QUEUE_FIX] MusicController creating MediaItem with unique ID: $uniqueId for song: ${item.audioTitle}',
         name: 'MusicController',
       );
 
+      final artUri = item.imageUrl.isNotEmpty ? Uri.parse(item.imageUrl) : null;
+
       return MediaItem(
-        id: uniqueId, // Use unique ID for proper queue replacement
-        title: item.audio_title,
-        artist: item.artists_name,
-        duration: duration,
-        artUri: Uri.parse(
-          ImageUrlNormalizer.normalizeImageUrl(
-            imageFileName: item.image,
-            pathImage: imagePath,
-          ),
-        ),
+        id: uniqueId,
+        title: item.audioTitle,
+        artist: item.channelName,
+        duration: parsedDuration,
+        artUri: artUri,
         extras: {
           'audio_id': item.id.toString(),
-          'actual_audio_url':
-              item.audio, // Store the actual audio URL for playback
+          'actual_audio_url': item.audioUrl,
           'lyrics': item.lyrics,
-          'favourite': item.favourite, // Include favorite status
+          'favourite': item.isFavourite.toString(),
+          'channel_image': item.channelImageUrl,
         },
       );
     }).toList();
+  }
+
+  Duration _parseDurationSafely(String? rawDuration) {
+    final sanitized = rawDuration?.replaceAll('\n', '').trim();
+    if (sanitized == null || sanitized.isEmpty) {
+      return const Duration(minutes: 3);
+    }
+
+    try {
+      final parts = sanitized.split(':');
+      if (parts.length == 3) {
+        return Duration(
+          hours: int.parse(parts[0]),
+          minutes: int.parse(parts[1]),
+          seconds: int.parse(parts[2]),
+        );
+      }
+
+      if (parts.length == 2) {
+        return Duration(
+          minutes: int.parse(parts[0]),
+          seconds: int.parse(parts[1]),
+        );
+      }
+
+      if (parts.length == 1) {
+        return Duration(seconds: int.parse(parts[0]));
+      }
+    } catch (e) {
+      debugPrint('Error parsing duration "$sanitized": $e');
+    }
+
+    return const Duration(minutes: 3);
   }
 
   /// Load plans from API

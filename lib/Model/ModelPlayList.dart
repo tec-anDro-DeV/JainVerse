@@ -1,26 +1,13 @@
 import 'ModelMusicList.dart';
 
-// Model for user playlists API (now includes imagePath and audioPath at top-level)
+// Model for user playlists API
 
 class ModelPlayList {
   bool status;
   String msg;
-
-  /// Relative path returned by API for images (e.g. "images/audio/thumb/")
-  String imagePath;
-
-  /// Relative path returned by API for audio files (e.g. "images/audio/")
-  String audioPath;
-
   List<DataCat> data;
 
-  ModelPlayList(
-    this.status,
-    this.msg,
-    this.data,
-    this.imagePath,
-    this.audioPath,
-  );
+  ModelPlayList(this.status, this.msg, this.data);
 
   factory ModelPlayList.fromJson(Map<String, dynamic> json) {
     List<DataCat> d = [];
@@ -28,35 +15,26 @@ class ModelPlayList {
       d = List<DataCat>.from(json["data"].map((x) => DataCat.fromJson(x)));
     }
 
-    return ModelPlayList(
-      json['status'] ?? false,
-      json['msg'] ?? '',
-      d,
-      json['imagePath'] ?? '',
-      json['audioPath'] ?? '',
-    );
+    return ModelPlayList(json['status'] ?? false, json['msg'] ?? '', d);
   }
 
   Map<String, dynamic> toJson() {
     return {
       'status': status,
       'msg': msg,
-      'imagePath': imagePath,
-      'audioPath': audioPath,
-      'data':
-          data
-              .map(
-                (x) => {
-                  'id': x.id,
-                  'user_id': x.user_id,
-                  'playlist_name': x.playlist_name,
-                  'audio_count': x.audio_count,
-                  'song_list': x.song_list.map((s) => s.toJson()).toList(),
-                  'created_at': x.created_at,
-                  'updated_at': x.updated_at,
-                },
-              )
-              .toList(),
+      'data': data
+          .map(
+            (x) => {
+              'id': x.id,
+              'user_id': x.user_id,
+              'playlist_name': x.playlist_name,
+              'audio_count': x.audio_count,
+              'song_list': x.song_list.map((s) => s.toJson()).toList(),
+              'created_at': x.created_at,
+              'updated_at': x.updated_at,
+            },
+          )
+          .toList(),
     };
   }
 }

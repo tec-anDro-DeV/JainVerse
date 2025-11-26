@@ -3,7 +3,6 @@ import 'ModelCatSubcatMusic.dart' show Artist;
 class ModelAllCat {
   bool status;
   String msg;
-  String imagePath;
   List<SubData> sub_category;
   String? type; // Add type field as it's in the response
   // Optional pagination meta returned by API
@@ -14,8 +13,7 @@ class ModelAllCat {
   ModelAllCat(
     this.status,
     this.msg,
-    this.sub_category,
-    this.imagePath, {
+    this.sub_category, {
     this.type,
     this.currentPage,
     this.totalPages,
@@ -36,7 +34,6 @@ class ModelAllCat {
       json['status'] ?? false,
       json['msg'] ?? '',
       subCategoryList,
-      json['imagePath'] ?? '',
       type: json['type'],
       currentPage: json['current_page'] ?? json['currentPage'],
       totalPages: json['total_pages'] ?? json['totalPages'],
@@ -49,7 +46,6 @@ class ModelAllCat {
     return {
       'status': status,
       'msg': msg,
-      'imagePath': imagePath,
       'sub_category': sub_category.map((x) => x.toJson()).toList(),
       'type': type,
       'current_page': currentPage,
@@ -126,13 +122,12 @@ class SubData {
     if (json.containsKey('artists') && json['artists'] != null) {
       final artistsData = json['artists'];
       if (artistsData is List) {
-        artistsList =
-            artistsData
-                .map(
-                  (artistJson) =>
-                      Artist.fromJson(artistJson as Map<String, dynamic>),
-                )
-                .toList();
+        artistsList = artistsData
+            .map(
+              (artistJson) =>
+                  Artist.fromJson(artistJson as Map<String, dynamic>),
+            )
+            .toList();
       }
     }
 

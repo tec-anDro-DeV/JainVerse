@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -50,8 +51,10 @@ class AddToPlaylistBottomSheet extends StatefulWidget {
     bool forceRefresh = false,
     bool showCreateOnly = false,
   }) {
-    final BuildContext rootContext =
-        Navigator.of(context, rootNavigator: true).context;
+    final BuildContext rootContext = Navigator.of(
+      context,
+      rootNavigator: true,
+    ).context;
 
     return showGeneralDialog<void>(
       context: rootContext,
@@ -119,12 +122,13 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
       vsync: this,
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 1.0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
@@ -238,8 +242,10 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
     HapticFeedback.lightImpact();
 
     // Use root navigator context to ensure dialog appears above all navigation elements
-    final BuildContext rootContext =
-        Navigator.of(context, rootNavigator: true).context;
+    final BuildContext rootContext = Navigator.of(
+      context,
+      rootNavigator: true,
+    ).context;
 
     final result = await CreatePlaylistDialog.show(
       rootContext,
@@ -433,44 +439,43 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
                 ),
               ],
             ),
-            child:
-                widget.songImage != null && widget.songImage!.isNotEmpty
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12.r),
-                      child: Image.network(
-                        '${AppConstant.ImageUrl}images/audio/thumb/${widget.songImage}',
-                        width: 54.w,
-                        height: 54.w,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: appColors().primaryColorApp.withOpacity(
-                                0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(12.r),
+            child: widget.songImage != null && widget.songImage!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: Image.network(
+                      '${AppConstant.ImageUrl}images/audio/thumb/${widget.songImage}',
+                      width: 54.w,
+                      height: 54.w,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: appColors().primaryColorApp.withOpacity(
+                              0.15,
                             ),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20.w,
-                                height: 20.w,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.0,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    appColors().primaryColorApp,
-                                  ),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                valueColor: AlwaysStoppedAnimation(
+                                  appColors().primaryColorApp,
                                 ),
                               ),
                             ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildDefaultSongIcon();
-                        },
-                      ),
-                    )
-                    : _buildDefaultSongIcon(),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildDefaultSongIcon();
+                      },
+                    ),
+                  )
+                : _buildDefaultSongIcon(),
           ),
           SizedBox(width: 14.w),
           Expanded(
@@ -842,61 +847,50 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
             duration: const Duration(milliseconds: 250),
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color:
-                  isLoading
-                      ? appColors().primaryColorApp.withOpacity(0.15)
-                      : Colors.white.withOpacity(0.08),
+              color: isLoading
+                  ? appColors().primaryColorApp.withOpacity(0.15)
+                  : Colors.white.withOpacity(0.08),
               borderRadius: BorderRadius.circular(20.r),
               border: Border.all(
-                color:
-                    isLoading
-                        ? appColors().primaryColorApp.withOpacity(0.4)
-                        : Colors.white.withOpacity(0.2),
+                color: isLoading
+                    ? appColors().primaryColorApp.withOpacity(0.4)
+                    : Colors.white.withOpacity(0.2),
                 width: isLoading ? 2 : 1.5,
               ),
-              boxShadow:
-                  isLoading
-                      ? [
-                        BoxShadow(
-                          color: appColors().primaryColorApp.withOpacity(0.2),
-                          blurRadius: 12.w,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                      : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8.w,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+              boxShadow: isLoading
+                  ? [
+                      BoxShadow(
+                        color: appColors().primaryColorApp.withOpacity(0.2),
+                        blurRadius: 12.w,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 8.w,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Row(
               children: [
                 SizedBox(
                   width: 54.w,
                   height: 54.w,
-                  child:
-                      songCount > 0
-                          ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12.r),
-                            child:
-                                songCount > 0 &&
-                                        playlist
-                                            .song_list
-                                            .first
-                                            .image
-                                            .isNotEmpty
-                                    ? Image.network(
-                                      '${AppConstant.ImageUrl}images/audio/thumb/${playlist.song_list.first.image}',
-                                      width: 54.w,
-                                      height: 54.w,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder: (
-                                        context,
-                                        child,
-                                        loadingProgress,
-                                      ) {
+                  child: songCount > 0
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12.r),
+                          child:
+                              songCount > 0 &&
+                                  playlist.song_list.first.image.isNotEmpty
+                              ? Image.network(
+                                  '${AppConstant.ImageUrl}images/audio/thumb/${playlist.song_list.first.image}',
+                                  width: 54.w,
+                                  height: 54.w,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
                                         if (loadingProgress == null) {
                                           return child;
                                         }
@@ -926,17 +920,13 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
                                           ),
                                         );
                                       },
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
-                                        return _buildDefaultPlaylistIcon();
-                                      },
-                                    )
-                                    : _buildDefaultPlaylistIcon(),
-                          )
-                          : _buildDefaultPlaylistIcon(),
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return _buildDefaultPlaylistIcon();
+                                  },
+                                )
+                              : _buildDefaultPlaylistIcon(),
+                        )
+                      : _buildDefaultPlaylistIcon(),
                 ),
                 SizedBox(width: 20.w),
                 Expanded(
@@ -985,29 +975,27 @@ class _AddToPlaylistBottomSheetState extends State<AddToPlaylistBottomSheet>
                   width: 40.w,
                   height: 40.w,
                   decoration: BoxDecoration(
-                    color:
-                        isLoading
-                            ? appColors().primaryColorApp.withOpacity(0.2)
-                            : appColors().primaryColorApp.withOpacity(0.1),
+                    color: isLoading
+                        ? appColors().primaryColorApp.withOpacity(0.2)
+                        : appColors().primaryColorApp.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12.r),
                   ),
-                  child:
-                      isLoading
-                          ? SizedBox(
-                            width: 18.w,
-                            height: 18.w,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.0,
-                              valueColor: AlwaysStoppedAnimation(
-                                appColors().primaryColorApp,
-                              ),
+                  child: isLoading
+                      ? SizedBox(
+                          width: 18.w,
+                          height: 18.w,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            valueColor: AlwaysStoppedAnimation(
+                              appColors().primaryColorApp,
                             ),
-                          )
-                          : Icon(
-                            Icons.add_rounded,
-                            color: appColors().primaryColorApp,
-                            size: 24.sp,
                           ),
+                        )
+                      : Icon(
+                          Icons.add_rounded,
+                          color: appColors().primaryColorApp,
+                          size: 24.sp,
+                        ),
                 ),
               ],
             ),

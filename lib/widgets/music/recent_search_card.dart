@@ -8,7 +8,6 @@ import 'package:jainverse/widgets/musicplayer/three_dot_options_menu.dart';
 
 class RecentSearchCard extends StatefulWidget {
   final Map<String, dynamic> item;
-  final String pathImage;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
   final int index;
@@ -16,7 +15,6 @@ class RecentSearchCard extends StatefulWidget {
   const RecentSearchCard({
     super.key,
     required this.item,
-    required this.pathImage,
     required this.onTap,
     this.onRemove,
     required this.index,
@@ -201,24 +199,15 @@ class _RecentSearchCardState extends State<RecentSearchCard> {
   }
 
   String _getImageUrl() {
-    // First try to get from cached data with path
-    final cachedImagePath = widget.item['imagePath'] ?? '';
-    final imageUrl = widget.item['image'] ?? '';
-
-    if (cachedImagePath.isNotEmpty && imageUrl.isNotEmpty) {
-      return AppConstant.ImageUrl + cachedImagePath + imageUrl;
+    final raw = (widget.item['image'] ?? '').toString();
+    if (raw.isEmpty) {
+      return '';
     }
 
-    // Fallback to using provided pathImage
-    if (widget.pathImage.isNotEmpty && imageUrl.isNotEmpty) {
-      return AppConstant.ImageUrl + widget.pathImage + imageUrl;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
     }
 
-    // Last fallback - direct image URL
-    if (imageUrl.isNotEmpty) {
-      return AppConstant.ImageUrl + imageUrl;
-    }
-
-    return '';
+    return AppConstant.ImageUrl + raw;
   }
 }

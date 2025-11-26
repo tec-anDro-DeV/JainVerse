@@ -203,7 +203,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
                 '🔥 MusicPlayerView: Song not found in listCopy, creating from MediaItem',
               );
               // Create DataMusic object from MediaItem as fallback
-              songData = DataMusic(
+              songData = SongModel.legacy(
                 int.parse(audioId),
                 currentSong.extras?['image'] ?? '',
                 currentSong.extras?['actual_audio_url'] ?? currentSong.id,
@@ -258,7 +258,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
             '🔥 MusicPlayerView: Song not found in listCopy, creating from MediaItem',
           );
           // Create DataMusic object from MediaItem as fallback
-          songData = DataMusic(
+          songData = SongModel.legacy(
             int.parse(audioId),
             currentSong.extras?['image'] ?? '',
             currentSong.extras?['actual_audio_url'] ?? currentSong.id,
@@ -1003,7 +1003,7 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
           'Current song not found in listCopy, creating from MediaItem',
         );
         // Create DataMusic object from MediaItem as fallback
-        currentSong = DataMusic(
+        currentSong = SongModel.legacy(
           int.parse(audioId),
           currentMediaItem.extras?['image'] ?? '',
           currentMediaItem.extras?['actual_audio_url'] ?? '',
@@ -1069,7 +1069,6 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
 /// the call to `MusicPlayerView` with conservative defaults.
 class MusicPlayerUI extends StatelessWidget {
   final AudioPlayerHandler audioHandler;
-  final String pathImage;
   final String audioPath;
   final List<DataMusic> listData;
   final String catImages;
@@ -1083,7 +1082,6 @@ class MusicPlayerUI extends StatelessWidget {
 
   const MusicPlayerUI(
     this.audioHandler,
-    this.pathImage,
     this.audioPath,
     this.listData,
     this.catImages,

@@ -145,12 +145,13 @@ class SongSourceResolver {
       return imagePath;
     }
 
+    // If the artwork is already an absolute URL, trust it and return as-is.
+    // Previously we restricted this to images belonging to the app's site
+    // which caused CDN-hosted images to be rejected and replaced with
+    // the placeholder (often empty). Allow external http/https links so
+    // CDN artwork (like DigitalOcean Spaces) can be used by the mini player.
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      final sanitizedSite = AudioConstants.basePublicUrl.replaceAll('/', '');
-      if (imagePath.contains(sanitizedSite)) {
-        return imagePath;
-      }
-      return AudioConstants.placeholderImageUrl;
+      return imagePath;
     }
 
     return '${AudioConstants.basePublicUrl}images/audio/thumb/$imagePath';

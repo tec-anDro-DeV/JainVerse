@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
-import 'package:jainverse/Model/ModelMusicList.dart';
+import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
@@ -65,7 +65,7 @@ class SingleMusicService {
   final SharedPref _sharedPref = SharedPref();
 
   /// Fetch single music data by music ID
-  Future<DataMusic?> fetchSingleMusic(String musicId) async {
+  Future<SongModel?> fetchSingleMusic(String musicId) async {
     try {
       developer.log(
         '[SingleMusicService] Fetching single music data for ID: $musicId',
@@ -120,8 +120,8 @@ class SingleMusicService {
               name: 'SingleMusicService',
             );
 
-            // Convert to DataMusic object
-            return _convertToDataMusic(singleMusicData);
+            // Convert to unified SongModel
+            return _convertToSongModel(singleMusicData);
           } else {
             developer.log(
               '[SingleMusicService] ❌ API returned failure status',
@@ -155,36 +155,41 @@ class SingleMusicService {
     return null;
   }
 
-  /// Convert SingleMusicResponse to DataMusic object
-  DataMusic _convertToDataMusic(SingleMusicResponse response) {
-    // Use the actual duration from API, fallback to default if empty
+  /// Convert SingleMusicResponse to SongModel
+  SongModel _convertToSongModel(SingleMusicResponse response) {
     final duration = response.audioDuration.isNotEmpty
         ? response.audioDuration
         : '3:00';
 
-    return DataMusic(
-      response.id,
-      response.image, // image
-      response.audio, // audio (full URL)
-      duration, // audio_duration (now from API)
-      response.audioTitle, // audio_title
-      response.audioSlug.isNotEmpty
-          ? response.audioSlug
-          : _generateSlug(
-              response.audioTitle,
-            ), // audio_slug (use from API or generate)
-      0, // audio_genre_id (not provided by API)
-      response.artistId, // artist_id (now from API)
-      response.artistsName, // artists_name
-      '', // audio_language (not provided by API)
-      0, // listening_count (not provided by API)
-      0, // is_featured (not provided by API)
-      0, // is_trending (not provided by API)
-      '', // created_at (not provided by API)
-      0, // is_recommended (not provided by API)
-      '0', // favourite (default to not favorite)
-      '', // download_price (not provided by API)
-      '', // lyrics (not provided by API)
+    final slug = response.audioSlug.isNotEmpty
+        ? response.audioSlug
+        : _generateSlug(response.audioTitle);
+
+    final channelId = int.tryParse(response.artistId) ?? 0;
+
+    return SongModel(
+      id: response.id,
+      channelId: channelId,
+      imageUrl: response.image,
+      bannerImage: response.bannerImage.isNotEmpty
+          ? response.bannerImage
+          : null,
+      audioUrl: response.audio,
+      audioDuration: duration,
+      audioTitle: response.audioTitle,
+      audioSlug: slug,
+      copyright: '',
+      listeningCount: 0,
+      lyrics: null,
+      description: '',
+      releaseDate: '',
+      isFeatured: 0,
+      isTrending: 0,
+      isRecommended: 0,
+      channelName: response.artistsName,
+      channelHandle: response.artistId,
+      channelImageUrl: response.image,
+      isFavourite: 0,
     );
   }
 
@@ -198,8 +203,8 @@ class SingleMusicService {
   }
 
   /// Fetch multiple songs by IDs (batch operation)
-  Future<List<DataMusic>> fetchMultipleSongs(List<String> musicIds) async {
-    final List<DataMusic> results = [];
+  Future<List<SongModel>> fetchMultipleSongs(List<String> musicIds) async {
+    final List<SongModel> results = [];
 
     // Fetch songs sequentially to avoid rate limiting
     for (final musicId in musicIds) {
