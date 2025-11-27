@@ -71,7 +71,7 @@ class ChannelPresenter {
     try {
       final token = await _sharedPref.getToken();
       final uri = Uri.parse(
-        '${AppConstant.BaseUrl}${AppConstant.API_GET_CHANNEL}',
+        '${AppConstant.BaseUrl}${AppConstant.API_GET_MY_CHANNEL}',
       );
 
       final response = await http.get(

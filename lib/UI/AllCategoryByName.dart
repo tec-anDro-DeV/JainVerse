@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelAllCat.dart';
+import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
@@ -15,6 +16,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/artist_detail_screen.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
+import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/services/audio/common/audio_player_selectors.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
@@ -29,7 +31,6 @@ import '../widgets/common/app_header.dart';
 import '../widgets/common/loader.dart';
 import '../widgets/common/search_bar.dart';
 import '../widgets/media_items/index.dart';
-import 'MusicEntryPoint.dart';
 import 'MusicList.dart';
 
 AudioPlayerHandler? _audioHandler;
@@ -59,7 +60,7 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
   List<SubData> _posts = [];
   SharedPref sharePrefs = SharedPref();
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
-  String token = "", path = "";
+  String token = "";
   // Search bar controller
   final TextEditingController _searchController = TextEditingController();
   String _searchText = '';
@@ -106,7 +107,7 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       case "New Albums and EP's":
         return "New Albums";
       case "New Songs":
-        return "New Songs";
+        return "Latest Songs";
       case "Popular Artist":
         return "Trending Artists";
       case "Popular Songs":
@@ -310,8 +311,16 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
         return;
       }
 
+      final bool hasInlineSubCategory =
+          parsed['sub_category'] != null && parsed['sub_category'] is List;
+      final bool hasNestedSubCategory =
+          parsed['data'] != null &&
+          parsed['data'] is Map<String, dynamic> &&
+          (parsed['data']['sub_category'] != null &&
+              parsed['data']['sub_category'] is List);
+
       if (!parsed.containsKey('status') ||
-          !parsed.containsKey('sub_category')) {
+          (!hasInlineSubCategory && !hasNestedSubCategory)) {
         if (kDebugMode) {
           print("Unexpected response structure for $_typ");
         }
@@ -346,7 +355,7 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       }
 
       ModelAllCat allCat = ModelAllCat.fromJson(parsed);
-      List<SubData> postList = allCat.sub_category;
+      List<SubData> postList = allCat.subCategory;
 
       if (postList.isNotEmpty) {
         if (kDebugMode) {
@@ -696,20 +705,45 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
 
   Widget _buildModernCard(SubData post) {
     final apiType = _getApiType(_typ);
+    final bool isSongType = _isSongType(apiType);
+    final SongModel? songPayload = isSongType ? post.song : null;
 
-    // Extract image URL
+    // Extract image URL with graceful fallbacks
     String imageUrl = '';
-    if (post.image_url != null && post.image_url!.isNotEmpty) {
-      imageUrl = AppConstant.ImageUrl + path + post.image;
-    } else if (post.image.isNotEmpty) {
-      imageUrl = AppConstant.ImageUrl + path + post.image;
+    if (songPayload != null && songPayload.imageUrl.isNotEmpty) {
+      imageUrl = songPayload.imageUrl;
+    }
+    final String? absoluteImage = post.image_url?.trim();
+    final String? absoluteBanner = post.banner_url?.trim();
+    if (imageUrl.isEmpty && absoluteImage != null && absoluteImage.isNotEmpty) {
+      imageUrl = absoluteImage;
+    } else if (imageUrl.isEmpty &&
+        absoluteBanner != null &&
+        absoluteBanner.isNotEmpty) {
+      imageUrl = absoluteBanner;
+    } else if (imageUrl.isEmpty && post.image.isNotEmpty) {
+      imageUrl = post.image.startsWith('http')
+          ? post.image
+          : _buildAssetPath(post.image);
+    } else if (imageUrl.isEmpty && (post.banner_image ?? '').isNotEmpty) {
+      final rawBanner = post.banner_image!;
+      imageUrl = rawBanner.startsWith('http')
+          ? rawBanner
+          : _buildAssetPath(rawBanner);
     }
 
     // Determine display name and artist name based on content type
     String displayName;
     String artistName;
 
-    if (apiType == "Featured Playlists") {
+    if (songPayload != null) {
+      displayName = songPayload.audioTitle.isNotEmpty
+          ? songPayload.audioTitle
+          : post.name;
+      artistName = songPayload.channelName.isNotEmpty
+          ? songPayload.channelName
+          : _deriveArtistNameFromSubData(post) ?? 'Unknown Artist';
+    } else if (apiType == "Featured Playlists") {
       displayName = post.playlist_name.isNotEmpty
           ? post.playlist_name
           : post.name;
@@ -794,6 +828,14 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
     // Animate image and text on view change
     // Show dot only if is_trending == 1 (for songs only)
     final bool showDot = apiType.contains("Songs") && (post.is_trending == 1);
+    final String resolvedSongId =
+        songPayload?.id.toString() ?? post.id.toString();
+    final String resolvedSongTitle = songPayload?.audioTitle ?? displayName;
+    final String resolvedArtistName = songPayload?.channelName ?? artistName;
+    final String resolvedSlug = songPayload?.audioSlug ?? post.slug;
+    final String actionImagePath = songPayload?.imageUrl.isNotEmpty == true
+        ? songPayload!.imageUrl
+        : imageUrl;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       switchInCurve: Curves.easeInOut,
@@ -823,38 +865,40 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
               isPlaying: isPlayingNow,
               onPlay: apiType.contains("Songs")
                   ? () => _musicActionHandler.handlePlaySong(
-                      post.id.toString(),
-                      displayName,
+                      resolvedSongId,
+                      resolvedSongTitle,
                     )
                   : null,
               onPlayNext: apiType.contains("Songs")
                   ? () => _musicActionHandler.handlePlayNext(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
-                      imagePath: imageUrl,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
+                      imagePath: actionImagePath,
+                      track: songPayload,
                     )
                   : null,
               onAddToQueue: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleAddToQueue(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
-                      imagePath: imageUrl,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
+                      imagePath: actionImagePath,
+                      track: songPayload,
                     )
                   : null,
               onDownload: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleDownload(
-                      displayName,
+                      resolvedSongTitle,
                       "song",
-                      post.id.toString(),
+                      resolvedSongId,
                     )
                   : null,
               onAddToPlaylist: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleAddToPlaylist(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
                     )
                   : null,
               onShare:
@@ -868,14 +912,14 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
                           : apiType.contains("Albums")
                           ? "album"
                           : "playlist",
-                      itemId: post.id.toString(),
-                      slug: post.slug,
+                      itemId: resolvedSongId,
+                      slug: resolvedSlug,
                     )
                   : null,
               onFavorite: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleFavoriteToggle(
-                      post.id.toString(),
-                      displayName,
+                      resolvedSongId,
+                      resolvedSongTitle,
                       favoriteIds: _favoriteIds,
                     )
                   : null,
@@ -897,38 +941,40 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
               isPlaying: isPlayingNow,
               onPlay: apiType.contains("Songs")
                   ? () => _musicActionHandler.handlePlaySong(
-                      post.id.toString(),
-                      displayName,
+                      resolvedSongId,
+                      resolvedSongTitle,
                     )
                   : null,
               onPlayNext: apiType.contains("Songs")
                   ? () => _musicActionHandler.handlePlayNext(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
-                      imagePath: imageUrl,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
+                      imagePath: actionImagePath,
+                      track: songPayload,
                     )
                   : null,
               onAddToQueue: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleAddToQueue(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
-                      imagePath: imageUrl,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
+                      imagePath: actionImagePath,
+                      track: songPayload,
                     )
                   : null,
               onDownload: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleDownload(
-                      displayName,
+                      resolvedSongTitle,
                       "song",
-                      post.id.toString(),
+                      resolvedSongId,
                     )
                   : null,
               onAddToPlaylist: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleAddToPlaylist(
-                      post.id.toString(),
-                      displayName,
-                      artistName,
+                      resolvedSongId,
+                      resolvedSongTitle,
+                      resolvedArtistName,
                     )
                   : null,
               onShare:
@@ -942,14 +988,14 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
                           : apiType.contains("Albums")
                           ? "album"
                           : "playlist",
-                      itemId: post.id.toString(),
-                      slug: post.slug,
+                      itemId: resolvedSongId,
+                      slug: resolvedSlug,
                     )
                   : null,
               onFavorite: apiType.contains("Songs")
                   ? () => _musicActionHandler.handleFavoriteToggle(
-                      post.id.toString(),
-                      displayName,
+                      resolvedSongId,
+                      resolvedSongTitle,
                       favoriteIds: _favoriteIds,
                     )
                   : null,
@@ -1223,6 +1269,110 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
     );
   }
 
+  // Mirrors HomeDiscover instant play so we reuse already-fetched payloads
+  Future<void> _handleInstantSongTap(SubData post) async {
+    final payloads = _buildInstantSongPayloads();
+    if (payloads.isEmpty) {
+      await _fallbackToSmartPlay(post);
+      return;
+    }
+
+    final targetId = _resolveSongId(post);
+    final targetSlug = _resolveSongSlug(post);
+
+    int targetIndex = -1;
+    if (targetId != null && targetId.isNotEmpty) {
+      targetIndex = payloads.indexWhere((payload) => payload.id == targetId);
+    }
+
+    if (targetIndex == -1 && targetSlug != null && targetSlug.isNotEmpty) {
+      targetIndex = payloads.indexWhere((payload) {
+        final slug = payload.extras['audio_slug']?.toString();
+        return slug != null && slug == targetSlug;
+      });
+    }
+
+    if (targetIndex == -1) {
+      await _fallbackToSmartPlay(post);
+      return;
+    }
+
+    final forwardQueue = payloads.sublist(targetIndex);
+    await _musicActionHandler.handleInstantPlay(
+      payload: forwardQueue.first,
+      context: forwardQueue,
+      contextIndex: 0,
+    );
+  }
+
+  // Convert cached posts into instant-play payloads for the queue
+  List<SongPlaybackPayload> _buildInstantSongPayloads() {
+    final apiType = _getApiType(_typ);
+    return _posts
+        .where(_hasPlayableSong)
+        .map(_buildSongPlaybackPayload)
+        .whereType<SongPlaybackPayload>()
+        .map((payload) {
+          final enrichedExtras = Map<String, dynamic>.from(payload.extras);
+          enrichedExtras['category_type'] = apiType;
+          return payload.copyWith(extras: enrichedExtras);
+        })
+        .toList();
+  }
+
+  SongPlaybackPayload? _buildSongPlaybackPayload(SubData data) {
+    final song = data.song;
+    if (song == null || song.audioUrl.trim().isEmpty) {
+      return null;
+    }
+
+    final payload = SongPlaybackPayload.fromSongModel(song);
+    final extras = Map<String, dynamic>.from(payload.extras);
+    extras['category_item_id'] = data.id;
+    extras['category_item_slug'] = data.slug;
+    return payload.copyWith(extras: extras);
+  }
+
+  bool _hasPlayableSong(SubData data) {
+    final song = data.song;
+    if (song == null) return false;
+    return song.audioUrl.trim().isNotEmpty;
+  }
+
+  String? _resolveSongId(SubData data) {
+    final embeddedId = data.song?.id.toString();
+    if (embeddedId != null && embeddedId.isNotEmpty) {
+      return embeddedId;
+    }
+    final fallback = data.id.toString();
+    return fallback.isNotEmpty ? fallback : null;
+  }
+
+  String? _resolveSongSlug(SubData data) {
+    final embeddedSlug = data.song?.audioSlug;
+    if (embeddedSlug != null && embeddedSlug.isNotEmpty) {
+      return embeddedSlug;
+    }
+    return data.slug.isNotEmpty ? data.slug : null;
+  }
+
+  Future<void> _fallbackToSmartPlay(SubData post) async {
+    final fallbackId = _resolveSongId(post);
+    final fallbackTitle = post.song?.audioTitle ?? post.name;
+    if (fallbackId == null || fallbackId.isEmpty) {
+      _showSnackBar('Unable to play this song right now.');
+      return;
+    }
+    await _musicActionHandler.handlePlaySong(fallbackId, fallbackTitle);
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _scrollListener() {
     if (!_scrollController.hasClients) return;
 
@@ -1289,6 +1439,11 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
       );
     }
 
+    if (_isSongType(apiType)) {
+      await _handleInstantSongTap(post);
+      return;
+    }
+
     // For types that require using MusicList (has subcategories)
     if (apiType.contains("Albums") ||
         apiType.contains("Genres") ||
@@ -1332,101 +1487,31 @@ class _AllCategoryByNameState extends State<AllCategoryByName> {
         debugPrint(value);
         _reload();
       });
-    } else {
-      // For direct playback items (songs), use mini player
-      if (kDebugMode) {
-        print("🎵🎵🎵 ALLCATEGORYBYNAME STARTING SONG IN MINI PLAYER 🎵🎵🎵");
-        print("🎵 Type: $apiType, ID: ${post.id}, Name: ${post.name}");
-      }
-
-      try {
-        print('[DEBUG] Loading content for ID: ${post.id}, Type: $apiType');
-
-        // Get the songs for this category
-        final response = await CatSubcatMusicPresenter().getMusicListByCategory(
-          "${post.id}",
-          apiType,
-          token,
-        );
-
-        if (response.data.isNotEmpty) {
-          print(
-            '[DEBUG] Successfully loaded ${response.data.length} songs for $apiType: ${post.name}',
-          );
-
-          // Debug: Print first song data to see what we received
-          if (response.data.isNotEmpty) {
-            final firstSong = response.data[0];
-            print(
-              '[DEBUG] First song data: id=${firstSong.id}, audio_title="${firstSong.audio_title}", audio_slug="${firstSong.audio_slug}", artists_name="${firstSong.artists_name}"',
-            );
-          }
-
-          // Use music manager for queue replacement
-          final musicManager = MusicManager();
-
-          await musicManager.replaceQueue(
-            musicList: response.data,
-            startIndex: 0, // Start from the first song
-            callSource: 'AllCategoryByName.playContent',
-            contextType: apiType,
-            contextId: "${post.id}",
-          );
-
-          // Show mini player
-          final stateManager = MusicPlayerStateManager();
-          stateManager.showMiniPlayerForMusicStart();
-
-          print('[DEBUG] Music playback started via mini player');
-        } else {
-          print('[ERROR] No content found for this $apiType');
-
-          // Fallback to traditional navigation if no content
-          if (!mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Music(
-                _audioHandler,
-                "${post.id}",
-                apiType,
-                const [],
-                "",
-                0,
-                false,
-                '',
-              ),
-            ),
-          ).then((value) {
-            debugPrint(value);
-            _reload();
-          });
-        }
-      } catch (e) {
-        print('[ERROR] Failed to load and play content: $e');
-
-        // Fallback to traditional navigation on error
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => Music(
-              _audioHandler,
-              "${post.id}",
-              apiType,
-              const [],
-              "",
-              0,
-              false,
-              '',
-            ),
-          ),
-        ).then((value) {
-          debugPrint(value);
-          _reload();
-        });
-      }
     }
+  }
+
+  String _buildAssetPath(String relativePath) {
+    if (relativePath.isEmpty) return '';
+    final trimmed = relativePath.startsWith('/')
+        ? relativePath.substring(1)
+        : relativePath;
+    return '${AppConstant.ImageUrl}$trimmed';
+  }
+
+  String? _deriveArtistNameFromSubData(SubData post) {
+    final artists = post.artists;
+    if (artists == null || artists.isEmpty) return null;
+
+    if (artists.length == 1) {
+      return artists.first.artist_name ?? artists.first.name;
+    }
+    if (artists.length == 2) {
+      final a1 = artists.first;
+      final a2 = artists[1];
+      return "${a1.artist_name ?? a1.name} & ${a2.artist_name ?? a2.name}";
+    }
+    final a1 = artists.first;
+    return "${a1.artist_name ?? a1.name} & ${artists.length - 1} others";
   }
 
   /// Load user's favorite songs from the API to track state

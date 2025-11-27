@@ -1,4 +1,4 @@
-import 'package:jainverse/model/video_model.dart';
+import 'package:jainverse/Model/video_model.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 

@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/videoplayer/models/channel_item.dart';
 import 'package:jainverse/videoplayer/services/subscribed_channels_service.dart';
-import 'package:jainverse/videoplayer/screens/channel_videos_screen.dart';
+import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/main.dart';
 

@@ -1,7 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
-import 'package:jainverse/ThemeMain/AppSettings.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:provider/provider.dart';
@@ -79,6 +80,7 @@ class _HistoryCardState extends State<HistoryCard>
   Widget build(BuildContext context) {
     final double cardWidth = widget.width.w;
     final double cardHeight = widget.height.w;
+    final double cardSize = min(cardWidth, cardHeight);
 
     return Consumer<FavoritesProvider>(
       builder: (context, favoritesProvider, child) {
@@ -87,10 +89,9 @@ class _HistoryCardState extends State<HistoryCard>
         return buildLongPressWrapper(
           menuData: _createMenuData(isFavorite),
           child: SizedBox(
-            width: cardWidth,
-            height: cardHeight + 50.w, // Add space for text
+            width: cardSize,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Material(
@@ -102,31 +103,30 @@ class _HistoryCardState extends State<HistoryCard>
                     onTapDown: _onTapDown,
                     onTapUp: _onTapUp,
                     onTapCancel: _onTapCancel,
-                    child: AnimatedScale(
-                      scale: _pressed ? 1.05 : 1.0,
-                      duration: const Duration(milliseconds: 120),
-                      curve: Curves.easeOut,
-                      child: Container(
-                        width: cardWidth,
-                        height: cardHeight,
-                        margin: EdgeInsets.all(5.w),
-                        child: ImageWithFallback(
-                          imageUrl: widget.imagePath,
-                          width: cardWidth,
-                          height: cardHeight,
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                          borderRadius: BorderRadius.circular(24.0),
-                          fallbackAsset: 'assets/images/song_placeholder.png',
-                          backgroundColor: Colors.grey,
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24.0),
+                        child: AnimatedScale(
+                          scale: _pressed ? 1.05 : 1.0,
+                          duration: const Duration(milliseconds: 120),
+                          curve: Curves.easeOut,
+                          child: ImageWithFallback(
+                            imageUrl: widget.imagePath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            borderRadius: BorderRadius.circular(24.0),
+                            fallbackAsset: 'assets/images/song_placeholder.png',
+                            backgroundColor: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                Container(
-                  margin: EdgeInsets.fromLTRB(5.w, 2, 5.w, 0),
-                  width: cardWidth,
+                SizedBox(height: 4.w),
+                SizedBox(
+                  width: cardSize,
                   child: Text(
                     widget.songName,
                     maxLines: 1,
@@ -136,26 +136,27 @@ class _HistoryCardState extends State<HistoryCard>
                       fontFamily: 'Poppins',
                       fontSize: AppSizes.fontNormal,
                       fontWeight: FontWeight.w600,
-                      color:
-                          (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? appColors().colorText
-                              : appColors().colorText,
+                      color: (widget.sharedPreThemeData.themeImageBack.isEmpty)
+                          ? appColors().colorText
+                          : appColors().colorText,
                     ),
                   ),
                 ),
                 if (widget.artistName.isNotEmpty)
-                  Container(
-                    margin: EdgeInsets.fromLTRB(5.w, 2, 5.w, 0),
-                    width: cardWidth,
-                    child: Text(
-                      widget.artistName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: AppSizes.fontSmall,
-                        color: appColors().gray[500],
+                  Padding(
+                    padding: EdgeInsets.only(top: 2.w),
+                    child: SizedBox(
+                      width: cardSize,
+                      child: Text(
+                        widget.artistName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: AppSizes.fontSmall,
+                          color: appColors().gray[500],
+                        ),
                       ),
                     ),
                   ),
@@ -170,8 +171,9 @@ class _HistoryCardState extends State<HistoryCard>
   MusicContextMenuData _createMenuData(bool isFavorite) {
     return MusicMenuDataFactory.createSongMenuData(
       title: widget.songName,
-      artist:
-          widget.artistName.isNotEmpty ? widget.artistName : 'Unknown Artist',
+      artist: widget.artistName.isNotEmpty
+          ? widget.artistName
+          : 'Unknown Artist',
       imageUrl: widget.imagePath.isNotEmpty ? widget.imagePath : null,
       onPlay: widget.onPlay,
       onPlayNext: widget.onPlayNext,

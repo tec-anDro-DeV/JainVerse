@@ -463,9 +463,32 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   Future<void> addQueueItems(List<MediaItem> mediaItems) async {
     if (mediaItems.isEmpty) return;
     return _queueSynchronizer.synchronize(() async {
-      await _queueSynchronizer.safeAddAllToPlaylist(
-        _audioSourceFactory.createAll(mediaItems),
-      );
+      final sources = _audioSourceFactory.createAll(mediaItems);
+      final int initialLength = _playlist.length;
+      bool playlistMutated = false;
+
+      try {
+        await _queueSynchronizer.safeAddAllToPlaylist(sources);
+        playlistMutated = true;
+      } catch (error) {
+        final bool isConcurrent = _queueSynchronizer.isConcurrentQueueError(
+          error,
+        );
+        final bool successfulDespiteError =
+            isConcurrent && _playlist.length > initialLength;
+
+        if (!successfulDespiteError) {
+          rethrow;
+        }
+
+        playlistMutated = true;
+        AudioLogger.log(
+          '[QueueSynchronizer] addAll concurrent error tolerated; playlist already updated.',
+          name: 'QueueSynchronizer',
+        );
+      }
+
+      if (!playlistMutated) return;
 
       final currentQueue = List<MediaItem>.from(queue.valueOrNull ?? []);
       currentQueue.addAll(mediaItems);

@@ -1,58 +1,84 @@
+import 'package:jainverse/Model/song_model.dart';
+
 import 'ModelCatSubcatMusic.dart' show Artist;
 
 class ModelAllCat {
-  bool status;
-  String msg;
-  List<SubData> sub_category;
-  String? type; // Add type field as it's in the response
-  // Optional pagination meta returned by API
-  int? currentPage;
-  int? totalPages;
-  int? totalItems;
+  final bool status;
+  final String msg;
+  final List<SubData> subCategory;
+  final String? type;
+  final String? catName;
+  final int? currentPage;
+  final int? totalPages;
+  final int? totalItems;
 
   ModelAllCat(
     this.status,
     this.msg,
-    this.sub_category, {
+    this.subCategory, {
     this.type,
+    this.catName,
     this.currentPage,
     this.totalPages,
     this.totalItems,
   });
 
   factory ModelAllCat.fromJson(Map<String, dynamic> json) {
-    // Handle the case where sub_category might be null or not a list
-    List<SubData> subCategoryList = [];
+    final Map<String, dynamic>? dataNode = json['data'] is Map<String, dynamic>
+        ? json['data']
+        : null;
+    final dynamic subCategorySource = dataNode != null
+        ? dataNode['sub_category']
+        : json['sub_category'];
 
-    if (json["sub_category"] != null && json["sub_category"] is List) {
-      subCategoryList = List<SubData>.from(
-        json["sub_category"].map((x) => SubData.fromJson(x)),
-      );
+    List<SubData> subCategoryList = [];
+    if (subCategorySource is List) {
+      subCategoryList = subCategorySource
+          .map(
+            (dynamic item) =>
+                SubData.fromJson((item as Map).cast<String, dynamic>()),
+          )
+          .toList();
     }
+
+    final Map<String, dynamic> metaSource = dataNode != null ? dataNode : json;
 
     return ModelAllCat(
       json['status'] ?? false,
       json['msg'] ?? '',
       subCategoryList,
-      type: json['type'],
-      currentPage: json['current_page'] ?? json['currentPage'],
-      totalPages: json['total_pages'] ?? json['totalPages'],
-      totalItems: json['total_items'] ?? json['totalItems'],
+      type: json['type'] ?? dataNode?['type'],
+      catName: json['cat_name'] ?? dataNode?['cat_name'],
+      currentPage:
+          _parseInt(metaSource['current_page']) ??
+          _parseInt(metaSource['currentPage']),
+      totalPages:
+          _parseInt(metaSource['total_pages']) ??
+          _parseInt(metaSource['totalPages']),
+      totalItems:
+          _parseInt(metaSource['total_items']) ??
+          _parseInt(metaSource['totalItems']),
     );
   }
 
-  // Add toJson method for caching
   Map<String, dynamic> toJson() {
     return {
       'status': status,
       'msg': msg,
-      'sub_category': sub_category.map((x) => x.toJson()).toList(),
+      'sub_category': subCategory.map((x) => x.toJson()).toList(),
       'type': type,
+      'cat_name': catName,
       'current_page': currentPage,
       'total_pages': totalPages,
       'total_items': totalItems,
     };
   }
+}
+
+int? _parseInt(dynamic value) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 /*class DataCat {
@@ -73,28 +99,32 @@ class ModelAllCat {
 
 class SubData {
   int id;
-  String name = "";
-  String slug = "";
-  String image = "";
+  String name = '';
+  String slug = '';
+  String image = '';
   int is_featured;
   int is_trending;
   int is_recommended;
 
-  // Playlist-specific fields
-  String playlist_name = "";
+  String playlist_name = '';
   int user_id;
   String? song_list;
   String? image_url;
+  String? handle;
+  String? banner_image;
+  String? banner_url;
+  String? description;
+  int? total_subscribers;
+  int? status;
   String? created_at;
   String? updated_at;
 
-  // Audio list for playlists
   List<dynamic>? audios;
 
-  // Artist information for songs
   String? artist_id;
   String? lyrics;
   List<Artist>? artists;
+  SongModel? song;
 
   SubData(
     this.id,
@@ -104,16 +134,23 @@ class SubData {
     this.is_featured,
     this.is_trending,
     this.is_recommended, {
-    this.playlist_name = "",
+    this.playlist_name = '',
     this.user_id = 0,
     this.song_list,
     this.image_url,
+    this.handle,
+    this.banner_image,
+    this.banner_url,
+    this.description,
+    this.total_subscribers,
+    this.status,
     this.created_at,
     this.updated_at,
     this.audios,
     this.artist_id,
     this.lyrics,
     this.artists,
+    this.song,
   });
 
   factory SubData.fromJson(Map<String, dynamic> json) {
@@ -131,6 +168,8 @@ class SubData {
       }
     }
 
+    final songModel = _isSongPayload(json) ? SongModel.fromJson(json) : null;
+
     return SubData(
       json['id'] ?? 0,
       json['name'] ?? json['playlist_name'] ?? '',
@@ -142,13 +181,20 @@ class SubData {
       playlist_name: json['playlist_name'] ?? '',
       user_id: json['user_id'] ?? 0,
       song_list: json['song_list'],
-      image_url: json['image_url'],
+      image_url: json['image_url'] ?? json['imageUrl'],
+      handle: json['handle'],
+      banner_image: json['banner_image'],
+      banner_url: json['banner_url'],
+      description: json['description'],
+      total_subscribers: json['total_subscribers'],
+      status: json['status'],
       created_at: json['created_at'],
       updated_at: json['updated_at'],
       audios: json['audios'],
       artist_id: json['artist_id'],
       lyrics: json['lyrics'],
       artists: artistsList,
+      song: songModel,
     );
   }
 
@@ -166,12 +212,37 @@ class SubData {
       'user_id': user_id,
       'song_list': song_list,
       'image_url': image_url,
+      'handle': handle,
+      'banner_image': banner_image,
+      'banner_url': banner_url,
+      'description': description,
+      'total_subscribers': total_subscribers,
+      'status': status,
       'created_at': created_at,
       'updated_at': updated_at,
       'audios': audios,
       'artist_id': artist_id,
       'lyrics': lyrics,
       'artists': artists?.map((a) => a.toJson()).toList(),
+      if (song != null) 'song': song!.toJson(),
     };
   }
+}
+
+bool _isSongPayload(Map<String, dynamic> json) {
+  const songIndicators = [
+    'audio_url',
+    'audio',
+    'audio_title',
+    'audio_slug',
+    'audio_duration',
+  ];
+
+  for (final key in songIndicators) {
+    if (json[key] != null && json[key].toString().isNotEmpty) {
+      return true;
+    }
+  }
+
+  return false;
 }

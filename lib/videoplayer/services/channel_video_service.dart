@@ -33,7 +33,7 @@ class ChannelVideoService {
 
     try {
       final resp = await _dio.post(
-        AppConstant.BaseUrl + AppConstant.API_GET_CHANNEL_VIDEOS,
+        AppConstant.BaseUrl + AppConstant.API_GET_MY_CHANNEL_DETAIL,
         data: FormData.fromMap({
           'channel_id': channelId.toString(),
           'per_page': perPage.toString(),

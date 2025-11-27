@@ -12,6 +12,7 @@ class ChannelModel {
   final String createdAt;
   final String updatedAt;
   final int subscribersCount;
+  final bool subscribed;
 
   ChannelModel({
     required this.id,
@@ -27,6 +28,7 @@ class ChannelModel {
     required this.createdAt,
     required this.updatedAt,
     required this.subscribersCount,
+    required this.subscribed,
   });
 
   factory ChannelModel.fromJson(Map<String, dynamic> json) {
@@ -43,7 +45,8 @@ class ChannelModel {
       status: json['status'] ?? 0,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
-      subscribersCount: json['subscribers_count'] ?? 0,
+      subscribersCount: json['total_subscribers'] ?? 0,
+      subscribed: (json['subscribed'] ?? 0) == 1,
     );
   }
 
@@ -60,6 +63,7 @@ class ChannelModel {
     'status': status,
     'created_at': createdAt,
     'updated_at': updatedAt,
-    'subscribers_count': subscribersCount,
+    'total_subscribers': subscribersCount,
+    'subscribed': subscribed ? 1 : 0,
   };
 }

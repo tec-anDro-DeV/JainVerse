@@ -4,7 +4,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/home_models.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
-import 'package:jainverse/videoplayer/screens/channel_videos_screen.dart';
+import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
 import 'package:jainverse/widgets/music/circular_card.dart';
 
 class ChannelDirectoryScreen extends StatelessWidget {

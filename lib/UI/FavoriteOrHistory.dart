@@ -702,12 +702,14 @@ class StateClass extends State<Favorite> {
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+        track: song,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl.isNotEmpty ? imageUrl : null,
+        track: song,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
         song.audio_title,

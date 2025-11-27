@@ -53,8 +53,9 @@ class AppConstant {
 
   // Video API endpoints
   static const String API_ALL_VIDEOS = "all_videos";
+  static const String API_GET_VIDEOS = "getVideos";
   static const String API_SEARCH_VIDEOS = "search_channel_video";
-  static const String API_GET_CHANNEL_VIDEOS = "get_channel_videos";
+  static const String API_GET_MY_CHANNEL_DETAIL = "get_channel_detail";
   static const String API_LIKE_DISLIKE_VIDEO = "like_dislike_video";
   static const String API_GET_LIKED_VIDEOS = "get_liked_videos";
   static const String API_GET_SUBSCRIBED_CHANNELS = "get_subscribed_channels";
@@ -69,7 +70,7 @@ class AppConstant {
 
   //user-channel api
   static const String API_CREATE_CHANNEL = "create_channel";
-  static const String API_GET_CHANNEL = "get_channel";
+  static const String API_GET_MY_CHANNEL = "get_my_channel";
   static const String API_UPDATE_CHANNEL = "update_channel";
   static const String API_DELETE_CHANNEL = "delete_channel";
   static const String API_MY_VIDEOS = "my_videos";

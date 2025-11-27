@@ -12,20 +12,19 @@ import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/controllers/home_controller.dart';
 import 'package:jainverse/Model/home_models.dart';
+import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/widgets/cards/video_card_small.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/HistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
-import 'package:jainverse/controllers/music/music_manager.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
-import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:session_storage/session_storage.dart';
 
 import '../main.dart';
@@ -37,7 +36,6 @@ import 'AccountPage.dart';
 import 'AllCategoryByName.dart';
 import 'Download.dart';
 import 'FavoriteOrHistory.dart';
-import 'MusicEntryPoint.dart'; // Contains Music class
 import 'playlist_screen.dart';
 import '../videoplayer/screens/liked_videos_screen.dart';
 import '../videoplayer/screens/subscribed_channels_screen.dart';
@@ -923,51 +921,52 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                   : _cachedHistoryData!.data.length,
               itemBuilder: (context, index) {
                 final historyItem = _cachedHistoryData!.data[index];
-                return HistoryCard(
-                  imagePath: historyItem.image.startsWith('http')
-                      ? historyItem.image
-                      : AppConstant.ImageUrl + historyItem.image,
-                  songName: historyItem.audio_title,
-                  artistName: historyItem.artists_name,
-                  sharedPreThemeData: sharedPreThemeData,
-                  onTap: () => _handleHistoryItemTap(historyItem, index),
-                  songId: historyItem.id
-                      .toString(), // Pass songId instead of isFavorite
-                  onPlay: () => _musicActionHandler.handlePlaySong(
-                    historyItem.id.toString(),
-                    historyItem.audio_title,
-                  ),
-                  onPlayNext: () => _musicActionHandler.handlePlayNext(
-                    historyItem.id.toString(),
-                    historyItem.audio_title,
-                    historyItem.artists_name,
-                  ),
-                  onAddToQueue: () => _musicActionHandler.handleAddToQueue(
-                    historyItem.id.toString(),
-                    historyItem.audio_title,
-                    historyItem.artists_name,
-                  ),
-                  onDownload: () => _musicActionHandler.handleDownload(
-                    historyItem.audio_title,
-                    "song",
-                    historyItem.id.toString(),
-                  ),
-                  onAddToPlaylist: () =>
-                      _musicActionHandler.handleAddToPlaylist(
-                        historyItem.id.toString(),
-                        historyItem.audio_title,
-                        historyItem.artists_name,
-                      ),
-                  onShare: () => _musicActionHandler.handleShare(
-                    historyItem.audio_title,
-                    "song",
-                    itemId: historyItem.id.toString(),
-                    slug: historyItem.audio_slug,
-                  ),
-                  onFavorite: () => _musicActionHandler.handleFavoriteToggle(
-                    historyItem.id.toString(),
-                    historyItem.audio_title,
-                    favoriteIds: _favoriteIds,
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w),
+                  child: HistoryCard(
+                    imagePath: historyItem.image.startsWith('http')
+                        ? historyItem.image
+                        : AppConstant.ImageUrl + historyItem.image,
+                    songName: historyItem.audio_title,
+                    artistName: historyItem.artists_name,
+                    sharedPreThemeData: sharedPreThemeData,
+                    onTap: () => _handleInstantHistorySongTap(index),
+                    songId: historyItem.id.toString(),
+                    onPlay: () => _handleInstantHistorySongTap(index),
+                    onPlayNext: () => _musicActionHandler.handlePlayNext(
+                      historyItem.id.toString(),
+                      historyItem.audio_title,
+                      historyItem.artists_name,
+                      track: historyItem,
+                    ),
+                    onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+                      historyItem.id.toString(),
+                      historyItem.audio_title,
+                      historyItem.artists_name,
+                      track: historyItem,
+                    ),
+                    onDownload: () => _musicActionHandler.handleDownload(
+                      historyItem.audio_title,
+                      "song",
+                      historyItem.id.toString(),
+                    ),
+                    onAddToPlaylist: () =>
+                        _musicActionHandler.handleAddToPlaylist(
+                          historyItem.id.toString(),
+                          historyItem.audio_title,
+                          historyItem.artists_name,
+                        ),
+                    onShare: () => _musicActionHandler.handleShare(
+                      historyItem.audio_title,
+                      "song",
+                      itemId: historyItem.id.toString(),
+                      slug: historyItem.audio_slug,
+                    ),
+                    onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+                      historyItem.id.toString(),
+                      historyItem.audio_title,
+                      favoriteIds: _favoriteIds,
+                    ),
                   ),
                 );
               },
@@ -1032,12 +1031,14 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                   song.audioTitle,
                   artistName,
                   imagePath: imageUrl,
+                  track: song,
                 ),
                 onAddToQueue: () => _musicActionHandler.handleAddToQueue(
                   song.id.toString(),
                   song.audioTitle,
                   artistName,
                   imagePath: imageUrl,
+                  track: song,
                 ),
                 onDownload: () => _musicActionHandler.handleDownload(
                   song.audioTitle,
@@ -1152,43 +1153,73 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   }
 
   // Helper method to handle history item taps
-  void _handleHistoryItemTap(DataMusic historyItem, int index) async {
-    _isNavigatingBack = true;
+  Future<void> _handleInstantHistorySongTap(int tappedIndex) async {
+    final songs = _cachedHistoryData?.data ?? [];
+    if (tappedIndex < 0 || tappedIndex >= songs.length) return;
 
-    // Use music manager for queue replacement instead of navigation
-    final musicManager = MusicManager();
+    final tappedSong = songs[tappedIndex];
+    final fallbackSongId = tappedSong.id.toString();
+    final instantIdentifier = fallbackSongId.isNotEmpty
+        ? fallbackSongId
+        : tappedSong.audioUrl.trim();
 
-    try {
-      await musicManager.replaceQueue(
-        musicList: _cachedHistoryData!.data,
-        startIndex: index,
-        callSource: 'MyLibrary.handleHistoryItemTap',
-      );
-
-      // Show mini player instead of navigating to full player
-      final stateManager = MusicPlayerStateManager();
-      stateManager.showMiniPlayerForMusicStart();
-
-      print('[DEBUG] History music playback started via mini player');
-    } catch (e) {
-      print('[DEBUG] History music playback failed: $e');
-      // Fallback to navigation if music manager fails
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Music(
-            _audioHandler,
-            historyItem.id.toString(),
-            'Songs',
-            _cachedHistoryData!.data,
-            '', // audioPath no longer needed
-            index,
-            false,
-            '',
-          ),
-        ),
-      );
+    if (instantIdentifier.isEmpty) {
+      _showSnackbar('Song unavailable.');
+      return;
     }
+
+    if (!_hasPlayableAudio(tappedSong)) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    final payloads = _buildInstantPayloads(songs);
+    if (payloads.isEmpty) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    final normalizedIndex = payloads.indexWhere(
+      (payload) => payload.id == instantIdentifier,
+    );
+
+    if (normalizedIndex == -1) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    final forwardQueue = payloads.sublist(normalizedIndex);
+    await _musicActionHandler.handleInstantPlay(
+      payload: forwardQueue.first,
+      context: forwardQueue,
+      contextIndex: 0,
+    );
+  }
+
+  List<SongPlaybackPayload> _buildInstantPayloads(List<SongModel> songs) {
+    return songs
+        .where(_hasPlayableAudio)
+        .map(SongPlaybackPayload.fromSongModel)
+        .toList();
+  }
+
+  bool _hasPlayableAudio(SongModel song) {
+    return song.audioUrl.trim().isNotEmpty;
+  }
+
+  Future<void> _fallbackToSmartPlay(String? songId, String songTitle) async {
+    if (songId == null || songId.isEmpty) {
+      _showSnackbar('Song unavailable.');
+      return;
+    }
+    await _musicActionHandler.handlePlaySong(songId, songTitle);
+  }
+
+  void _showSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Load user's favorite songs from the API to track state

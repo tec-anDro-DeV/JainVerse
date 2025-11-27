@@ -1024,12 +1024,14 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
+        track: song,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
         song.audio_title,
         song.artists_name,
         imagePath: imageUrl,
+        track: song,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
         song.audio_title,

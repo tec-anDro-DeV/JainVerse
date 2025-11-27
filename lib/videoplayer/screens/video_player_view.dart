@@ -14,7 +14,7 @@ import '../widgets/video_visual_area.dart';
 import '../widgets/video_control_panel.dart';
 import '../widgets/video_title_channel_row.dart';
 import '../widgets/video_more_sheet.dart';
-import 'channel_videos_screen.dart';
+import 'channel_detail_screen.dart';
 import '../../utils/music_player_state_manager.dart';
 import 'package:jainverse/services/tab_navigation_service.dart';
 import '../utils/landscape_video_launcher.dart';

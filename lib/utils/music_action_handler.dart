@@ -223,6 +223,7 @@ class MusicActionHandler {
     String artistName, {
     String? imagePath,
     String? audioPath,
+    DataMusic? track,
   }) async {
     try {
       if (kDebugMode) {
@@ -236,13 +237,22 @@ class MusicActionHandler {
       final musicManager = MusicManager();
       musicManager.autoCleanupStaleLocks();
 
-      // Use the enhanced MusicManager method that fetches complete song data
-      await musicManager.insertPlayNextById(
-        songId,
-        songName,
-        artistName,
-        fallbackImagePath: imagePath,
-        fallbackAudioPath: audioPath,
+      await _withQueueMutationTolerance(
+        () async {
+          if (track != null) {
+            await musicManager.insertPlayNext(track);
+          } else {
+            await musicManager.insertPlayNextById(
+              songId,
+              songName,
+              artistName,
+              fallbackImagePath: imagePath,
+              fallbackAudioPath: audioPath,
+            );
+          }
+        },
+        songId: songId,
+        actionDescription: 'insertPlayNext',
       );
 
       if (kDebugMode) {
@@ -283,6 +293,7 @@ class MusicActionHandler {
     String artistName, {
     String? imagePath,
     String? audioPath,
+    DataMusic? track,
   }) async {
     try {
       if (kDebugMode) {
@@ -296,13 +307,22 @@ class MusicActionHandler {
       final musicManager = MusicManager();
       musicManager.autoCleanupStaleLocks();
 
-      // Use the enhanced MusicManager method that fetches complete song data
-      await musicManager.addToQueueById(
-        songId,
-        songName,
-        artistName,
-        fallbackImagePath: imagePath,
-        fallbackAudioPath: audioPath,
+      await _withQueueMutationTolerance(
+        () async {
+          if (track != null) {
+            await musicManager.addToQueue(track);
+          } else {
+            await musicManager.addToQueueById(
+              songId,
+              songName,
+              artistName,
+              fallbackImagePath: imagePath,
+              fallbackAudioPath: audioPath,
+            );
+          }
+        },
+        songId: songId,
+        actionDescription: 'addToQueue',
       );
 
       if (kDebugMode) {
@@ -648,6 +668,50 @@ class MusicActionHandler {
   /// Show success message
   void _showSuccessMessage(String message) {
     if (!mounted) return;
+  }
+
+  Future<void> _withQueueMutationTolerance(
+    Future<void> Function() mutation, {
+    required String songId,
+    required String actionDescription,
+  }) async {
+    try {
+      await mutation();
+    } catch (error) {
+      final isConcurrent = _isConcurrentQueueError(error);
+      final alreadyQueued = isConcurrent && _isSongAlreadyQueued(songId);
+
+      if (alreadyQueued) {
+        if (kDebugMode) {
+          print(
+            '⚠️ $actionDescription succeeded despite concurrent queue error; suppressing toast. Error: $error',
+          );
+        }
+        return;
+      }
+
+      rethrow;
+    }
+  }
+
+  bool _isConcurrentQueueError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('addstream') ||
+        message.contains('add stream') ||
+        message.contains('you cannot add items') ||
+        message.contains('bad state');
+  }
+
+  bool _isSongAlreadyQueued(String songId) {
+    if (songId.isEmpty) return false;
+    final queue = MusicManager().queue;
+    for (final item in queue) {
+      final extrasId = item.extras?['audio_id']?.toString();
+      if (extrasId == songId || item.id == songId) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Show iOS download error using alert dialog

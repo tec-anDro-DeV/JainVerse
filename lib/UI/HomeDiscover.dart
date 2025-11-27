@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,20 +8,22 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/home_models.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
+import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/AllCategoryByName.dart';
 import 'package:jainverse/UI/MusicList.dart';
 import 'package:jainverse/controllers/home_controller.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/models/song_playback_payload.dart';
-import 'package:jainverse/presentation/home/channel_directory_screen.dart';
+import 'package:jainverse/presentation/home/video_see_all_screen.dart';
+import 'package:jainverse/presentation/home/all_channels_screen.dart';
+import 'package:jainverse/presenters/video_see_all_presenter.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
-import 'package:jainverse/videoplayer/screens/channel_videos_screen.dart';
-import 'package:jainverse/videoplayer/screens/video_list_screen.dart';
+import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
 import 'package:jainverse/widgets/cards/video_card_small.dart';
 import 'package:jainverse/UI/AccountPage.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
@@ -161,7 +165,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
 
   Widget _buildBody() {
     if (_controller.isLoading && !_controller.hasContent) {
-      return const Center(child: CircleLoader(size: 140));
+      return Center(child: CircleLoader(size: 260.w));
     }
 
     if (_controller.hasError && !_controller.hasContent) {
@@ -349,7 +353,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(section),
           ),
           SizedBox(
-            height: 250.w,
+            height: _HomeSectionMetrics.videoCarouselHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -389,18 +393,19 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(_HomeSection.channels),
           ),
           SizedBox(
-            height: 150.w,
+            height: _HomeSectionMetrics.channelCarouselHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               itemCount: channels.length,
               itemBuilder: (context, index) {
                 final channel = channels[index];
+                final subs = channel.subscribersCount;
                 return CircularCard(
                   imagePath: _resolveChannelImage(channel),
                   title: channel.name,
-                  subtitle: channel.handle.trim().isNotEmpty
-                      ? '@${channel.handle.trim()}'
+                  subtitle: (subs > 0)
+                      ? '${_numberFormat.format(subs)} subs'
                       : null,
                   onTap: () => _openChannel(channel),
                   sharedPreThemeData: theme,
@@ -433,7 +438,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(section),
           ),
           SizedBox(
-            height: 190.w,
+            height: _HomeSectionMetrics.songCarouselHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -467,7 +472,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(_HomeSection.latestSongs),
           ),
           SizedBox(
-            height: 340.w,
+            height: _HomeSectionMetrics.latestSongsGridHeight,
             child: GridView.builder(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -503,7 +508,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(_HomeSection.trendingGenres),
           ),
           SizedBox(
-            height: 170.w,
+            height: _HomeSectionMetrics.genreCarouselHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -543,6 +548,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
       songName: song.audioTitle,
       artistName: artistName,
       sharedPreThemeData: theme,
+      height: _HomeSectionMetrics.songCardHeight,
       onTap: hasSongId
           ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
           : () => _showSnackbar('Song unavailable.'),
@@ -555,6 +561,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
+              track: song,
             )
           : null,
       onAddToQueue: hasSongId
@@ -563,6 +570,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
+              track: song,
             )
           : null,
       onDownload: hasSongId
@@ -615,6 +623,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
       artistName: artistName,
       listenerCount: listens,
       sharedPreThemeData: theme,
+      height: _HomeSectionMetrics.popularSongCardHeight,
       onTap: hasSongId
           ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
           : () => _showSnackbar('Song unavailable.'),
@@ -627,6 +636,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
+              track: song,
             )
           : null,
       onAddToQueue: hasSongId
@@ -635,6 +645,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
               song.audioTitle,
               artistName,
               imagePath: imageUrl,
+              track: song,
             )
           : null,
       onDownload: hasSongId
@@ -731,10 +742,11 @@ class _HomeDiscoverState extends State<HomeDiscover>
       return;
     }
 
+    final forwardQueue = payloads.sublist(normalizedIndex);
     await _musicActionHandler.handleInstantPlay(
-      payload: payloads[normalizedIndex],
-      context: payloads,
-      contextIndex: normalizedIndex,
+      payload: forwardQueue.first,
+      context: forwardQueue,
+      contextIndex: 0,
     );
   }
 
@@ -760,23 +772,16 @@ class _HomeDiscoverState extends State<HomeDiscover>
   void _handleViewAll(_HomeSection section) {
     switch (section) {
       case _HomeSection.featuredVideos:
+        _openSeeAllSection(SeeAllSectionType.featuredVideos, 'Featured Videos');
+        break;
       case _HomeSection.popularVideos:
+        _openSeeAllSection(SeeAllSectionType.popularVideos, 'Popular Videos');
+        break;
       case _HomeSection.newVideos:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const VideoListScreen()),
-        );
+        _openSeeAllSection(SeeAllSectionType.latestVideos, 'New Videos');
         break;
       case _HomeSection.channels:
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChannelDirectoryScreen(
-              channels: _controller.channelList,
-              sharedTheme: _controller.theme,
-            ),
-          ),
-        );
+        _openSeeAllSection(SeeAllSectionType.channels, 'Channels');
         break;
       case _HomeSection.featuredSongs:
         Navigator.push(
@@ -803,6 +808,29 @@ class _HomeDiscoverState extends State<HomeDiscover>
         );
         break;
     }
+  }
+
+  void _openSeeAllSection(SeeAllSectionType type, String title) {
+    if (type == SeeAllSectionType.channels) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AllChannelsScreen(title: title)),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeSectionSeeAllScreen(
+          sectionType: type,
+          title: title,
+          sharedTheme: type == SeeAllSectionType.channels
+              ? _controller.theme
+              : null,
+        ),
+      ),
+    );
   }
 
   void _openVideo(VideoModel video) {
@@ -935,4 +963,85 @@ enum _HomeSection {
   popularVideos,
   trendingGenres,
   newVideos,
+}
+
+class _HomeSectionMetrics {
+  static double get _songArtSize => 135.w;
+
+  static double get videoCarouselHeight {
+    final cardWidth = 260.w;
+    final thumbnailHeight = cardWidth * 9 / 16;
+    final titleHeight = _textBlock(15.sp, lineHeight: 1.25, lines: 2);
+    final channelRow = math.max(28.w, _textBlock(13.sp, lineHeight: 1.0));
+    final metaHeight = _textBlock(12.sp, lineHeight: 1.1);
+    final spacing = 8.w + 6.w + 4.w + 6.w;
+    return thumbnailHeight + titleHeight + channelRow + metaHeight + spacing;
+  }
+
+  static double get channelCarouselHeight {
+    final avatar = 92.w;
+    final titleHeight = _textBlock(AppSizes.fontNormal * 0.9, lineHeight: 1.0);
+    final subtitleHeight = _textBlock(
+      AppSizes.fontSmall * 0.9,
+      lineHeight: 1.1,
+    );
+    final spacing = 4.w + 1.w + 6.w;
+    return avatar + titleHeight + subtitleHeight + spacing;
+  }
+
+  static double get songCardHeight {
+    final coverBlock = _songArtSize + (6.w * 1);
+    final titleHeight = _textBlock(AppSizes.fontNormal, lineHeight: 1.1);
+    final artistHeight = _textBlock(AppSizes.fontSmall * 0.9, lineHeight: 1.0);
+    final spacing = 0.w;
+    return coverBlock + titleHeight + artistHeight + spacing;
+  }
+
+  static double get songCarouselHeight => songCardHeight + 8.w;
+
+  static double get popularSongCardHeight {
+    final padding = 16.w + 8.w;
+    final titleHeight = _textBlock(
+      AppSizes.fontMedium,
+      lineHeight: 1.1,
+      lines: 2,
+    );
+    final artistHeight = _textBlock(
+      AppSizes.fontSmall,
+      lineHeight: 1.0,
+      lines: 2,
+    );
+    final listensHeight = _textBlock(11.sp, lineHeight: 1.1);
+    final textStackHeight =
+        titleHeight + artistHeight + listensHeight + 6.w + 4.w;
+    final playButton = 46.w;
+    final contentHeight = math.max(textStackHeight, playButton);
+    final minVisualHeight = 120.w;
+    return padding + math.max(contentHeight, minVisualHeight);
+  }
+
+  static double get latestSongsGridHeight {
+    const rows = 2;
+    final rowSpacing = 12.w;
+    return (popularSongCardHeight * rows) + rowSpacing + 12.w;
+  }
+
+  static double get genreCarouselHeight {
+    final artBlock = 125.w;
+    final titleHeight = _textBlock(AppSizes.fontNormal * 0.95, lineHeight: 1.1);
+    final descriptionHeight = _textBlock(
+      AppSizes.fontSmall * 0.9,
+      lineHeight: 1.1,
+    );
+    final spacing = 4.w + 4.w + 6.w;
+    return artBlock + titleHeight + descriptionHeight + spacing;
+  }
+
+  static double _textBlock(
+    double fontSize, {
+    double lineHeight = 1.0,
+    int lines = 1,
+  }) {
+    return fontSize * lineHeight * lines;
+  }
 }

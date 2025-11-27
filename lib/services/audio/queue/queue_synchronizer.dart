@@ -147,4 +147,12 @@ class QueueSynchronizer {
       }
     }
   }
+
+  bool isConcurrentQueueError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('addstream') ||
+        message.contains('add stream') ||
+        message.contains('you cannot add items') ||
+        message.contains('bad state');
+  }
 }
