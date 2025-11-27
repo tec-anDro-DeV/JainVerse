@@ -13,6 +13,7 @@ class ChannelModel {
   final String updatedAt;
   final int subscribersCount;
   final bool subscribed;
+  final bool isOwn;
 
   ChannelModel({
     required this.id,
@@ -29,6 +30,7 @@ class ChannelModel {
     required this.updatedAt,
     required this.subscribersCount,
     required this.subscribed,
+    this.isOwn = false,
   });
 
   factory ChannelModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class ChannelModel {
       updatedAt: json['updated_at'] ?? '',
       subscribersCount: json['total_subscribers'] ?? 0,
       subscribed: (json['subscribed'] ?? 0) == 1,
+      isOwn: (json['is_own'] ?? 0) == 1,
     );
   }
 
@@ -65,5 +68,28 @@ class ChannelModel {
     'updated_at': updatedAt,
     'total_subscribers': subscribersCount,
     'subscribed': subscribed ? 1 : 0,
+    'is_own': isOwn ? 1 : 0,
   };
+}
+
+extension ChannelModelCopyWith on ChannelModel {
+  ChannelModel copyWith({int? subscribersCount, bool? subscribed}) {
+    return ChannelModel(
+      id: id,
+      userId: userId,
+      image: image,
+      imageUrl: imageUrl,
+      name: name,
+      handle: handle,
+      bannerImage: bannerImage,
+      bannerUrl: bannerUrl,
+      description: description,
+      status: status,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      subscribersCount: subscribersCount ?? this.subscribersCount,
+      subscribed: subscribed ?? this.subscribed,
+      isOwn: this.isOwn,
+    );
+  }
 }

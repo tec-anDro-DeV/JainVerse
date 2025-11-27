@@ -95,8 +95,19 @@ class ChannelDetailPresenter extends ChangeNotifier {
   void updateSubscription(bool subscribed) {
     final current = _state.channel;
     if (current == null) return;
+    // Update subscribersCount optimistically so UI reflects the change immediately.
+    final int currentCount = current.subscribersCount;
+    final int nextCount = subscribed
+        ? currentCount + 1
+        : (currentCount - 1).clamp(0, currentCount);
+
     _update(
-      _state.copyWith(channel: current.copyWith(isSubscribed: subscribed)),
+      _state.copyWith(
+        channel: current.copyWith(
+          isSubscribed: subscribed,
+          subscribersCount: nextCount,
+        ),
+      ),
     );
   }
 

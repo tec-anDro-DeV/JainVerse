@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:audio_service/audio_service.dart';
+import 'package:jainverse/ThemeMain/appColors.dart';
+import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/videoplayer/models/channel_item.dart';
 import 'package:jainverse/videoplayer/services/subscribed_channels_service.dart';
 import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
-import 'package:jainverse/ThemeMain/app_padding.dart';
-import 'package:jainverse/main.dart';
+import 'package:jainverse/videoplayer/services/subscription_service.dart';
+import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
+import 'package:jainverse/videoplayer/widgets/animated_subscribe_button.dart';
+import 'package:jainverse/widgets/common/loader.dart';
 
+/// Ultra-modern minimalist subscribed channels screen
 class SubscribedChannelsScreen extends StatefulWidget {
   const SubscribedChannelsScreen({super.key});
 
@@ -18,15 +21,32 @@ class SubscribedChannelsScreen extends StatefulWidget {
 
 class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
   final SubscribedChannelsService _service = SubscribedChannelsService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  final SubscriptionStateManager _subscriptionManager =
+      SubscriptionStateManager();
+  final Set<int> _loadingChannels = <int>{};
+
   List<ChannelItem> _channels = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   bool _hasError = false;
-  String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
+    _subscriptionManager.addListener(_onSubscriptionStateChanged);
     _loadSubscribedChannels();
+  }
+
+  @override
+  void dispose() {
+    _subscriptionManager.removeListener(_onSubscriptionStateChanged);
+    super.dispose();
+  }
+
+  void _onSubscriptionStateChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _loadSubscribedChannels() async {
@@ -48,8 +68,30 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
         setState(() {
           _isLoading = false;
           _hasError = true;
-          _errorMessage = e.toString();
         });
+      }
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      final channels = await _service.getSubscribedChannels();
+      if (mounted) {
+        setState(() {
+          _channels = channels;
+          _hasError = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackbar('Failed to refresh channels');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
       }
     }
   }
@@ -57,185 +99,108 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: Text(
           'Subscribed Channels',
           style: TextStyle(
-            color: Colors.black87,
-            fontSize: 18.sp,
+            fontSize: 20.sp,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
           ),
         ),
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.black87),
-              onPressed: _loadSubscribedChannels,
-            ),
-        ],
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
       ),
       body: RefreshIndicator(
-        onRefresh: _loadSubscribedChannels,
+        color: appColors().primaryColorApp,
+        onRefresh: _onRefresh,
         child: _buildBody(),
       ),
     );
   }
 
   Widget _buildBody() {
-    // Get audio handler from main app
-    final audioHandler = const MyApp().called();
+    if (_isLoading && _channels.isEmpty) {
+      return Center(child: CircleLoader(size: 270.w));
+    }
 
-    return StreamBuilder<MediaItem?>(
-      stream: audioHandler.mediaItem,
-      builder: (context, snapshot) {
-        // Use centralized bottom padding computation. No extra space needed
-        // beyond the base for this screen.
-        final bottomPadding = AppPadding.bottom(context);
-
-        if (_isLoading) {
-          return ListView.builder(
-            padding: EdgeInsets.only(
-              top: 16.w,
-              left: 16.w,
-              right: 16.w,
-              bottom: bottomPadding,
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        if (_isRefreshing)
+          SliverToBoxAdapter(
+            child: LinearProgressIndicator(
+              minHeight: 2,
+              color: appColors().primaryColorApp,
+              backgroundColor: Colors.transparent,
             ),
-            itemCount: 6,
-            itemBuilder: (context, index) => _buildChannelSkeleton(),
-          );
-        }
-
-        if (_hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64.w,
-                  color: Colors.grey.shade400,
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  'Failed to load subscribed channels',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  _errorMessage,
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: Colors.grey.shade500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 24.h),
-                ElevatedButton(
-                  onPressed: _loadSubscribedChannels,
-                  child: Text('Retry'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (_channels.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.subscriptions_outlined,
-                  size: 64.w,
-                  color: Colors.grey.shade400,
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  'No subscribed channels',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  'Channels you subscribe to will appear here',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: EdgeInsets.only(
-            top: 16.w,
-            left: 16.w,
-            right: 16.w,
-            bottom: bottomPadding, // Dynamic padding for mini player
           ),
-          itemCount: _channels.length,
-          itemBuilder: (context, index) {
-            final channel = _channels[index];
-            return _buildChannelCard(channel);
-          },
-        );
-      },
+        if (_hasError && _channels.isEmpty)
+          _buildErrorState()
+        else if (_channels.isEmpty)
+          _buildEmptyState()
+        else
+          _buildChannelList(),
+        _buildBottomSpacer(),
+      ],
+    );
+  }
+
+  Widget _buildChannelList() {
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final channel = _channels[index];
+          return Padding(
+            padding: EdgeInsets.only(bottom: 12.h),
+            child: _buildChannelCard(channel),
+          );
+        }, childCount: _channels.length),
+      ),
     );
   }
 
   Widget _buildChannelCard(ChannelItem channel) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.w),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8.w,
-            offset: Offset(0, 2.h),
-          ),
-        ],
-      ),
+    final bool isSubscribed =
+        _subscriptionManager.getSubscriptionState(channel.id) ??
+        channel.subscribed ??
+        true;
+    final bool isLoading = _loadingChannels.contains(channel.id);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16.r),
       child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ChannelVideosScreen(
-                channelId: channel.id,
-                channelName: channel.name,
-              ),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12.w),
-        child: Padding(
+        borderRadius: BorderRadius.circular(16.r),
+        onTap: () => _openChannel(channel),
+        child: Container(
           padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+            borderRadius: BorderRadius.circular(16.r),
+          ),
           child: Row(
             children: [
-              // Channel avatar
-              CircleAvatar(
-                radius: 32.w,
-                backgroundImage: CachedNetworkImageProvider(channel.imageUrl),
-                backgroundColor: Colors.grey.shade200,
+              // Clean avatar
+              Container(
+                width: 56.w,
+                height: 56.w,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28.r),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: channel.imageUrl.isNotEmpty
+                    ? Image.network(
+                        channel.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _placeholderAvatar(),
+                      )
+                    : _placeholderAvatar(),
               ),
-              SizedBox(width: 16.w),
+              SizedBox(width: 14.w),
               // Channel info
               Expanded(
                 child: Column(
@@ -243,55 +208,159 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
                   children: [
                     Text(
                       channel.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: const Color(0xFF1A1A1A),
+                        letterSpacing: -0.3,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 4.h),
                     Text(
                       '@${channel.handle}',
                       style: TextStyle(
-                        fontSize: 14.sp,
-                        color: Colors.grey.shade600,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF666666),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (channel.description != null &&
-                        channel.description!.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
-                      Text(
-                        channel.description!,
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: Colors.grey.shade500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ],
                 ),
               ),
-              SizedBox(width: 8.w),
-              // Subscribed badge
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(16.w),
+              // Subscribe button (animated) - hide if this is the user's own channel
+              SizedBox(
+                child: channel.isOwn
+                    ? const SizedBox.shrink()
+                    : Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IgnorePointer(
+                            ignoring: isLoading,
+                            child: AnimatedSubscribeButton(
+                              isSubscribed: isSubscribed,
+                              onPressed: () =>
+                                  _toggleSubscription(channel, isSubscribed),
+                            ),
+                          ),
+                          if (isLoading)
+                            SizedBox(
+                              width: 18.w,
+                              height: 18.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  appColors().primaryColorApp,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderAvatar() {
+    return Container(
+      color: const Color(0xFFF0F0F0),
+      child: const Icon(Icons.person_rounded, color: Color(0xFFBDBDBD)),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 40.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.wifi_off_rounded,
+                size: 56.sp,
+                color: const Color(0xFFBDBDBD),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'Failed to load subscribed channels',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1A1A1A),
+                  letterSpacing: -0.3,
                 ),
-                child: Text(
-                  'Subscribed',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Please try again',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: const Color(0xFF666666),
+                ),
+              ),
+              SizedBox(height: 24.h),
+              TextButton(
+                onPressed: _loadSubscribedChannels,
+                style: TextButton.styleFrom(
+                  backgroundColor: appColors().primaryColorApp,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 32.w,
+                    vertical: 12.h,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 40.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.subscriptions_outlined,
+                size: 56.sp,
+                color: const Color(0xFFBDBDBD),
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                'No subscribed channels',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1A1A1A),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Channels you subscribe to will appear here',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: const Color(0xFF666666),
                 ),
               ),
             ],
@@ -301,50 +370,76 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
     );
   }
 
-  Widget _buildChannelSkeleton() {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.w),
+  Widget _buildBottomSpacer() {
+    return SliverToBoxAdapter(
+      child: SizedBox(height: AppPadding.bottom(context, extra: 50.w)),
+    );
+  }
+
+  Future<void> _toggleSubscription(
+    ChannelItem channel,
+    bool isSubscribed,
+  ) async {
+    final int channelId = channel.id;
+    if (_loadingChannels.contains(channelId)) return;
+
+    final bool nextState = !isSubscribed;
+    setState(() {
+      _loadingChannels.add(channelId);
+    });
+
+    // Optimistic UI update
+    _subscriptionManager.updateSubscriptionState(channelId, nextState);
+
+    try {
+      if (nextState) {
+        await _subscriptionService.subscribeChannel(channelId: channelId);
+      } else {
+        await _subscriptionService.unsubscribeChannel(channelId: channelId);
+        // Remove from list when unsubscribed
+        if (mounted) {
+          setState(() {
+            _channels.removeWhere((c) => c.id == channelId);
+          });
+        }
+      }
+    } catch (e) {
+      // Revert optimistic update
+      _subscriptionManager.updateSubscriptionState(channelId, isSubscribed);
+      _showSnackbar('Unable to update subscription');
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _loadingChannels.remove(channelId);
+      });
+    }
+  }
+
+  void _openChannel(ChannelItem channel) {
+    if (channel.id == 0) {
+      _showSnackbar('Channel unavailable');
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChannelVideosScreen(
+          channelId: channel.id,
+          channelName: channel.name,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 64.w,
-            height: 64.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade300,
-            ),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 16.h,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4.w),
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Container(
-                  height: 14.h,
-                  width: 120.w,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4.w),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    );
+  }
+
+  void _showSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(16.w),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
       ),
     );
   }

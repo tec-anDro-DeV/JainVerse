@@ -225,18 +225,40 @@ class VideoCardSmall extends StatelessWidget {
     if (parsed == null) return "Just now";
 
     final diff = DateTime.now().difference(parsed.toLocal());
-    if (diff.inMinutes < 1) return "Just now";
-    if (diff.inMinutes < 60) return "${diff.inMinutes} minutes ago";
-    if (diff.inHours < 24) return "${diff.inHours} hours ago";
-    if (diff.inDays < 7) return "${diff.inDays} days ago";
 
-    final weeks = (diff.inDays / 7).floor();
-    if (weeks < 4) return "$weeks weeks ago";
+    // Seconds
+    final seconds = diff.inSeconds;
+    if (seconds < 5) return "Just now";
+    if (seconds < 60)
+      return seconds == 1 ? "1 second ago" : "$seconds seconds ago";
 
-    final months = (diff.inDays / 30).floor();
-    if (months < 12) return "$months months ago";
+    // Minutes
+    final minutes = diff.inMinutes;
+    if (minutes < 60)
+      return minutes == 1 ? "1 minute ago" : "$minutes minutes ago";
 
-    final years = (diff.inDays / 365).floor();
-    return "$years years ago";
+    // Hours (use 'hr' / 'hrs')
+    final hours = diff.inHours;
+    if (hours < 24) return hours == 1 ? "1 hr ago" : "$hours hrs ago";
+
+    // Days
+    final days = diff.inDays;
+    if (days < 7) return days == 1 ? "1 day ago" : "$days days ago";
+
+    // Weeks (less than ~30 days)
+    if (days < 30) {
+      final weeks = (days / 7).floor();
+      return weeks == 1 ? "1 week ago" : "$weeks weeks ago";
+    }
+
+    // Months (approximate, less than a year)
+    if (days < 365) {
+      final months = (days / 30).floor();
+      return months <= 1 ? "1 month ago" : "$months months ago";
+    }
+
+    // Years (approximate)
+    final years = (days / 365).floor();
+    return years <= 1 ? "1 year ago" : "$years years ago";
   }
 }

@@ -238,32 +238,34 @@ class _AllChannelsScreenState extends State<AllChannelsScreen> {
                   ],
                 ),
               ),
-              // Subscribe button (animated)
+              // Subscribe button (animated) - hide if this is the user's own channel
               SizedBox(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    IgnorePointer(
-                      ignoring: isLoading,
-                      child: AnimatedSubscribeButton(
-                        isSubscribed: isSubscribed,
-                        onPressed: () =>
-                            _toggleSubscription(channel, isSubscribed),
-                      ),
-                    ),
-                    if (isLoading)
-                      SizedBox(
-                        width: 18.w,
-                        height: 18.w,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            appColors().primaryColorApp,
+                child: channel.isOwn
+                    ? const SizedBox.shrink()
+                    : Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IgnorePointer(
+                            ignoring: isLoading,
+                            child: AnimatedSubscribeButton(
+                              isSubscribed: isSubscribed,
+                              onPressed: () =>
+                                  _toggleSubscription(channel, isSubscribed),
+                            ),
                           ),
-                        ),
+                          if (isLoading)
+                            SizedBox(
+                              width: 18.w,
+                              height: 18.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  appColors().primaryColorApp,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -439,6 +441,9 @@ class _AllChannelsScreenState extends State<AllChannelsScreen> {
     });
 
     _subscriptionManager.updateSubscriptionState(channelId, nextState);
+    // Optimistically update the presenter's channel so UI reflects subscriber count
+    // and subscribed state immediately while the API call is in-flight.
+    _presenter.updateChannelSubscription(channelId, nextState);
 
     try {
       if (nextState) {
@@ -447,7 +452,9 @@ class _AllChannelsScreenState extends State<AllChannelsScreen> {
         await _subscriptionService.unsubscribeChannel(channelId: channelId);
       }
     } catch (e) {
+      // Revert both the global manager and presenter's optimistic update
       _subscriptionManager.updateSubscriptionState(channelId, isSubscribed);
+      _presenter.updateChannelSubscription(channelId, isSubscribed);
       _showSnackbar('Unable to update subscription');
     } finally {
       if (!mounted) return;

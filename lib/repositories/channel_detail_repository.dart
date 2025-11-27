@@ -75,7 +75,7 @@ class ChannelDetailInfo {
     );
   }
 
-  ChannelDetailInfo copyWith({bool? isSubscribed}) {
+  ChannelDetailInfo copyWith({bool? isSubscribed, int? subscribersCount}) {
     return ChannelDetailInfo(
       id: id,
       userId: userId,
@@ -87,7 +87,7 @@ class ChannelDetailInfo {
       createdAt: createdAt,
       isSubscribed: isSubscribed ?? this.isSubscribed,
       isOwn: isOwn,
-      subscribersCount: subscribersCount,
+      subscribersCount: subscribersCount ?? this.subscribersCount,
     );
   }
 }

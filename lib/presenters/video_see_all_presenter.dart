@@ -200,6 +200,24 @@ class HomeSectionSeeAllPresenter extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Update the subscription state for a specific channel in-memory.
+  /// This performs an optimistic update of the channel's `subscribed`
+  /// flag and `subscribersCount`, and notifies listeners.
+  void updateChannelSubscription(int channelId, bool subscribed) {
+    final idx = _channels.indexWhere((c) => c.id == channelId);
+    if (idx == -1) return;
+    final current = _channels[idx];
+    final int currentCount = current.subscribersCount;
+    final int nextCount = subscribed
+        ? currentCount + 1
+        : (currentCount - 1).clamp(0, currentCount);
+    _channels[idx] = current.copyWith(
+      subscribed: subscribed,
+      subscribersCount: nextCount,
+    );
+    _notifySafely();
+  }
+
   void _notifySafely() {
     if (!_isDisposed) notifyListeners();
   }
