@@ -371,12 +371,14 @@ class _VideoListBodyState extends State<VideoListBody>
   // Visibility-based autoplay removed for the main video list; keep method in
   // other screens that still use visibility detection.
 
-  void _openPlayer(VideoItem item) {
+  void _openPlayer(VideoItem item, int index) {
     // Pause and cleanup autoplay before navigation to prevent race condition
     _pauseCurrentVideo();
 
     // Sync video item with latest global state before navigation
     final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
+    final contextVideos = _viewModel.items;
+    const contextLabel = 'Videos';
 
     // Use new video player launcher
     final nav = Navigator.of(context);
@@ -386,6 +388,8 @@ class _VideoListBodyState extends State<VideoListBody>
         videoUrl: syncedItem.videoUrl,
         videoId: syncedItem.id.toString(),
         videoItem: syncedItem,
+        contextVideos: contextVideos,
+        contextLabel: contextLabel,
       );
     } else {
       launchVideoPlayer(
@@ -393,6 +397,8 @@ class _VideoListBodyState extends State<VideoListBody>
         videoUrl: syncedItem.videoUrl,
         videoId: syncedItem.id.toString(),
         videoItem: syncedItem,
+        contextVideos: contextVideos,
+        contextLabel: contextLabel,
       );
     }
   }
@@ -496,7 +502,7 @@ class _VideoListBodyState extends State<VideoListBody>
                           item: item
                               .syncWithGlobalState()
                               .syncLikeWithGlobalState(), // Sync with global subscription and like state
-                          onTap: () => _openPlayer(item),
+                          onTap: () => _openPlayer(item, index),
                         ),
                       );
                     }, childCount: _viewModel.items.length + 1),

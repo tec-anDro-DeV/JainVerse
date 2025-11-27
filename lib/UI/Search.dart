@@ -896,6 +896,8 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               videoSubtitle: video.channelName ?? video.channelImageUrl,
               thumbnailUrl: video.thumbnailUrl,
               videoItem: video,
+              contextVideos: videoList,
+              contextLabel: 'Search Results',
             );
           } catch (e) {
             // Fallback: push the player directly if launcher fails
@@ -911,6 +913,8 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                   channelId: video.channelId,
                   channelAvatarUrl: video.channelImageUrl,
                   videoItem: video,
+                  contextVideos: videoList,
+                  contextLabel: 'Search Results',
                 ),
               ),
             );

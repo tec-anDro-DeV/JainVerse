@@ -137,17 +137,26 @@ class _HomeSectionSeeAllScreenState extends State<HomeSectionSeeAllScreen> {
 
   Widget _buildVideoSection() {
     final videos = _presenter.videos;
+    final contextItems = videos
+        .map(
+          (video) => VideoItem.fromVideoModel(
+            video,
+          ).syncWithGlobalState().syncLikeWithGlobalState(),
+        )
+        .toList(growable: false);
+    final contextLabel = widget.title ?? widget.sectionType.label;
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 0),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
-          final video = videos[index];
-          final item = VideoItem.fromVideoModel(
-            video,
-          ).syncWithGlobalState().syncLikeWithGlobalState();
+          final item = contextItems[index];
           return Padding(
             padding: EdgeInsets.only(bottom: 18.h),
-            child: VideoCard(item: item, onTap: () => _openVideo(video)),
+            child: VideoCard(
+              item: item,
+              onTap: () =>
+                  _openVideo(videos, contextItems, index, contextLabel),
+            ),
           );
         }, childCount: videos.length),
       ),
@@ -268,14 +277,21 @@ class _HomeSectionSeeAllScreenState extends State<HomeSectionSeeAllScreen> {
     );
   }
 
-  void _openVideo(VideoModel video) {
+  void _openVideo(
+    List<VideoModel> videos,
+    List<VideoItem> contextItems,
+    int tappedIndex,
+    String contextLabel,
+  ) {
+    if (tappedIndex < 0 || tappedIndex >= videos.length) return;
+    final video = videos[tappedIndex];
     final url = video.videoUrl;
     if (url.isEmpty) {
       _showSnackbar('Video unavailable.');
       return;
     }
 
-    final item = VideoItem.fromVideoModel(video);
+    final item = contextItems[tappedIndex];
     launchVideoPlayer(
       context,
       videoUrl: url,
@@ -284,6 +300,8 @@ class _HomeSectionSeeAllScreenState extends State<HomeSectionSeeAllScreen> {
       videoSubtitle: video.channelName,
       thumbnailUrl: video.thumbnailUrl,
       videoItem: item,
+      contextVideos: contextItems,
+      contextLabel: contextLabel,
     );
   }
 

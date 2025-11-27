@@ -33,6 +33,8 @@ class MediaPlaybackControls extends StatefulWidget {
   final Color? accentColor;
   final IconData? skipPreviousIcon;
   final IconData? skipNextIcon;
+  final Color? skipPreviousColor;
+  final Color? skipNextColor;
   final bool showShuffle;
   final bool showRepeat;
 
@@ -62,6 +64,8 @@ class MediaPlaybackControls extends StatefulWidget {
     this.accentColor,
     this.skipPreviousIcon,
     this.skipNextIcon,
+    this.skipPreviousColor,
+    this.skipNextColor,
     this.showShuffle = true,
     this.showRepeat = true,
     this.iconSize = 32.0,
@@ -135,7 +139,8 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
                                 widget.skipPreviousIcon ??
                                 Icons.skip_previous_rounded,
                             onPressed: widget.onSkipPrevious,
-                            color: defaultAccentColor,
+                            color:
+                                widget.skipPreviousColor ?? defaultAccentColor,
                             size: widget.iconSize,
                           ),
                           SizedBox(width: 24.w),
@@ -145,7 +150,7 @@ class _MediaPlaybackControlsState extends State<MediaPlaybackControls> {
                             icon:
                                 widget.skipNextIcon ?? Icons.skip_next_rounded,
                             onPressed: widget.onSkipNext,
-                            color: defaultAccentColor,
+                            color: widget.skipNextColor ?? defaultAccentColor,
                             size: widget.iconSize,
                           ),
                         ],

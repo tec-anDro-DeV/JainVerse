@@ -18,11 +18,11 @@ import 'package:jainverse/services/favorite_service.dart';
 import 'package:jainverse/services/media_overlay_manager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/report_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
-import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/widgets/music/song_card.dart';
@@ -666,12 +666,15 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
         final videoItem = VideoItem.fromVideoModel(
           video,
         ).syncWithGlobalState().syncLikeWithGlobalState();
-        return _buildModernVideoCard(video, videoItem);
+        return _buildModernVideoCard(
+          videoItem,
+          () => _openVideo(videos, index),
+        );
       },
     );
   }
 
-  Widget _buildModernVideoCard(VideoModel video, VideoItem videoItem) {
+  Widget _buildModernVideoCard(VideoItem videoItem, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -688,8 +691,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16.w),
-          onTap: () => _openVideo(video),
-          child: VideoCard(item: videoItem, onTap: () => _openVideo(video)),
+          onTap: onTap,
+          child: VideoCard(item: videoItem, onTap: onTap),
         ),
       ),
     );
@@ -1048,22 +1051,37 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     );
   }
 
-  void _openVideo(VideoModel video) {
-    final videoItem = VideoItem.fromVideoModel(
-      video,
-    ).syncWithGlobalState().syncLikeWithGlobalState();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VideoPlayerView(
-          videoUrl: video.videoUrl,
-          videoId: video.id.toString(),
-          title: video.title,
-          thumbnailUrl: video.thumbnailUrl,
-          channelId: video.channelId,
-          channelAvatarUrl: video.channelImageUrl,
-          videoItem: videoItem,
-        ),
-      ),
+  void _openVideo(List<VideoModel> videos, int tappedIndex) {
+    if (tappedIndex < 0 || tappedIndex >= videos.length) return;
+    final video = videos[tappedIndex];
+    if (video.videoUrl.isEmpty) {
+      _showSnackBar('Video unavailable.');
+      return;
+    }
+
+    final contextItems = videos
+        .map(
+          (entry) => VideoItem.fromVideoModel(
+            entry,
+          ).syncWithGlobalState().syncLikeWithGlobalState(),
+        )
+        .toList(growable: false);
+    final videoItem = contextItems[tappedIndex];
+    final contextLabel =
+        widget.channelName ??
+        _presenter.state.channel?.name ??
+        'Channel Videos';
+
+    launchVideoPlayer(
+      context,
+      videoUrl: video.videoUrl,
+      videoId: video.id.toString(),
+      videoTitle: video.title,
+      videoSubtitle: video.channelName,
+      thumbnailUrl: video.thumbnailUrl,
+      videoItem: videoItem,
+      contextVideos: contextItems,
+      contextLabel: contextLabel,
     );
   }
 

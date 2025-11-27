@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/services/liked_videos_service.dart';
-import 'package:jainverse/videoplayer/screens/video_player_view.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 // sizes.dart not required here; AppPadding provides bottom spacing
@@ -203,18 +203,16 @@ class _LikedVideosScreenState extends State<LikedVideosScreen> {
                   final syncedItem = video
                       .syncWithGlobalState()
                       .syncLikeWithGlobalState();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => VideoPlayerView(
-                        videoUrl: syncedItem.videoUrl,
-                        videoId: syncedItem.id.toString(),
-                        title: syncedItem.title,
-                        thumbnailUrl: syncedItem.thumbnailUrl,
-                        channelId: syncedItem.channelId,
-                        channelAvatarUrl: syncedItem.channelImageUrl,
-                        videoItem: syncedItem,
-                      ),
-                    ),
+                  launchVideoPlayer(
+                    context,
+                    videoUrl: syncedItem.videoUrl,
+                    videoId: syncedItem.id.toString(),
+                    videoTitle: syncedItem.title,
+                    videoSubtitle: syncedItem.channelName,
+                    thumbnailUrl: syncedItem.thumbnailUrl,
+                    videoItem: syncedItem,
+                    contextVideos: _videos,
+                    contextLabel: 'Liked Videos',
                   );
                 },
               ),

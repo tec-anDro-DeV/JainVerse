@@ -5,9 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/models/video_list_view_model.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/widgets/autoplay_video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
-import 'package:jainverse/videoplayer/screens/video_player_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
@@ -344,20 +344,19 @@ class _AutoplayVideoFeedBodyState extends State<AutoplayVideoFeedBody>
 
     // Sync video item with latest global state before navigation
     final syncedItem = item.syncWithGlobalState().syncLikeWithGlobalState();
+    final contextVideos = _viewModel.items;
+    const contextLabel = 'Autoplay Feed';
 
-    // Navigate to full player
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VideoPlayerView(
-          videoUrl: syncedItem.videoUrl,
-          videoId: syncedItem.id.toString(),
-          title: syncedItem.title,
-          thumbnailUrl: syncedItem.thumbnailUrl,
-          channelId: syncedItem.channelId,
-          channelAvatarUrl: syncedItem.channelImageUrl,
-          videoItem: syncedItem,
-        ),
-      ),
+    await launchVideoPlayer(
+      context,
+      videoUrl: syncedItem.videoUrl,
+      videoId: syncedItem.id.toString(),
+      videoTitle: syncedItem.title,
+      videoSubtitle: syncedItem.channelName,
+      thumbnailUrl: syncedItem.thumbnailUrl,
+      videoItem: syncedItem,
+      contextVideos: contextVideos,
+      contextLabel: contextLabel,
     );
   }
 

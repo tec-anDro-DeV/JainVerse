@@ -48,6 +48,8 @@ class VideoPlayerView extends ConsumerStatefulWidget {
   final List<String>? playlist;
   final int? playlistIndex;
   final bool? isOwn;
+  final List<VideoItem>? contextVideos;
+  final String? contextLabel;
 
   const VideoPlayerView({
     super.key,
@@ -63,6 +65,8 @@ class VideoPlayerView extends ConsumerStatefulWidget {
     this.playlistIndex,
     this.isOwn,
     this.videoItem,
+    this.contextVideos,
+    this.contextLabel,
   });
 
   @override
@@ -114,13 +118,20 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   List<VideoItem> _relatedVideos = [];
   bool _isRelatedLoading = false;
   String? _relatedError;
+  List<VideoItem>? _contextVideos;
+  String? _contextLabel;
 
+  @override
   void initState() {
     super.initState();
     debugPrint(
       'VIDEO_PLAYER_INIT_STATE videoId:${widget.videoId} time:${DateTime.now().millisecondsSinceEpoch}',
     );
     WidgetsBinding.instance.addObserver(this);
+    _contextVideos = widget.contextVideos == null
+        ? null
+        : List<VideoItem>.unmodifiable(widget.contextVideos!);
+    _contextLabel = widget.contextLabel;
     // We don't attempt to capture the prior overlay style (not reliably
     // available across platforms). Instead we restore a safe default on exit.
 
@@ -487,13 +498,29 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     }
   }
 
-  Future<void> _fetchRelatedVideos() async {
+  Future<void> _fetchRelatedVideos({String? currentVideoId}) async {
+    final contextList = _contextVideos;
+    final resolvedVideoId =
+        currentVideoId ??
+        ref.read(videoPlayerProvider).currentVideoId ??
+        widget.videoId;
+
+    if (contextList != null && contextList.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _relatedVideos = _buildContextRelatedVideos(
+          contextList,
+          resolvedVideoId,
+        );
+        _relatedError = null;
+        _isRelatedLoading = false;
+      });
+      return;
+    }
+
+    final int? excludeId = int.tryParse(resolvedVideoId);
+
     if (!mounted) return;
-
-    final currentIdString =
-        ref.read(videoPlayerProvider).currentVideoId ?? widget.videoId;
-    final int? excludeId = int.tryParse(currentIdString);
-
     setState(() {
       _isRelatedLoading = true;
       _relatedError = null;
@@ -523,6 +550,84 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
         _isRelatedLoading = false;
       });
     }
+  }
+
+  List<VideoItem> _buildContextRelatedVideos(
+    List<VideoItem> contextList,
+    String? currentVideoId,
+  ) {
+    if (currentVideoId == null || currentVideoId.isEmpty) {
+      return contextList
+          .map((video) => video.syncWithGlobalState().syncLikeWithGlobalState())
+          .toList(growable: false);
+    }
+
+    bool skipped = false;
+    final filtered = contextList
+        .where((video) {
+          if (!skipped && video.id.toString() == currentVideoId) {
+            skipped = true;
+            return false;
+          }
+          return true;
+        })
+        .map((video) => video.syncWithGlobalState().syncLikeWithGlobalState())
+        .toList(growable: false);
+
+    return filtered;
+  }
+
+  VideoItem? _findAdjacentContextVideo(
+    String? currentVideoId, {
+    required bool forward,
+  }) {
+    final list = _contextVideos;
+    if (list == null || list.isEmpty || currentVideoId == null) {
+      return null;
+    }
+
+    final index = list.indexWhere(
+      (video) => video.id.toString() == currentVideoId,
+    );
+    if (index == -1) return null;
+
+    int cursor = forward ? index + 1 : index - 1;
+    while (cursor >= 0 && cursor < list.length) {
+      final candidate = list[cursor];
+      if (candidate.videoUrl.isNotEmpty) {
+        return candidate;
+      }
+      cursor += forward ? 1 : -1;
+    }
+    return null;
+  }
+
+  VideoItem? _firstPlayableFrom(List<VideoItem> videos) {
+    for (final video in videos) {
+      if (video.videoUrl.isNotEmpty) {
+        return video;
+      }
+    }
+    return null;
+  }
+
+  VideoItem? _resolvePreviousVideo(String? currentVideoId) {
+    return _findAdjacentContextVideo(currentVideoId, forward: false);
+  }
+
+  VideoItem? _resolveNextVideo(String? currentVideoId) {
+    final contextNext = _findAdjacentContextVideo(
+      currentVideoId,
+      forward: true,
+    );
+    if (contextNext != null) {
+      return contextNext;
+    }
+
+    if (_contextVideos != null && _contextVideos!.isNotEmpty) {
+      return null;
+    }
+    return _firstPlayableFrom(_relatedVideos);
   }
 
   Future<void> _playRelatedVideo(VideoItem item) async {
@@ -574,7 +679,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     if (!mounted) return;
 
-    unawaited(_fetchRelatedVideos());
+    unawaited(_fetchRelatedVideos(currentVideoId: item.id.toString()));
   }
 
   Future<void> _launchLandscapePlayer() async {
@@ -804,6 +909,20 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     required int? currentVideoIdInt,
   }) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final currentVideoId = videoState.currentVideoId ?? widget.videoId;
+
+    final previousVideo = _resolvePreviousVideo(currentVideoId);
+    final nextVideo = _resolveNextVideo(currentVideoId);
+
+    VoidCallback? handlePrevious;
+    if (previousVideo != null) {
+      handlePrevious = () => _playRelatedVideo(previousVideo);
+    }
+
+    VoidCallback? handleNext;
+    if (nextVideo != null) {
+      handleNext = () => _playRelatedVideo(nextVideo);
+    }
 
     return Padding(
       padding: EdgeInsets.fromLTRB(2.w, 20.h, 2.w, bottomPadding + 24.h),
@@ -816,6 +935,10 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
             accentColor: theme.primaryColor,
             showTrackInfo: false,
             showSeekBar: false,
+            contextSkipPrevious: handlePrevious,
+            contextSkipNext: handleNext,
+            contextSkipPreviousIcon: Icons.skip_previous_rounded,
+            contextSkipNextIcon: Icons.skip_next_rounded,
           ),
           SizedBox(height: 12.h),
           VideoTitleChannelRow(
@@ -1149,13 +1272,21 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
       );
     }
 
+    final usingSourceList =
+        _contextVideos != null && _contextVideos!.isNotEmpty;
+    final sectionTitle = usingSourceList
+        ? (_contextLabel != null && _contextLabel!.trim().isNotEmpty
+              ? 'More from ${_contextLabel!.trim()}'
+              : 'More from this list')
+        : 'Related Videos';
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Related Videos',
+            sectionTitle,
             style: TextStyle(
               color: textColor,
               fontSize: 18.sp,

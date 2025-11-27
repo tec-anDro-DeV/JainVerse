@@ -1081,6 +1081,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     if (videos.isEmpty) return SizedBox.shrink();
 
     final theme = sharedPreThemeData;
+    final contextItems = videos
+        .map((video) => VideoItem.fromVideoModel(video))
+        .toList(growable: false);
 
     return Padding(
       padding: EdgeInsets.only(top: 4.w),
@@ -1102,6 +1105,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               itemBuilder: (context, index) {
                 final video = videos[index];
+                final videoItem = contextItems[index];
                 return VideoCardSmall(
                   title: video.title,
                   thumbnailUrl: video.thumbnailUrl,
@@ -1117,29 +1121,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                     videoTitle: video.title,
                     videoSubtitle: video.channelName,
                     thumbnailUrl: video.thumbnailUrl,
-                    videoItem: VideoItem(
-                      id: video.id,
-                      title: video.title,
-                      videoUrl: video.videoUrl,
-                      thumbnailUrl: video.thumbnailUrl,
-                      duration: video.duration,
-                      description: video.description,
-                      channelId: video.channelId,
-                      channelName: video.channelName,
-                      channelHandle: video.channelHandle,
-                      channelImageUrl: video.channelImageUrl,
-                      createdAt: DateTime.tryParse(video.createdAt),
-                      subscribed: video.subscribed == null
-                          ? null
-                          : video.subscribed == 1,
-                      like: video.like,
-                      totalViews: video.totalViews,
-                      totalLikes: video.totalLikes,
-                      report: video.report,
-                      block: null,
-                      reason: null,
-                      isOwn: video.isOwn,
-                    ),
+                    videoItem: videoItem,
+                    contextVideos: contextItems,
+                    contextLabel: title,
                   ),
                 );
               },

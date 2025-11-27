@@ -20,7 +20,7 @@ import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/my_videos_service.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 // moved: MyVideosSection and video card widgets now used from `user_channel_videos.dart`
-import 'package:jainverse/videoplayer/screens/video_player_view.dart';
+import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/utils/crash_prevention_helper.dart';
 import 'package:jainverse/UI/user_channel_image_helper.dart';
 import 'package:jainverse/UI/user_channel_videos.dart';
@@ -1239,19 +1239,19 @@ class _UserChannelState extends State<UserChannel>
       return;
     }
 
-    Navigator.push(
+    final playableVideos = _myVideos
+        .where((item) => (item.block ?? 0) != 1)
+        .toList(growable: false);
+    launchVideoPlayer(
       context,
-      MaterialPageRoute(
-        builder: (context) => VideoPlayerView(
-          videoUrl: video.videoUrl,
-          videoId: video.id.toString(),
-          title: video.title,
-          thumbnailUrl: video.thumbnailUrl,
-          channelId: video.channelId,
-          channelAvatarUrl: video.channelImageUrl,
-          videoItem: video,
-        ),
-      ),
+      videoUrl: video.videoUrl,
+      videoId: video.id.toString(),
+      videoTitle: video.title,
+      videoSubtitle: video.channelName,
+      thumbnailUrl: video.thumbnailUrl,
+      videoItem: video,
+      contextVideos: playableVideos,
+      contextLabel: '${_currentChannel.name} Videos',
     );
   }
 

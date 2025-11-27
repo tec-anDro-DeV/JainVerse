@@ -367,7 +367,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
                   channelImageUrl: video.channelImageUrl,
                   totalViews: video.totalViews,
                   publishedAt: video.createdAt,
-                  onTap: () => _openVideo(video),
+                  onTap: () => _openVideo(videos, index, title),
                 );
               },
               separatorBuilder: (context, _) => SizedBox(width: 12.w),
@@ -833,7 +833,13 @@ class _HomeDiscoverState extends State<HomeDiscover>
     );
   }
 
-  void _openVideo(VideoModel video) {
+  void _openVideo(
+    List<VideoModel> source,
+    int tappedIndex,
+    String sectionTitle,
+  ) {
+    if (tappedIndex < 0 || tappedIndex >= source.length) return;
+    final video = source[tappedIndex];
     final videoUrl = video.videoUrl;
 
     if (videoUrl.isEmpty) {
@@ -842,6 +848,10 @@ class _HomeDiscoverState extends State<HomeDiscover>
     }
 
     final item = _toVideoItem(video, videoUrl);
+    final contextItems = source
+        .where((entry) => entry.videoUrl.isNotEmpty)
+        .map((entry) => _toVideoItem(entry, entry.videoUrl))
+        .toList(growable: false);
 
     launchVideoPlayer(
       context,
@@ -851,6 +861,8 @@ class _HomeDiscoverState extends State<HomeDiscover>
       videoSubtitle: video.channelName,
       thumbnailUrl: item.thumbnailUrl,
       videoItem: item,
+      contextVideos: contextItems,
+      contextLabel: sectionTitle,
     );
   }
 

@@ -11,6 +11,10 @@ class VideoControlPanel extends ConsumerWidget {
   final Color? accentColor;
   final bool showTrackInfo;
   final bool showSeekBar;
+  final VoidCallback? contextSkipPrevious;
+  final VoidCallback? contextSkipNext;
+  final IconData? contextSkipPreviousIcon;
+  final IconData? contextSkipNextIcon;
 
   const VideoControlPanel({
     super.key,
@@ -18,6 +22,10 @@ class VideoControlPanel extends ConsumerWidget {
     this.accentColor,
     this.showTrackInfo = true,
     this.showSeekBar = true,
+    this.contextSkipPrevious,
+    this.contextSkipNext,
+    this.contextSkipPreviousIcon,
+    this.contextSkipNextIcon,
   });
 
   @override
@@ -27,6 +35,21 @@ class VideoControlPanel extends ConsumerWidget {
 
     final effectiveTextColor = textColor ?? Colors.white;
     final effectiveAccentColor = accentColor ?? Theme.of(context).primaryColor;
+
+    final VoidCallback? previousHandler = contextSkipPrevious;
+    final VoidCallback? nextHandler = contextSkipNext;
+
+    final IconData previousIcon =
+        contextSkipPreviousIcon ?? Icons.skip_previous_rounded;
+    final IconData nextIcon = contextSkipNextIcon ?? Icons.skip_next_rounded;
+
+    final Color dimmedColor = effectiveTextColor.withOpacity(0.35);
+    final Color previousColor = previousHandler != null
+        ? effectiveAccentColor
+        : dimmedColor;
+    final Color nextColor = nextHandler != null
+        ? effectiveAccentColor
+        : dimmedColor;
 
     return Column(
       children: [
@@ -52,30 +75,14 @@ class VideoControlPanel extends ConsumerWidget {
           isLoading: videoState.isLoading,
           onPlay: videoNotifier.play,
           onPause: videoNotifier.pause,
-          // Change previous/next to seek -10s / +10s (clamped to 0..duration)
-          onSkipPrevious: videoState.isReady
-              ? () {
-                  final current = videoState.position;
-                  final seekTo = current - const Duration(seconds: 10);
-                  final clamped = seekTo < Duration.zero
-                      ? Duration.zero
-                      : seekTo;
-                  videoNotifier.seekTo(clamped);
-                }
-              : null,
-          onSkipNext: videoState.isReady
-              ? () {
-                  final current = videoState.position;
-                  final duration = videoState.duration;
-                  final seekTo = current + const Duration(seconds: 10);
-                  final clamped = seekTo > duration ? duration : seekTo;
-                  videoNotifier.seekTo(clamped);
-                }
-              : null,
+          onSkipPrevious: previousHandler,
+          onSkipNext: nextHandler,
           onShuffle: null, // Videos don't typically have shuffle
-          // Show 10s seek icons for previous/next
-          skipPreviousIcon: Icons.replay_10,
-          skipNextIcon: Icons.forward_10,
+          // Show playlist skip icons when context is available, otherwise 10s icons
+          skipPreviousIcon: previousIcon,
+          skipNextIcon: nextIcon,
+          skipPreviousColor: previousColor,
+          skipNextColor: nextColor,
           onRepeat: videoNotifier.toggleRepeat,
           isShuffleEnabled: false,
           isRepeatEnabled: videoState.repeatMode,

@@ -20,6 +20,8 @@ Future<void> launchVideoPlayer(
   VideoItem? videoItem,
   List<String>? playlist,
   int? playlistIndex,
+  List<VideoItem>? contextVideos,
+  String? contextLabel,
 }) async {
   // Ensure any active music playback is stopped, but don't block navigation.
   try {
@@ -80,6 +82,16 @@ Future<void> launchVideoPlayer(
     } catch (_) {}
   }
   final id = videoId.isNotEmpty ? videoId : (videoItem?.id.toString() ?? '');
+  final sanitizedContext = contextVideos == null
+      ? null
+      : List<VideoItem>.unmodifiable(contextVideos);
+  final derivedPlaylist =
+      playlist ??
+      sanitizedContext
+          ?.map((item) => item.id.toString())
+          .toList(growable: false);
+  final derivedIndex =
+      playlistIndex ?? _contextIndexForVideo(sanitizedContext, id);
 
   // Best-effort: prefetch video controller in background so the full-screen
   // player can attach quickly when the route opens. This is non-blocking.
@@ -110,8 +122,10 @@ Future<void> launchVideoPlayer(
         channelAvatarUrl: videoItem?.channelImageUrl,
         isOwn: videoItem?.isOwn == 1,
         videoItem: videoItem,
-        playlist: playlist,
-        playlistIndex: playlistIndex,
+        playlist: derivedPlaylist,
+        playlistIndex: derivedIndex,
+        contextVideos: sanitizedContext,
+        contextLabel: contextLabel,
       ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(opacity: animation, child: child);
@@ -135,6 +149,8 @@ Future<void> replaceWithVideoPlayer(
   VideoItem? videoItem,
   List<String>? playlist,
   int? playlistIndex,
+  List<VideoItem>? contextVideos,
+  String? contextLabel,
 }) async {
   // Ensure any active music playback is stopped, but don't block navigation.
   try {
@@ -165,6 +181,16 @@ Future<void> replaceWithVideoPlayer(
     } catch (_) {}
   }
   final id = videoId.isNotEmpty ? videoId : (videoItem?.id.toString() ?? '');
+  final sanitizedContext = contextVideos == null
+      ? null
+      : List<VideoItem>.unmodifiable(contextVideos);
+  final derivedPlaylist =
+      playlist ??
+      sanitizedContext
+          ?.map((item) => item.id.toString())
+          .toList(growable: false);
+  final derivedIndex =
+      playlistIndex ?? _contextIndexForVideo(sanitizedContext, id);
 
   // Replace current route with new video player using a fade transition
   debugPrint(
@@ -184,8 +210,10 @@ Future<void> replaceWithVideoPlayer(
         channelAvatarUrl: videoItem?.channelImageUrl,
         isOwn: videoItem?.isOwn == 1,
         videoItem: videoItem,
-        playlist: playlist,
-        playlistIndex: playlistIndex,
+        playlist: derivedPlaylist,
+        playlistIndex: derivedIndex,
+        contextVideos: sanitizedContext,
+        contextLabel: contextLabel,
       ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(opacity: animation, child: child);
@@ -195,4 +223,10 @@ Future<void> replaceWithVideoPlayer(
   debugPrint(
     'VIDEO_NAV_AFTER_REPLACE id:$id time:${DateTime.now().millisecondsSinceEpoch}',
   );
+}
+
+int? _contextIndexForVideo(List<VideoItem>? context, String id) {
+  if (context == null || context.isEmpty) return null;
+  final idx = context.indexWhere((item) => item.id.toString() == id);
+  return idx >= 0 ? idx : null;
 }
