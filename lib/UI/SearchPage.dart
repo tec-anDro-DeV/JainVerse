@@ -10,7 +10,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -709,7 +709,11 @@ class _SearchPageState extends State<SearchPage> {
 
         // Add to history
         try {
-          await HistoryPresenter().addHistory(item.id.toString(), token, 'add');
+          await SongHistoryPresenter().addHistory(
+            item.id.toString(),
+            token,
+            'add',
+          );
         } catch (e) {
           print('[ERROR] Failed to add to history: $e');
         }

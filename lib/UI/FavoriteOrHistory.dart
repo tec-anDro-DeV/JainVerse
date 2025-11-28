@@ -9,7 +9,7 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
@@ -103,7 +103,7 @@ class StateClass extends State<Favorite> {
 
   Future<void> hisAPI() async {
     //
-    String data = await HistoryPresenter().getHistory(token);
+    String data = await SongHistoryPresenter().getHistory(token);
     final Map<String, dynamic> parsed = json.decode(data.toString());
     ModelMusicList mList = ModelMusicList.fromJson(parsed);
     mList.data.length;
@@ -161,7 +161,7 @@ class StateClass extends State<Favorite> {
   }
 
   Future<void> addRemoveHisAPI(String id) async {
-    await HistoryPresenter().addHistory(id, token, 'remove');
+    await SongHistoryPresenter().addHistory(id, token, 'remove');
     hisAPI();
   }
 

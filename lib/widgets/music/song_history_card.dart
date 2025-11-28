@@ -12,7 +12,7 @@ import '../common/image_with_fallback.dart';
 import '../common/music_context_menu.dart';
 import '../common/music_long_press_handler.dart';
 
-class HistoryCard extends StatefulWidget {
+class SongHistoryCard extends StatefulWidget {
   final String imagePath;
   final String songName;
   final String artistName;
@@ -31,7 +31,7 @@ class HistoryCard extends StatefulWidget {
   final VoidCallback? onShare;
   final VoidCallback? onFavorite;
 
-  const HistoryCard({
+  const SongHistoryCard({
     super.key,
     required this.imagePath,
     required this.songName,
@@ -51,10 +51,10 @@ class HistoryCard extends StatefulWidget {
   });
 
   @override
-  State<HistoryCard> createState() => _HistoryCardState();
+  State<SongHistoryCard> createState() => _SongHistoryCardState();
 }
 
-class _HistoryCardState extends State<HistoryCard>
+class _SongHistoryCardState extends State<SongHistoryCard>
     with MusicCardLongPressHandler {
   bool _pressed = false;
 

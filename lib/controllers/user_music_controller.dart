@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/Model/ModelPlayList.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/Presenter/PlaylistMusicPresenter.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -132,7 +132,7 @@ class UserMusicController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final String data = await HistoryPresenter().getHistory(_token);
+      final String data = await SongHistoryPresenter().getHistory(_token);
       final Map<String, dynamic> parsed = json.decode(data.toString());
       final ModelMusicList mList = ModelMusicList.fromJson(parsed);
 
@@ -281,7 +281,7 @@ class UserMusicController extends ChangeNotifier {
     if (_token.isEmpty || audioId.isEmpty) return false;
 
     try {
-      await HistoryPresenter().addHistory(audioId, _token, 'add');
+      await SongHistoryPresenter().addHistory(audioId, _token, 'add');
 
       developer.log(
         '[DEBUG][UserMusicController][addToHistory] Added $audioId to history',
@@ -304,7 +304,7 @@ class UserMusicController extends ChangeNotifier {
     if (_token.isEmpty || audioId.isEmpty) return false;
 
     try {
-      await HistoryPresenter().addHistory(audioId, _token, 'remove');
+      await SongHistoryPresenter().addHistory(audioId, _token, 'remove');
 
       // Update local state
       _historyList.removeWhere((item) => item.id.toString() == audioId);

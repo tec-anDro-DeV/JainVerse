@@ -11,7 +11,7 @@ import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart'; // Add this import
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart'; // Add this import
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -1777,7 +1777,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
   Future<void> addRemoveHisAPI(String id) async {
     try {
       print('[DEBUG] Adding song to history: $id');
-      await HistoryPresenter().addHistory(id, token, 'add');
+      await SongHistoryPresenter().addHistory(id, token, 'add');
     } catch (e) {
       print('[ERROR] Failed to add to history: $e');
     }

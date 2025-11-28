@@ -7,16 +7,16 @@ import 'package:jainverse/services/token_expiration_handler.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
-class HistoryPresenter {
+class SongHistoryPresenter {
   late final Dio _dio;
   final SharedPref _sharePrefs = SharedPref();
 
   // Prevent rapid duplicate history additions for the same music id.
-  // Use static so it works across multiple HistoryPresenter instances.
+  // Use static so it works across multiple SongHistoryPresenter instances.
   static final Map<String, DateTime> _lastAddTimestamps = {};
   static const Duration _addDebounce = Duration(seconds: 2);
 
-  HistoryPresenter() {
+  SongHistoryPresenter() {
     _dio = Dio();
     // Configure timeout settings - INCREASED to fix timeout issue
     _dio.options.connectTimeout = const Duration(seconds: 30);

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 // import 'package:jainverse/ThemeMain/appColors.dart';  // Comment out: unused import after removing toast messages
 import 'package:jainverse/utils/BackgroundAudioManager.dart';
 // import 'package:flutter/material.dart';  // Comment out: unused import after removing toast messages
@@ -77,7 +77,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
       queueStream: queue,
     );
     _historyTracker = PlaybackHistoryTracker(
-      historyPresenter: _historyPresenter,
+      SongHistoryPresenter: _songhistoryPresenter,
       reportError: _reportError,
     );
     _shuffleManager = ShuffleManager();
@@ -159,7 +159,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
   late final TrackCompletionHandler _trackCompletionHandler;
 
   final MediaLibrary _mediaLibrary = MediaLibrary();
-  final HistoryPresenter _historyPresenter = HistoryPresenter();
+  final SongHistoryPresenter _songhistoryPresenter = SongHistoryPresenter();
   final AudioPlayerErrorHandler _errorHandler = const AudioPlayerErrorHandler();
   late final QueueSynchronizer _queueSynchronizer;
   late final AutoMediaBrowser _autoMediaBrowser;

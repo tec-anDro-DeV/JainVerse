@@ -25,7 +25,7 @@ import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../Presenter/HistoryPresenter.dart';
+import '../Presenter/SongHistoryPresenter.dart';
 import '../providers/favorites_provider.dart';
 import '../services/favorite_service.dart';
 // TODO: Add other services when needed
@@ -164,7 +164,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
 
   Future<void> addRemoveHisAPI(String id) async {
     try {
-      await HistoryPresenter().addHistory(id, token, 'add');
+      await SongHistoryPresenter().addHistory(id, token, 'add');
       if (mounted) {
         setState(() {});
       }

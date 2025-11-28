@@ -15,7 +15,7 @@ import 'package:jainverse/Model/home_models.dart';
 import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/widgets/cards/video_card_small.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/ThemeMain/app_padding.dart';
@@ -29,7 +29,7 @@ import 'package:session_storage/session_storage.dart';
 
 import '../main.dart';
 import '../widgets/common/app_header.dart';
-import '../widgets/music/history_card.dart';
+import '../widgets/music/song_history_card.dart';
 import '../widgets/music/home_section_header.dart';
 import '../widgets/music/horizontal_song_card.dart';
 import 'AccountPage.dart';
@@ -90,7 +90,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
   late final HomeController _homeController;
   void _onHomeControllerUpdate() => setState(() {});
 
-  final HistoryPresenter _historyPresenter = HistoryPresenter();
+  final SongHistoryPresenter _songhistoryPresenter = SongHistoryPresenter();
   // Keep a legacy presenter for category-specific requests (used only on user taps)
   // legacy presenter removed — category taps now navigate to Music screen
 
@@ -296,7 +296,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     try {
       print('Loading history data in MyLibrary with token: $token');
 
-      final String response = await _historyPresenter.getHistory(token);
+      final String response = await _songhistoryPresenter.getHistory(token);
       final parsed = _safeJsonDecode(response);
       if (parsed == null) {
         throw FormatException('History response was not valid JSON');
@@ -923,7 +923,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                 final historyItem = _cachedHistoryData!.data[index];
                 return Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8.w),
-                  child: HistoryCard(
+                  child: SongHistoryCard(
                     imagePath: historyItem.image.startsWith('http')
                         ? historyItem.image
                         : AppConstant.ImageUrl + historyItem.image,

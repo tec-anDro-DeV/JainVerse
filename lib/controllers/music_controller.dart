@@ -13,7 +13,7 @@ import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/Presenter/PlanPresenter.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/services/audio_player_service.dart';
@@ -554,7 +554,7 @@ class MusicController extends ChangeNotifier {
     );
 
     try {
-      await HistoryPresenter().addHistory(id, _token, 'add');
+      await SongHistoryPresenter().addHistory(id, _token, 'add');
       if (!_isDisposed) {
         notifyListeners();
       }

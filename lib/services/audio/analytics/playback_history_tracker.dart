@@ -1,16 +1,16 @@
 import 'package:audio_service/audio_service.dart';
-import 'package:jainverse/Presenter/HistoryPresenter.dart';
+import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/services/audio/common/audio_logger.dart';
 
 /// Handles playback history tracking so the handler only orchestrates calls.
 class PlaybackHistoryTracker {
   PlaybackHistoryTracker({
-    required HistoryPresenter historyPresenter,
+    required SongHistoryPresenter SongHistoryPresenter,
     required void Function(Object error, [StackTrace? stackTrace]) reportError,
-  }) : _historyPresenter = historyPresenter,
+  }) : _songhistoryPresenter = SongHistoryPresenter,
        _reportError = reportError;
 
-  final HistoryPresenter _historyPresenter;
+  final SongHistoryPresenter _songhistoryPresenter;
   final void Function(Object error, [StackTrace? stackTrace]) _reportError;
 
   void track(MediaItem item) {
@@ -24,7 +24,7 @@ class PlaybackHistoryTracker {
         return;
       }
 
-      _historyPresenter.trackSongPlay(musicId);
+      _songhistoryPresenter.trackSongPlay(musicId);
       AudioLogger.log(
         '[PlaybackHistoryTracker] Tracking history for ${item.title} (Music ID: $musicId)',
         name: 'PlaybackHistoryTracker',
