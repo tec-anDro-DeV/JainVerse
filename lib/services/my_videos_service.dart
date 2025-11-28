@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
@@ -24,7 +26,7 @@ class MyVideosService {
 
     try {
       final resp = await _dio.get(
-        AppConstant.BaseUrl + AppConstant.API_MY_VIDEOS,
+        AppConstant.BaseUrl + AppConstant.API_MY_CHANNEL_DETAIL,
         options: Options(
           headers: {
             'Content-Type': 'application/json',
@@ -36,11 +38,19 @@ class MyVideosService {
       );
 
       if (resp.statusCode == 200) {
-        final data = resp.data;
-        if (data is Map<String, dynamic> && data['status'] == true) {
-          final List<dynamic> videosJson = data['data'] ?? [];
-          return videosJson.map((json) => VideoItem.fromJson(json)).toList();
+        final payload = _normalizeResponse(resp.data);
+        final List<dynamic> videosJson = _extractVideoList(payload);
+        final items = <VideoItem>[];
+        for (final entry in videosJson) {
+          if (entry is Map<String, dynamic>) {
+            items.add(VideoItem.fromJson(entry));
+            continue;
+          }
+          if (entry is Map) {
+            items.add(VideoItem.fromJson(Map<String, dynamic>.from(entry)));
+          }
         }
+        return items;
       }
       return [];
     } on DioException catch (e) {
@@ -51,4 +61,38 @@ class MyVideosService {
       throw Exception(e.toString());
     }
   }
+}
+
+Map<String, dynamic> _normalizeResponse(dynamic raw) {
+  if (raw is Map<String, dynamic>) return raw;
+  if (raw is String && raw.isNotEmpty) {
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+  }
+  return const <String, dynamic>{};
+}
+
+List<dynamic> _extractVideoList(Map<String, dynamic> payload) {
+  List<dynamic> candidate = [];
+
+  final directVideos = payload['videos'];
+  if (directVideos is List) return directVideos;
+
+  final dataSection = payload['data'];
+  if (dataSection is List) return dataSection;
+  if (dataSection is Map<String, dynamic>) {
+    final nestedVideos = dataSection['videos'];
+    if (nestedVideos is List) return nestedVideos;
+    final nestedData = dataSection['data'];
+    if (nestedData is List) return nestedData;
+  }
+
+  if (directVideos is Map<String, dynamic>) {
+    final nestedData = directVideos['data'];
+    if (nestedData is List) return nestedData;
+  }
+
+  return candidate;
 }

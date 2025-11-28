@@ -5,7 +5,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/Logout.dart';
@@ -18,7 +17,6 @@ import 'package:jainverse/ThemeMain/app_padding.dart';
 import 'package:jainverse/UI/AppInfo.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/models/channel_model.dart';
-import 'package:jainverse/presenters/channel_presenter.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
@@ -77,7 +75,6 @@ class MyState extends State<AccountPage>
   var progressString = "";
   String isSelected = 'all';
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
-  bool allowDown = false;
   String version = '';
   String buildNumber = '', appPackageName = '';
   String audioPath = 'images/audio/thumb/';
@@ -95,10 +92,9 @@ class MyState extends State<AccountPage>
   static String name = '', artistStatus = 'P';
   static String imagePresent = '';
   ImageProvider? _profileImageProvider;
-  late ModelSettings modelSettings;
-  bool hasPre = false;
   bool hasChannel = false;
   Map<String, dynamic>? channelData;
+  bool _handledInactiveAccount = false;
 
   get audioHandler => null;
   final session = SessionStorage();
@@ -122,6 +118,18 @@ class MyState extends State<AccountPage>
     try {
       model = await sharePrefs.getUserData();
 
+      try {
+        name = (model.data.name ?? '').trim();
+      } catch (_) {
+        name = '';
+      }
+
+      try {
+        artistStatus = model.data.artist_verify_status;
+      } catch (_) {
+        artistStatus = 'P';
+      }
+
       PackageInfo.fromPlatform().then((PackageInfo packageInfo) {
         version = packageInfo.version;
         buildNumber = packageInfo.buildNumber;
@@ -130,36 +138,7 @@ class MyState extends State<AccountPage>
       token = await sharePrefs.getToken();
       await _fetchProfileFromApi(token);
       sharedPreThemeData = await sharePrefs.getThemeData();
-      setState(() {});
-
-      String? sett = await sharePrefs.getSettings();
-
-      final Map<String, dynamic> parsed = json.decode(sett!);
-      modelSettings = ModelSettings.fromJson(parsed);
-      if ((modelSettings.data.image.isNotEmpty)) {
-        final raw = modelSettings.data.image.toString();
-        if (raw.startsWith('http')) {
-          imagePresent = raw;
-        } else {
-          imagePresent = AppConstant.ImageUrl + raw;
-        }
-        try {
-          await _prepareProfileImage(imagePresent);
-        } catch (e) {
-          if (kDebugMode) print('prepareProfileImage failed: $e');
-        }
-      } else {
-        imagePresent = '';
-      }
-
-      name = modelSettings.data.name;
-      artistStatus = model.data.artist_verify_status;
-      if (modelSettings.data.in_app_purchase == 1) {
-        hasPre = true;
-      }
-      if (Platform.isAndroid) {
-        hasPre = true;
-      }
+      if (mounted) setState(() {});
       return model.data.name;
     } on Exception {}
   }
@@ -209,7 +188,6 @@ class MyState extends State<AccountPage>
       try {
         token = await sharePrefs.getToken();
         await _fetchProfileFromApi(token);
-        await getSettings();
 
         Future<void> attemptRefresh([bool cacheBust = false]) async {
           if (imagePresent.isEmpty) return;
@@ -257,34 +235,25 @@ class MyState extends State<AccountPage>
     setState(() {});
   }
 
-  Future<void> getSettings() async {
-    String? sett = await sharePrefs.getSettings();
+  Future<void> _handleInactiveAccount() async {
+    if (_handledInactiveAccount) return;
+    _handledInactiveAccount = true;
 
-    final Map<String, dynamic> parsed = json.decode(sett!);
-    ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-    if (modelSettings.data.status == 0) {
-      sharePrefs.removeValues();
+    await sharePrefs.removeValues();
 
-      imagePresent = '';
-      name = '';
-      artistStatus = 'P';
+    imagePresent = '';
+    name = '';
+    artistStatus = 'P';
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (BuildContext context) => const PhoneNumberInputScreen(),
-        ),
-        (Route<dynamic> route) => false,
-      );
-      Logout().logout(context, token);
-    }
+    if (!mounted) return;
 
-    if (modelSettings.data.download == 1) {
-      allowDown = true;
-    } else {
-      allowDown = false;
-    }
-
-    setState(() {});
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (BuildContext context) => const PhoneNumberInputScreen(),
+      ),
+      (Route<dynamic> route) => false,
+    );
+    Logout().logout(context, token);
   }
 
   Future<void> _prepareProfileImage(String url) async {
@@ -349,25 +318,6 @@ class MyState extends State<AccountPage>
     if (mounted) setState(() => _profileImageProvider = null);
   }
 
-  Future<void> checkUserChannel() async {
-    try {
-      final presenter = ChannelPresenter();
-      final result = await presenter.getChannel();
-
-      if (result['status'] == true && result['data'] != null) {
-        hasChannel = true;
-        channelData = result['data'];
-      } else {
-        hasChannel = false;
-        channelData = null;
-      }
-      setState(() {});
-    } catch (e) {
-      hasChannel = false;
-      channelData = null;
-    }
-  }
-
   Future<void> checkConn() async {
     connected = await ConnectionCheck().checkConnection();
     setState(() {});
@@ -385,26 +335,29 @@ class MyState extends State<AccountPage>
       if (resp.statusCode == 200) {
         final Map<String, dynamic> jsonResp = json.decode(resp.body);
         final dynamic data = jsonResp['data'] ?? jsonResp;
+
+        Map<String, dynamic>? userPayload;
+        Map<String, dynamic>? channelPayload;
+
         if (data is Map<String, dynamic>) {
-          if (data.containsKey('name') && data['name'] != null) {
-            name = data['name'].toString();
+          final dynamic possibleUser = data['user'];
+          if (possibleUser is Map<String, dynamic>) {
+            userPayload = possibleUser;
+          } else {
+            userPayload = data;
           }
-          if (data.containsKey('artist_verify_status') &&
-              data['artist_verify_status'] != null) {
-            artistStatus = data['artist_verify_status'].toString();
-          }
-          if (data.containsKey('image') &&
-              data['image'] != null &&
-              data['image'].toString().isNotEmpty) {
-            final raw = data['image'].toString();
-            if (raw.startsWith('http')) {
-              imagePresent = raw;
-            } else {
-              imagePresent = AppConstant.ImageUrl + raw;
-            }
-            await _prepareProfileImage(imagePresent);
+
+          final dynamic possibleChannel = data['channel'];
+          if (possibleChannel is Map<String, dynamic>) {
+            channelPayload = possibleChannel;
           }
         }
+
+        final Map<String, dynamic>? fallbackUser =
+            userPayload ?? (data is Map<String, dynamic> ? data : null);
+
+        await _applyUserPayload(fallbackUser);
+        _applyChannelPayload(channelPayload);
       } else {
         if (kDebugMode) {
           print('my_profile returned ${resp.statusCode}: ${resp.body}');
@@ -415,6 +368,84 @@ class MyState extends State<AccountPage>
     }
 
     if (mounted) setState(() {});
+  }
+
+  Future<void> _applyUserPayload(Map<String, dynamic>? payload) async {
+    if (payload == null || payload.isEmpty) return;
+
+    final dynamic accountStatusRaw = payload['status'];
+    final bool accountInactive =
+        accountStatusRaw != null && accountStatusRaw.toString() == '0';
+    if (accountInactive) {
+      await _handleInactiveAccount();
+      return;
+    }
+
+    final String? resolvedName = _resolveProfileName(payload);
+    if (resolvedName != null && resolvedName.isNotEmpty) {
+      name = resolvedName;
+    }
+
+    final dynamic artistStatusRaw = payload['artist_verify_status'];
+    if (artistStatusRaw != null) {
+      artistStatus = artistStatusRaw.toString();
+    }
+
+    final String? resolvedImage = _resolveProfileImageUrl(payload);
+    if (resolvedImage != null && resolvedImage.isNotEmpty) {
+      imagePresent = resolvedImage;
+      await _prepareProfileImage(imagePresent);
+    } else {
+      imagePresent = '';
+      if (mounted) setState(() => _profileImageProvider = null);
+    }
+  }
+
+  void _applyChannelPayload(Map<String, dynamic>? payload) {
+    if (payload != null && payload.isNotEmpty) {
+      hasChannel = true;
+      channelData = payload;
+    } else {
+      hasChannel = false;
+      channelData = null;
+    }
+  }
+
+  String? _resolveProfileName(Map<String, dynamic> payload) {
+    final dynamic rawName = payload['name'];
+    if (rawName is String && rawName.trim().isNotEmpty) {
+      return rawName.trim();
+    }
+
+    final String first = (payload['fname']?.toString() ?? '').trim();
+    final String last = (payload['lname']?.toString() ?? '').trim();
+    final String combined = [
+      first,
+      last,
+    ].where((part) => part.isNotEmpty).join(' ').trim();
+
+    return combined.isNotEmpty ? combined : null;
+  }
+
+  String? _resolveProfileImageUrl(Map<String, dynamic> payload) {
+    final dynamic imageUrl = payload['image_url'];
+    if (imageUrl is String && imageUrl.isNotEmpty) {
+      return imageUrl;
+    }
+
+    final dynamic image = payload['image'];
+    if (image is String && image.isNotEmpty) {
+      return image.startsWith('http') ? image : AppConstant.ImageUrl + image;
+    }
+
+    return null;
+  }
+
+  Future<void> _refreshProfileFromServer() async {
+    if (token.isEmpty) {
+      token = await sharePrefs.getToken();
+    }
+    await _fetchProfileFromApi(token);
   }
 
   @override
@@ -447,12 +478,9 @@ class MyState extends State<AccountPage>
     _initializeStaticVariables();
     await loadd();
     await checkConn();
-    await getSettings();
     await value();
 
     await _fetchArtistVerifyStatus();
-
-    await checkUserChannel();
   }
 
   late Future<void> _initFuture;
@@ -960,7 +988,7 @@ class MyState extends State<AccountPage>
                     try {
                       await _initializeData();
                     } catch (e) {
-                      await getSettings();
+                      await _refreshProfileFromServer();
                     }
                   }
                 },
@@ -1039,7 +1067,7 @@ class MyState extends State<AccountPage>
                         );
 
                         await _fetchArtistVerifyStatus();
-                        await checkUserChannel();
+                        await _refreshProfileFromServer();
                       },
                     ),
                   ],
@@ -1063,9 +1091,10 @@ class MyState extends State<AccountPage>
               if (result is ChannelModel) {
                 setState(() {
                   channelData = result.toJson();
+                  hasChannel = true;
                 });
               } else if (result == true) {
-                await checkUserChannel();
+                await _refreshProfileFromServer();
               }
             }
           } else {
@@ -1079,7 +1108,7 @@ class MyState extends State<AccountPage>
               ),
             );
             if (result != null) {
-              await checkUserChannel();
+              await _refreshProfileFromServer();
             }
           }
         },

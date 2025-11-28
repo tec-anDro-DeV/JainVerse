@@ -73,7 +73,7 @@ class AppConstant {
   static const String API_GET_MY_CHANNEL = "get_my_channel";
   static const String API_UPDATE_CHANNEL = "update_channel";
   static const String API_DELETE_CHANNEL = "delete_channel";
-  static const String API_MY_VIDEOS = "my_videos";
+  static const String API_MY_CHANNEL_DETAIL = "my_channel_detail";
   static const String API_CHECK_HANDLE_AVAILABLE = "check_handle_available";
   static const String API_GENERATE_CHANNEL_NAME = "generate_channel_name";
   static const String API_ARTIST_VERIFY_REQUEST = "artist/verify-request";

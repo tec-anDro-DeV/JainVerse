@@ -31,7 +31,7 @@ import 'package:jainverse/widgets/common/loader.dart';
 import 'package:jainverse/widgets/music/circular_card.dart';
 import 'package:jainverse/widgets/music/genre_card.dart';
 import 'package:jainverse/widgets/music/home_section_header.dart';
-import 'package:jainverse/widgets/music/popular_song_card.dart';
+import 'package:jainverse/widgets/music/horizontal_song_card.dart';
 import 'package:jainverse/widgets/music/song_card.dart';
 import 'package:session_storage/session_storage.dart';
 
@@ -310,12 +310,12 @@ class _HomeDiscoverState extends State<HomeDiscover>
     );
     addAnimatedSection(
       child: _buildVideoSection(
-        title: 'Popular Videos',
-        videos: _controller.popularVideos,
-        section: _HomeSection.popularVideos,
+        title: 'New Videos',
+        videos: _controller.newVideos,
+        section: _HomeSection.newVideos,
         theme: theme,
       ),
-      identity: 'popularVideos-${_controller.popularVideos.length}',
+      identity: 'newVideos-${_controller.newVideos.length}',
     );
     addAnimatedSection(
       child: _buildGenreSection(_controller.trendingGenres, theme),
@@ -323,12 +323,12 @@ class _HomeDiscoverState extends State<HomeDiscover>
     );
     addAnimatedSection(
       child: _buildVideoSection(
-        title: 'New Videos',
-        videos: _controller.newVideos,
-        section: _HomeSection.newVideos,
+        title: 'Popular Videos',
+        videos: _controller.popularVideos,
+        section: _HomeSection.popularVideos,
         theme: theme,
       ),
-      identity: 'newVideos-${_controller.newVideos.length}',
+      identity: 'popularVideos-${_controller.popularVideos.length}',
     );
 
     return sections;
@@ -616,14 +616,14 @@ class _HomeDiscoverState extends State<HomeDiscover>
     final artistName = _artistName(song);
     final listens = _formatListenCount(song.listeningCount);
 
-    return PopularSongCard(
+    return HorizontalSongCard(
       songId: songId,
       imagePath: imageUrl,
       songName: song.audioTitle,
       artistName: artistName,
       listenerCount: listens,
       sharedPreThemeData: theme,
-      height: _HomeSectionMetrics.popularSongCardHeight,
+      height: _HomeSectionMetrics.HorizontalSongCardHeight,
       onTap: hasSongId
           ? () => _handleInstantHomeSongTap(sectionSongs, sectionIndex)
           : () => _showSnackbar('Song unavailable.'),
@@ -986,7 +986,7 @@ class _HomeSectionMetrics {
     final titleHeight = _textBlock(15.sp, lineHeight: 1.25, lines: 2);
     final channelRow = math.max(28.w, _textBlock(13.sp, lineHeight: 1.0));
     final metaHeight = _textBlock(12.sp, lineHeight: 1.1);
-    final spacing = 8.w + 6.w + 4.w + 6.w;
+    final spacing = 8.w + 6.w + 4.w + 14.w;
     return thumbnailHeight + titleHeight + channelRow + metaHeight + spacing;
   }
 
@@ -1011,7 +1011,7 @@ class _HomeSectionMetrics {
 
   static double get songCarouselHeight => songCardHeight + 8.w;
 
-  static double get popularSongCardHeight {
+  static double get HorizontalSongCardHeight {
     final padding = 16.w + 8.w;
     final titleHeight = _textBlock(
       AppSizes.fontMedium,
@@ -1028,14 +1028,14 @@ class _HomeSectionMetrics {
         titleHeight + artistHeight + listensHeight + 6.w + 4.w;
     final playButton = 46.w;
     final contentHeight = math.max(textStackHeight, playButton);
-    final minVisualHeight = 120.w;
+    final minVisualHeight = 150.w;
     return padding + math.max(contentHeight, minVisualHeight);
   }
 
   static double get latestSongsGridHeight {
     const rows = 2;
     final rowSpacing = 12.w;
-    return (popularSongCardHeight * rows) + rowSpacing + 12.w;
+    return (HorizontalSongCardHeight * rows) + rowSpacing + 12.w;
   }
 
   static double get genreCarouselHeight {

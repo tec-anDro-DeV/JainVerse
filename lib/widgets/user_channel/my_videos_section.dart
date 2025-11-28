@@ -94,7 +94,7 @@ class MyVideosSection extends StatelessWidget {
           ),
           SizedBox(height: 16.w),
           Text(
-            'No videos yet',
+            'No Video or Song Found',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18.sp,
@@ -104,7 +104,7 @@ class MyVideosSection extends StatelessWidget {
           ),
           SizedBox(height: 8.w),
           Text(
-            'Upload your first video to get started',
+            'Check back later or add new content to your channel',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
           ),

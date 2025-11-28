@@ -276,10 +276,21 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
 
   Future<void> _loadRecentSearches() async {
     try {
-      final searches = await CacheManager.getRecentSearches();
+      final musicSearches = await CacheManager.getRecentSearches();
+      final videoSearches = await CacheManager.getRecentVideoSearches();
+      final combined = <Map<String, dynamic>>[
+        ...musicSearches,
+        ...videoSearches,
+      ];
+      combined.sort((a, b) {
+        final aTime = a['searchedAt'] is int ? a['searchedAt'] as int : 0;
+        final bTime = b['searchedAt'] is int ? b['searchedAt'] as int : 0;
+        return bTime.compareTo(aTime);
+      });
+
       if (mounted) {
         setState(() {
-          recentSearches = searches;
+          recentSearches = combined;
           _showingRecentSearches = txtSearch.text.isEmpty;
         });
       }
@@ -309,6 +320,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         'created_at': song.created_at,
         'download_price': song.download_price,
         'lyrics': song.lyrics,
+        'type': 'music',
       };
 
       // Save recent search
@@ -316,6 +328,25 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       await _loadRecentSearches();
     } catch (e) {
       debugPrint('Error saving recent search: $e');
+    }
+  }
+
+  Future<void> _saveRecentVideoSearch(VideoItem video) async {
+    try {
+      final videoData = {
+        'id': video.id.toString(),
+        'title': video.title,
+        'videoUrl': video.videoUrl,
+        'thumbnailUrl': video.thumbnailUrl,
+        'duration': video.duration,
+        'channelName': video.channelName,
+        'channelId': video.channelId.toString(),
+        'channelImageUrl': video.channelImageUrl,
+      };
+
+      await CacheManager.saveRecentVideoSearch(videoData);
+    } catch (e) {
+      debugPrint('Error saving recent video search: $e');
     }
   }
 
@@ -371,14 +402,10 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
     if (sett == null || sett.isEmpty) return;
 
     final Map<String, dynamic> parsed = json.decode(sett);
-    ModelSettings modelSettings = ModelSettings.fromJson(parsed);
+    modelSettings = ModelSettings.fromJson(parsed);
     // yt_code = modelSettings.data.yt_country_code; // COMMENTED OUT - YouTube country code
     // yt_key = modelSettings.data.google_api_key; // COMMENTED OUT - YouTube API key
 
-    setState(() {});
-  }
-
-  void _reload() {
     setState(() {});
   }
 
@@ -884,6 +911,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
       child: VideoCard(
         item: video,
         onTap: () {
+          _saveRecentVideoSearch(video);
           // Use centralized launcher to ensure consistent system UI,
           // prefetching and routing (root navigator). Also pass subtitle
           // (channel name) so the player header shows correctly.
@@ -893,7 +921,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               videoUrl: video.videoUrl,
               videoId: video.id.toString(),
               videoTitle: video.title,
-              videoSubtitle: video.channelName ?? video.channelImageUrl,
+              videoSubtitle: video.channelName,
               thumbnailUrl: video.thumbnailUrl,
               videoItem: video,
               contextVideos: videoList,
@@ -951,7 +979,10 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
                 if (recentSearches.isNotEmpty)
                   TextButton(
                     onPressed: () async {
-                      await CacheManager.clearRecentSearches();
+                      await Future.wait([
+                        CacheManager.clearRecentSearches(),
+                        CacheManager.clearRecentVideoSearches(),
+                      ]);
                       await _loadRecentSearches();
                     },
                     child: Text(
@@ -979,6 +1010,14 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildRecentSearchItem(Map<String, dynamic> item) {
+    final type = (item['type'] ?? 'music').toString().toLowerCase();
+    if (type == 'video') {
+      return _buildRecentVideoItem(item);
+    }
+    return _buildRecentMusicItem(item);
+  }
+
+  Widget _buildRecentMusicItem(Map<String, dynamic> item) {
     return Container(
       margin: EdgeInsets.fromLTRB(
         AppSizes.paddingXS,
@@ -990,12 +1029,10 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         item: item,
         index: 0, // Index not used in this context
         onTap: () async {
-          // Create DataMusic object from cached data using CacheManager utility
           final songData = CacheManager.convertToDataMusic(item);
 
           await addRemoveHisAPI(item['id'].toString());
 
-          // Use music manager for queue replacement instead of navigation
           final musicManager = MusicManager();
 
           try {
@@ -1005,13 +1042,8 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
               callSource: 'Search.onRecentSearchTap',
             );
 
-            // Show mini player instead of navigating to full player
             final stateManager = MusicPlayerStateManager();
             stateManager.showMiniPlayerForMusicStart();
-
-            print(
-              '[DEBUG] Recent search music playback started via mini player',
-            );
           } catch (e) {
             print('[DEBUG] Recent search music playback failed: $e');
           }
@@ -1021,6 +1053,243 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
         },
       ),
     );
+  }
+
+  Widget _buildRecentVideoItem(Map<String, dynamic> item) {
+    final thumbnail = item['thumbnailUrl'] ?? item['thumbnail_url'] ?? '';
+    final title = (item['title'] ?? 'Untitled Video').toString();
+    final channel = (item['channelName'] ?? item['channel_name'] ?? 'Unknown')
+        .toString();
+    final duration = (item['duration'] ?? '').toString();
+    final video = _cachedVideoItemFromMap(item);
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+        AppSizes.paddingXS,
+        0,
+        AppSizes.paddingXS,
+        AppSizes.paddingXS,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10.w),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            spreadRadius: 0.5,
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10.w),
+          onTap: () {
+            _saveRecentVideoSearch(video);
+            _launchVideo(
+              context,
+              video,
+              contextLabel: 'Recent Searches',
+              contextVideos: [video],
+            );
+          },
+          child: Padding(
+            padding: EdgeInsets.all(10.w),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(7.w),
+                  child: SizedBox(
+                    width: 72.w,
+                    height: 56.w,
+                    child: thumbnail.isNotEmpty
+                        ? Image.network(
+                            thumbnail,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/song_placeholder.png',
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          )
+                        : Image.asset(
+                            'assets/images/song_placeholder.png',
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: AppSizes.fontNormal,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 4.w),
+                      Text(
+                        channel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: AppSizes.fontSmall,
+                          color: appColors().gray[500],
+                        ),
+                      ),
+                      if (duration.isNotEmpty) ...[
+                        SizedBox(height: 2.w),
+                        Text(
+                          duration,
+                          style: TextStyle(
+                            fontSize: 11.w,
+                            color: appColors().gray[400],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    final id = item['id']?.toString() ?? '';
+                    if (id.isNotEmpty) {
+                      _removeRecentVideoEntry(id);
+                    }
+                  },
+                  icon: Icon(
+                    Icons.close,
+                    color: appColors().gray[400],
+                    size: 20.w,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeRecentVideoEntry(String videoId) async {
+    await CacheManager.removeRecentVideoSearch(videoId);
+    await _loadRecentSearches();
+  }
+
+  VideoItem _cachedVideoItemFromMap(Map<String, dynamic> item) {
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      return int.tryParse(value.toString()) ?? 0;
+    }
+
+    int? parseNullableInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      return int.tryParse(value.toString());
+    }
+
+    bool? parseBool(dynamic value) {
+      if (value == null) return null;
+      if (value is bool) return value;
+      if (value is int) return value == 1;
+      final trimmed = value.toString().trim().toLowerCase();
+      if (trimmed == 'true' || trimmed == '1') return true;
+      if (trimmed == 'false' || trimmed == '0') return false;
+      return null;
+    }
+
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value.toString());
+    }
+
+    return VideoItem(
+      id: parseInt(item['id']),
+      title: item['title']?.toString() ?? '',
+      videoUrl:
+          item['videoUrl']?.toString() ?? item['video_url']?.toString() ?? '',
+      thumbnailUrl:
+          item['thumbnailUrl']?.toString() ??
+          item['thumbnail_url']?.toString() ??
+          '',
+      duration: item['duration']?.toString() ?? '',
+      description: item['description']?.toString(),
+      channelId: parseInt(item['channelId'] ?? item['channel_id']),
+      channelName:
+          item['channelName']?.toString() ??
+          item['channel_name']?.toString() ??
+          '',
+      channelHandle:
+          item['channelHandle']?.toString() ??
+          item['channel_handle']?.toString() ??
+          '',
+      channelImageUrl:
+          item['channelImageUrl']?.toString() ??
+          item['channel_image_url']?.toString() ??
+          '',
+      createdAt: parseDate(item['createdAt'] ?? item['created_at']),
+      subscribed: parseBool(item['subscribed'] ?? item['is_subscribed']),
+      like: parseNullableInt(item['like']),
+      totalViews: parseInt(item['totalViews'] ?? item['total_views']),
+      totalLikes: parseInt(item['totalLikes'] ?? item['total_likes']),
+      report: parseNullableInt(item['report']),
+      block: parseNullableInt(item['block']),
+      reason: item['reason']?.toString(),
+      isOwn: parseInt(item['isOwn'] ?? item['is_own']),
+    );
+  }
+
+  void _launchVideo(
+    BuildContext context,
+    VideoItem video, {
+    required String contextLabel,
+    List<VideoItem>? contextVideos,
+  }) {
+    final videos = contextVideos ?? [video];
+    try {
+      launchVideoPlayer(
+        context,
+        videoUrl: video.videoUrl,
+        videoId: video.id.toString(),
+        videoTitle: video.title,
+        videoSubtitle: video.channelName,
+        thumbnailUrl: video.thumbnailUrl,
+        videoItem: video,
+        contextVideos: videos,
+        contextLabel: contextLabel,
+      );
+    } catch (e) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerView(
+            videoUrl: video.videoUrl,
+            videoId: video.id.toString(),
+            title: video.title,
+            subtitle: video.channelName,
+            thumbnailUrl: video.thumbnailUrl,
+            channelId: video.channelId,
+            channelAvatarUrl: video.channelImageUrl,
+            videoItem: video,
+            contextVideos: videos,
+            contextLabel: contextLabel,
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildNoRecentSearchesWidget() {
@@ -1047,7 +1316,7 @@ class StateClass extends State<Search> with SingleTickerProviderStateMixin {
           ),
           SizedBox(height: AppSizes.paddingS),
           Text(
-            'Songs you search and play will appear here',
+            'Searches you interact with will appear here',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: AppSizes.fontNormal,

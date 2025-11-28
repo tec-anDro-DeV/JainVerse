@@ -31,7 +31,7 @@ import '../main.dart';
 import '../widgets/common/app_header.dart';
 import '../widgets/music/history_card.dart';
 import '../widgets/music/home_section_header.dart';
-import '../widgets/music/popular_song_card.dart';
+import '../widgets/music/horizontal_song_card.dart';
 import 'AccountPage.dart';
 import 'AllCategoryByName.dart';
 import 'Download.dart';
@@ -1012,7 +1012,7 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
                   : (song.bannerImage ?? '');
               final artistName = song.channelName;
 
-              return PopularSongCard(
+              return HorizontalSongCard(
                 songId: song.id.toString(),
                 imagePath: imageUrl,
                 songName: song.audioTitle,

@@ -10,6 +10,8 @@ class CacheManager {
   static const String MUSIC_CATEGORIES_CACHE_KEY = 'music_categories_cache';
   static const String HOME_CONTENT_CACHE_KEY = 'home_content_cache';
   static const String RECENT_SEARCHES_CACHE_KEY = 'recent_searches_cache';
+  static const String RECENT_VIDEO_SEARCHES_CACHE_KEY =
+      'recent_video_searches_cache';
   static const String CACHE_STATE_KEY = 'cache_state_key';
   static const String IMAGE_CACHE_KEY = 'image_cache_key';
   static const Duration DEFAULT_CACHE_DURATION = Duration(hours: 12);
@@ -327,6 +329,7 @@ class CacheManager {
         'artists_name':
             songData['artists_name'] ?? '', // Ensure artist name is preserved
         'searchedAt': DateTime.now().millisecondsSinceEpoch,
+        'type': songData['type'] ?? 'music',
       });
 
       // Keep only last 50 searches
@@ -367,6 +370,89 @@ class CacheManager {
       return await clearCache(RECENT_SEARCHES_CACHE_KEY);
     } catch (e) {
       print('Error clearing recent searches: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> removeRecentVideoSearch(String videoId) async {
+    try {
+      final recentVideos = await getRecentVideoSearches();
+      recentVideos.removeWhere((item) {
+        final idString = item['id']?.toString() ?? '';
+        return idString.isNotEmpty && idString == videoId;
+      });
+      return await saveToCache(RECENT_VIDEO_SEARCHES_CACHE_KEY, recentVideos);
+    } catch (e) {
+      print('Error removing recent video search: $e');
+      return false;
+    }
+  }
+
+  // Store video search results for quick recall
+  static Future<bool> saveRecentVideoSearch(
+    Map<String, dynamic> videoData,
+  ) async {
+    try {
+      final recentVideos = await getRecentVideoSearches();
+      final idString = videoData['id']?.toString() ?? '';
+
+      recentVideos.removeWhere((item) => item['id']?.toString() == idString);
+
+      final entry = {
+        ...videoData,
+        'id': idString,
+        'title': videoData['title'] ?? videoData['videoTitle'] ?? '',
+        'videoUrl': videoData['videoUrl'] ?? videoData['video_url'] ?? '',
+        'thumbnailUrl':
+            videoData['thumbnailUrl'] ?? videoData['thumbnail_url'] ?? '',
+        'duration': videoData['duration'] ?? '',
+        'channelName':
+            videoData['channelName'] ?? videoData['channel_name'] ?? '',
+        'channelId': videoData['channelId']?.toString() ?? '',
+        'channelImageUrl':
+            videoData['channelImageUrl'] ??
+            videoData['channel_image_url'] ??
+            '',
+        'searchedAt': DateTime.now().millisecondsSinceEpoch,
+        'type': 'video',
+      };
+
+      recentVideos.insert(0, entry);
+      if (recentVideos.length > 50) {
+        recentVideos.removeRange(50, recentVideos.length);
+      }
+
+      return await saveToCache(RECENT_VIDEO_SEARCHES_CACHE_KEY, recentVideos);
+    } catch (e) {
+      print('Error saving recent video search: $e');
+      return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getRecentVideoSearches() async {
+    try {
+      final cachedData = await getFromCache(
+        RECENT_VIDEO_SEARCHES_CACHE_KEY,
+        expiry: RECENT_SEARCHES_DURATION,
+      );
+
+      if (cachedData != null && cachedData['data'] != null) {
+        final List<dynamic> data = json.decode(cachedData['data']);
+        return data.cast<Map<String, dynamic>>();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error getting recent video searches: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> clearRecentVideoSearches() async {
+    try {
+      return await clearCache(RECENT_VIDEO_SEARCHES_CACHE_KEY);
+    } catch (e) {
+      print('Error clearing recent video searches: $e');
       return false;
     }
   }

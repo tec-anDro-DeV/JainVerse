@@ -65,7 +65,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     super.initState();
     _audioHandler = const MyApp().called();
     _presenter = ChannelDetailPresenter()..addListener(_onPresenterChanged);
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _musicActionHandler = MusicActionHandlerFactory.create(
       context: context,
       audioHandler: _audioHandler,
@@ -230,7 +230,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   Widget build(BuildContext context) {
     final channel = _presenter.state.channel;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
       appBar: _buildTopAppBar(channel),
       body: _buildBody(),
@@ -275,16 +275,12 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              _buildModernHeader(state.channel),
+              _buildModernHeader(state),
               SliverToBoxAdapter(child: _buildModernTabBar()),
             ],
             body: TabBarView(
               controller: _tabController,
-              children: [
-                _buildVideosTab(state),
-                _buildSongsTab(state),
-                _buildInfoTab(state),
-              ],
+              children: [_buildVideosTab(state), _buildSongsTab(state)],
             ),
           ),
         );
@@ -334,11 +330,12 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     );
   }
 
-  Widget _buildModernHeader(ChannelDetailInfo? channel) {
+  Widget _buildModernHeader(ChannelDetailState state) {
+    final channel = state.channel;
     if (channel == null)
       return const SliverToBoxAdapter(child: SizedBox.shrink());
 
-    final double avatarSize = 110.w;
+    final double avatarSize = 100.w;
 
     Widget _buildBanner() {
       final Widget image = channel.bannerUrl.isNotEmpty
@@ -354,8 +351,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    appColors().primaryColorApp.shade300,
-                    appColors().primaryColorApp.shade600,
+                    appColors().primaryColorApp.shade400,
+                    appColors().primaryColorApp.shade700,
                   ],
                 ),
               ),
@@ -410,6 +407,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
         ),
       );
     }
+
+    final descriptionWidget = _buildDescriptionPreview(state);
 
     return SliverToBoxAdapter(
       child: Column(
@@ -481,6 +480,10 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
           SizedBox(height: 24.w),
           _buildSubscriberRow(channel),
           SizedBox(height: 16.w),
+          if (descriptionWidget != null) ...[
+            descriptionWidget,
+            SizedBox(height: 16.w),
+          ],
         ],
       ),
     );
@@ -515,6 +518,11 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                     ),
                   ),
                 ),
+                // If channel has no description, surface the More button here
+                if ((channel.description ?? '').trim().isEmpty) ...[
+                  SizedBox(width: 12.w),
+                  _buildInfoMoreButton(_presenter.state),
+                ],
               ],
             ),
           ),
@@ -523,34 +531,149 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     );
   }
 
+  Widget? _buildDescriptionPreview(ChannelDetailState state) {
+    final channel = state.channel;
+    if (channel == null) return null;
+    final description = channel.description.trim();
+    if (description.isEmpty) return null;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          _buildInfoMoreButton(state),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoMoreButton(ChannelDetailState state) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: state.channel == null
+            ? null
+            : () => _showChannelInfoSheet(state),
+        borderRadius: BorderRadius.circular(16.w),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.w),
+            border: Border.all(color: appColors().primaryColorApp, width: 1),
+          ),
+          child: Text(
+            'More',
+            style: TextStyle(
+              color: appColors().primaryColorApp,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChannelInfoSheet(ChannelDetailState state) {
+    final channel = state.channel;
+    if (channel == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.35),
+      builder: (sheetContext) {
+        final media = MediaQuery.of(sheetContext);
+        final sheetHeight = (media.size.height * 0.78).clamp(
+          320.0,
+          media.size.height * 0.95,
+        );
+
+        return SizedBox(
+          height: sheetHeight,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.w)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: _buildChannelInfoContent(state, sheetContext),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildModernTabBar() {
     return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14.w),
       ),
       child: TabBar(
         controller: _tabController,
+        dividerColor: Colors.transparent, // Add this line
         labelColor: appColors().primaryColorApp,
-        unselectedLabelColor: Colors.grey.shade600,
-        labelStyle: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
+        unselectedLabelColor: Colors.grey.shade700,
+        labelStyle: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700),
         unselectedLabelStyle: TextStyle(
-          fontSize: 15.sp,
-          fontWeight: FontWeight.w500,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w600,
         ),
-        indicatorColor: appColors().primaryColorApp,
-        indicatorWeight: 3,
-        indicatorSize: TabBarIndicatorSize.label,
-        tabs: const [
-          Tab(text: 'Videos'),
-          Tab(text: 'Songs'),
-          Tab(text: 'About'),
+        indicator: BoxDecoration(
+          color: appColors().primaryColorApp.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(28.w),
+        ),
+        indicatorPadding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 4.w),
+        indicatorSize: TabBarIndicatorSize.tab,
+        splashFactory: NoSplash.splashFactory,
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.videocam, size: 18.w),
+                SizedBox(width: 8.w),
+                Text('Videos'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.music_note, size: 18.w),
+                SizedBox(width: 8.w),
+                Text('Songs'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -649,7 +772,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     final videos = state.videos;
     if (videos.isEmpty) {
       return _buildEmptyState(
-        icon: Icons.videocam_off_outlined,
+        icon: Icons.videocam_off_rounded,
         message: 'No videos yet',
         subtitle: 'Check back later for new content',
       );
@@ -658,7 +781,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     final bottomPadding = AppPadding.bottom(context, extra: 32.w) + 16.h;
 
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, bottomPadding),
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, bottomPadding),
       itemCount: videos.length,
       separatorBuilder: (context, index) => SizedBox(height: 16.h),
       itemBuilder: (context, index) {
@@ -715,7 +838,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     final bottomPadding = AppPadding.bottom(context, extra: 32.w) + 24.h;
 
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, bottomPadding),
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, bottomPadding),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: 16.h,
@@ -738,57 +861,80 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     );
   }
 
-  Widget _buildInfoTab(ChannelDetailState state) {
+  Widget _buildChannelInfoContent(
+    ChannelDetailState state,
+    BuildContext sheetContext,
+  ) {
     final channel = state.channel;
-    if (channel == null) {
-      return _buildEmptyState(
-        icon: Icons.info_outline,
-        message: 'Information unavailable',
-        subtitle: 'Channel details could not be loaded',
+    final bottomPadding = AppPadding.bottom(sheetContext, extra: 32.w) + 24.h;
+
+    Widget buildBody() {
+      if (channel == null) {
+        return Center(
+          child: _buildEmptyState(
+            icon: Icons.info_outline,
+            message: 'Information unavailable',
+            subtitle: 'Channel details could not be loaded',
+          ),
+        );
+      }
+
+      return ListView(
+        padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, bottomPadding),
+        children: [
+          _buildModernStatsCards(channel, state),
+          SizedBox(height: 20.h),
+          if (channel.description.isNotEmpty) ...[
+            _buildInfoSection(
+              title: 'About',
+              child: Text(
+                channel.description,
+                style: TextStyle(
+                  fontSize: 15.sp,
+                  color: Colors.grey.shade700,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            SizedBox(height: 20.h),
+          ],
+          _buildInfoSection(
+            title: 'Details',
+            child: Column(
+              children: [
+                _buildInfoRow(
+                  icon: Icons.calendar_today,
+                  label: 'Joined',
+                  value: _formatDate(channel.createdAt),
+                ),
+                if (channel.handle.isNotEmpty) ...[
+                  SizedBox(height: 12.h),
+                  _buildInfoRow(
+                    icon: Icons.alternate_email,
+                    label: 'Handle',
+                    value: '@${channel.handle}',
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       );
     }
 
-    final bottomPadding = AppPadding.bottom(context, extra: 32.w) + 24.h;
-
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, bottomPadding),
+    return Column(
       children: [
-        _buildModernStatsCards(channel, state),
-        SizedBox(height: 20.h),
-        if (channel.description.isNotEmpty) ...[
-          _buildInfoSection(
-            title: 'About',
-            child: Text(
-              channel.description,
-              style: TextStyle(
-                fontSize: 15.sp,
-                color: Colors.grey.shade700,
-                height: 1.5,
-              ),
-            ),
-          ),
-          SizedBox(height: 20.h),
-        ],
-        _buildInfoSection(
-          title: 'Details',
-          child: Column(
-            children: [
-              _buildInfoRow(
-                icon: Icons.calendar_today,
-                label: 'Joined',
-                value: _formatDate(channel.createdAt),
-              ),
-              if (channel.handle.isNotEmpty) ...[
-                SizedBox(height: 12.h),
-                _buildInfoRow(
-                  icon: Icons.alternate_email,
-                  label: 'Handle',
-                  value: '@${channel.handle}',
-                ),
-              ],
-            ],
+        SizedBox(height: 12.h),
+        Container(
+          width: 44.w,
+          height: 5.h,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(100),
           ),
         ),
+        SizedBox(height: 12.h),
+        Expanded(child: buildBody()),
       ],
     );
   }

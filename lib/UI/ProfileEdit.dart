@@ -12,11 +12,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:jainverse/Model/CountryModel.dart';
-import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
 import 'package:jainverse/Presenter/CountryPresenter.dart';
 import 'package:jainverse/Presenter/ProfilePresenter.dart';
+import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
@@ -31,6 +31,7 @@ import 'package:jainverse/widgets/common/country_dropdown_with_search.dart';
 import 'package:jainverse/widgets/common/custom_date_picker.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
 import 'package:jainverse/widgets/common/loader.dart';
+import 'PhoneNumberInputScreen.dart';
 
 class ProfileEdit extends StatefulWidget {
   const ProfileEdit({super.key});
@@ -70,13 +71,15 @@ class myState extends State<ProfileEdit> {
   String dateOfBirth = '';
   String imagePresent = '';
   String token = '';
-  bool allowDown = false;
   bool isOpen = false;
   bool _isLoading = false; // Add loading state
 
   // Add country-related variables
   List<Country> countries = []; // Dynamic country list
   CountryPresenter countryPresenter = CountryPresenter();
+  int? _preferredCountryId;
+  String? _preferredCountryLegacyValue;
+  bool _handledInactiveAccount = false;
 
   // Audio handler for mini player detection
   AudioPlayerHandler? _audioHandler;
@@ -98,9 +101,9 @@ class myState extends State<ProfileEdit> {
   Future<dynamic> value() async {
     model = await sharePrefs.getUserData();
     token = await sharePrefs.getToken();
+    await _applyUserPayload(_userDataToPayload(model.data));
     // Refresh profile from server when possible
     await _fetchProfileFromApi(token);
-    getSettings();
 
     setState(() {});
     return model;
@@ -146,86 +149,193 @@ class myState extends State<ProfileEdit> {
     super.initState();
   }
 
-  Future<void> getSettings() async {
-    String? sett = await sharePrefs.getSettings();
+  Future<void> _applyUserPayload(Map<String, dynamic>? payload) async {
+    if (payload == null || payload.isEmpty) return;
 
-    final Map<String, dynamic> parsed = json.decode(sett!);
-    ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-    if (modelSettings.data.image.isNotEmpty) {
-      imagePresent = AppConstant.ImageUrl + modelSettings.data.image;
-      presentImage = false;
-    } else {
-      // Clear the image when the new user doesn't have a profile image
-      imagePresent = '';
-      presentImage = true;
+    final dynamic statusRaw = payload['status'];
+    if (statusRaw != null && statusRaw.toString() == '0') {
+      await _handleInactiveAccount();
+      return;
     }
 
-    // Populate first and last name. If server provides a single `name` string,
-    // split it into first and last parts (first token as first name,
-    // remainder as last name). If empty, leave fields empty.
-    final fullName = modelSettings.data.name.toString();
-    if (fullName.trim().isNotEmpty) {
-      final parts = fullName.trim().split(RegExp(r"\s+"));
-      firstNameController.text = parts.first;
+    final bool canReplaceImage = !_imageChanged && !has;
+    final String? resolvedImage = _resolveProfileImageUrl(payload);
+    if (canReplaceImage) {
+      if (resolvedImage != null && resolvedImage.isNotEmpty) {
+        imagePresent = resolvedImage;
+        presentImage = false;
+      } else {
+        imagePresent = '';
+        presentImage = true;
+      }
+    } else if (resolvedImage != null && resolvedImage.isNotEmpty) {
+      imagePresent = resolvedImage;
+    }
+
+    final String? combinedName = payload['name']?.toString();
+    if (combinedName != null && combinedName.trim().isNotEmpty) {
+      final parts = combinedName.trim().split(RegExp(r"\s+"));
+      firstNameController.text = parts.isNotEmpty ? parts.first : '';
       lastNameController.text = parts.length > 1
           ? parts.sublist(1).join(' ')
           : '';
     } else {
-      firstNameController.text = '';
-      lastNameController.text = '';
+      firstNameController.text = (payload['fname']?.toString() ?? '').trim();
+      lastNameController.text = (payload['lname']?.toString() ?? '').trim();
     }
-    mobileController.text = modelSettings.data.mobile;
-    // Phone is non-editable in the updated UI; clear any validation error
+
+    mobileController.text = payload['mobile']?.toString() ?? '';
     phoneError = null;
 
-    // Email removed from edit form - keep profile editable fields limited to name/phone/dob/gender
+    gender = _parseGenderValue(payload['gender']);
 
-    try {
-      final rawGender = modelSettings.data.gender;
-      final s = rawGender.toString().trim();
-      if (s.isNotEmpty) {
-        final n = int.tryParse(s);
-        if (n != null) {
-          gender = (n == 0)
-              ? 0
-              : (n == 1)
-              ? 1
-              : null;
-        } else {
-          final low = s.toLowerCase();
-          gender = (low == 'male')
-              ? 0
-              : (low == 'female')
-              ? 1
-              : null;
-        }
-      } else {
-        gender = null;
-      }
-    } catch (_) {
-      gender = null;
-    }
-
-    if (modelSettings.data.dob.isNotEmpty) {
+    final String? dobRaw = payload['dob']?.toString();
+    if (dobRaw != null && dobRaw.trim().isNotEmpty) {
       try {
-        final DateTime dobDate = DateTime.parse(modelSettings.data.dob);
-        final DateFormat inputFormatter = DateFormat('yyyy-MM-dd');
-
-        birthdateController.text = inputFormatter.format(dobDate);
-        dateOfBirth = inputFormatter.format(dobDate);
-        print('DOB parsed successfully: $dateOfBirth');
+        final DateTime dobDate = DateTime.parse(dobRaw.trim());
+        final DateFormat formatter = DateFormat('yyyy-MM-dd');
+        final String formatted = formatter.format(dobDate);
+        birthdateController.text = formatted;
+        dateOfBirth = formatted;
       } catch (e) {
-        print('Error parsing date: $e');
+        if (kDebugMode) print('Error parsing dob: $e');
         birthdateController.text = 'Select Birthdate';
         dateOfBirth = 'Select Birthdate';
       }
     } else {
-      print('DOB is empty');
       birthdateController.text = 'Select Birthdate';
       dateOfBirth = 'Select Birthdate';
     }
 
-    setState(() {});
+    _preferredCountryId = _extractCountryId(payload);
+    _preferredCountryLegacyValue = _extractCountryLegacyValue(payload);
+    _applyCountrySelection();
+
+    if (mounted) setState(() {});
+  }
+
+  Map<String, dynamic> _userDataToPayload(UserData data) {
+    return {
+      'id': data.id,
+      'name': data.name,
+      'fname': data.fname,
+      'lname': data.lname,
+      'mobile': data.mobile,
+      'gender': data.gender,
+      'dob': data.dob,
+      'image': data.image,
+      'artist_verify_status': data.artist_verify_status,
+      'status': 1,
+    };
+  }
+
+  String? _resolveProfileImageUrl(Map<String, dynamic> payload) {
+    final dynamic url = payload['image_url'];
+    if (url is String && url.isNotEmpty) return url;
+
+    final dynamic image = payload['image'];
+    if (image is String && image.isNotEmpty) {
+      return image.startsWith('http') ? image : AppConstant.ImageUrl + image;
+    }
+    return null;
+  }
+
+  int? _parseGenderValue(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is int) {
+      return (raw == 0 || raw == 1) ? raw : null;
+    }
+    final String trimmed = raw.toString().trim();
+    if (trimmed.isEmpty) return null;
+    final int? numeric = int.tryParse(trimmed);
+    if (numeric != null) {
+      return (numeric == 0 || numeric == 1) ? numeric : null;
+    }
+    final String lowered = trimmed.toLowerCase();
+    if (lowered == 'male') return 0;
+    if (lowered == 'female') return 1;
+    return null;
+  }
+
+  int? _extractCountryId(Map<String, dynamic> payload) {
+    final dynamic numeric = payload['country_id_numeric'];
+    final int? parsedNumeric = _tryParseInt(numeric);
+    if (parsedNumeric != null) return parsedNumeric;
+
+    final dynamic fallback = payload['country_id'];
+    return _tryParseInt(fallback);
+  }
+
+  String? _extractCountryLegacyValue(Map<String, dynamic> payload) {
+    final dynamic value = payload['country_id'];
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      if (trimmed.toLowerCase() == 'select country') return null;
+      if (_tryParseInt(trimmed) != null) return null;
+      return trimmed;
+    }
+    return null;
+  }
+
+  int? _tryParseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    final String parsed = value.toString().trim();
+    if (parsed.isEmpty) return null;
+    return int.tryParse(parsed);
+  }
+
+  void _applyCountrySelection() {
+    if (countries.isEmpty) return;
+
+    Country? resolved;
+    if (_preferredCountryId != null) {
+      resolved = countryPresenter.findCountryById(
+        countries,
+        _preferredCountryId!,
+      );
+    }
+
+    if (resolved == null &&
+        _preferredCountryLegacyValue != null &&
+        _preferredCountryLegacyValue!.isNotEmpty) {
+      resolved = countryPresenter.findCountryByOldValue(
+        countries,
+        _preferredCountryLegacyValue!,
+      );
+    }
+
+    if (resolved != null && resolved != selectedCountry) {
+      if (!mounted) return;
+      setState(() {
+        selectedCountry = resolved;
+      });
+    }
+  }
+
+  Future<void> _handleInactiveAccount() async {
+    if (_handledInactiveAccount) return;
+    _handledInactiveAccount = true;
+
+    await sharePrefs.removeValues();
+    has = false;
+    _tempSelectedImage = null;
+    _imageChanged = false;
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (BuildContext context) => const PhoneNumberInputScreen(),
+      ),
+      (Route<dynamic> route) => false,
+    );
+
+    try {
+      await Logout().logout(context, token);
+    } catch (_) {}
   }
 
   // Load countries from API and handle backward compatibility
@@ -236,8 +346,7 @@ class myState extends State<ProfileEdit> {
         countries = loadedCountries;
       });
 
-      // After countries are loaded, try to set the country from settings
-      _setCountryFromUserData();
+      _applyCountrySelection();
     } catch (e) {
       print('Error loading countries: $e');
     }
@@ -257,57 +366,18 @@ class myState extends State<ProfileEdit> {
       if (resp.statusCode == 200) {
         final Map<String, dynamic> jsonResp = json.decode(resp.body);
         final dynamic data = jsonResp['data'] ?? jsonResp;
+        Map<String, dynamic>? userPayload;
         if (data is Map<String, dynamic>) {
-          if (data['name'] != null) {
-            final full = data['name'].toString();
-            final parts = full.trim().split(RegExp(r"\s+"));
-            firstNameController.text = parts.isNotEmpty ? parts.first : '';
-            lastNameController.text = parts.length > 1
-                ? parts.sublist(1).join(' ')
-                : '';
+          final dynamic possibleUser = data['user'];
+          if (possibleUser is Map<String, dynamic>) {
+            userPayload = possibleUser;
+          } else {
+            userPayload = data;
           }
-          if (data['gender'] != null) {
-            final raw = data['gender'];
-            try {
-              if (raw is int) {
-                gender = (raw == 0)
-                    ? 0
-                    : (raw == 1)
-                    ? 1
-                    : null;
-              } else {
-                final s = raw.toString().trim();
-                final n = int.tryParse(s);
-                if (n != null) {
-                  gender = (n == 0)
-                      ? 0
-                      : (n == 1)
-                      ? 1
-                      : null;
-                } else {
-                  final low = s.toLowerCase();
-                  gender = (low == 'male')
-                      ? 0
-                      : (low == 'female')
-                      ? 1
-                      : null;
-                }
-              }
-            } catch (_) {
-              // leave as-is on parse error
-            }
-          }
+        }
 
-          if (data['dob'] != null && data['dob'].toString().isNotEmpty) {
-            try {
-              final DateTime dobDate = DateTime.parse(data['dob'].toString());
-              final DateFormat inputFormatter = DateFormat('yyyy-MM-dd');
-              birthdateController.text = inputFormatter.format(dobDate);
-              dateOfBirth = birthdateController.text;
-            } catch (_) {
-              // ignore parse errors, leave previous value
-            }
-          }
+        if (userPayload != null) {
+          await _applyUserPayload(userPayload);
         }
       } else {
         if (kDebugMode) print('my_profile returned ${resp.statusCode}');
@@ -317,46 +387,6 @@ class myState extends State<ProfileEdit> {
     }
 
     if (mounted) setState(() {});
-  }
-
-  // Method to set country from user data after countries are loaded
-  Future<void> _setCountryFromUserData() async {
-    try {
-      String? sett = await sharePrefs.getSettings();
-      if (sett != null) {
-        final Map<String, dynamic> parsed = json.decode(sett);
-        ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-
-        // Handle backward compatibility for country selection
-        if (modelSettings.data.country_id_numeric != null) {
-          // New format - use numeric ID
-          selectedCountry = countryPresenter.findCountryById(
-            countries,
-            modelSettings.data.country_id_numeric!,
-          );
-          print(
-            '🌍 Country set by numeric ID: ${selectedCountry?.nicename} (ID: ${modelSettings.data.country_id_numeric})',
-          );
-        } else if (modelSettings.data.country_id.isNotEmpty &&
-            modelSettings.data.country_id != 'Select Country') {
-          // Old format - use string value
-          selectedCountry = countryPresenter.findCountryByOldValue(
-            countries,
-            modelSettings.data.country_id,
-          );
-          print(
-            '🌍 Country set by string value: ${selectedCountry?.nicename} (Old value: ${modelSettings.data.country_id})',
-          );
-        } else {
-          selectedCountry = null;
-          print('🌍 No country found or set to default');
-        }
-
-        setState(() {});
-      }
-    } catch (e) {
-      print('Error setting country from user data: $e');
-    }
   }
 
   @override
