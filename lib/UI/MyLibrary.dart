@@ -37,6 +37,7 @@ import 'AllCategoryByName.dart';
 import 'Download.dart';
 import 'FavoriteOrHistory.dart';
 import 'playlist_screen.dart';
+import 'history_screen.dart';
 import '../videoplayer/screens/liked_videos_screen.dart';
 import '../videoplayer/screens/subscribed_channels_screen.dart';
 
@@ -144,6 +145,11 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     LibraryItem(
       icon: Icons.music_note_outlined,
       title: 'Songs',
+      color: appColors().primaryColorApp,
+    ),
+    LibraryItem(
+      icon: Icons.history,
+      title: 'History',
       color: appColors().primaryColorApp,
     ),
   ];
@@ -541,6 +547,15 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           MaterialPageRoute(
             builder: (context) => AllCategoryByName(_audioHandler, "Songs"),
             settings: const RouteSettings(name: '/MyLibrary/Songs'),
+          ),
+        );
+        break;
+      case 'History':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HistoryScreen(),
+            settings: const RouteSettings(name: '/MyLibrary/History'),
           ),
         );
         break;

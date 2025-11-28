@@ -404,9 +404,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
                 return CircularCard(
                   imagePath: _resolveChannelImage(channel),
                   title: channel.name,
-                  subtitle: (subs > 0)
-                      ? '${_numberFormat.format(subs)} subs'
-                      : null,
+                  subtitle: '${_numberFormat.format(subs)} subs',
                   onTap: () => _openChannel(channel),
                   sharedPreThemeData: theme,
                 );

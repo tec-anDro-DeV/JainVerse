@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../models/video_player_state.dart';
 import '../models/video_item.dart';
 import '../services/video_pip_service.dart';
+import '../services/watch_history_service.dart';
 
 /// State notifier for managing video player state
 class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
@@ -39,6 +40,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   /// attached quickly when the full-screen player opens. These controllers
   /// are owned by the notifier until consumed or disposed.
   final Map<String, VideoPlayerController> _preloadedControllers = {};
+
+  final WatchHistoryService _watchHistoryService = WatchHistoryService();
+  String? _lastMarkedWatchHistoryVideoId;
 
   final VideoPipService _pipService = VideoPipService.instance;
   bool _pipCallbacksRegistered = false;
@@ -169,6 +173,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       // Small delay to ensure previous controller is fully released
       await Future.delayed(const Duration(milliseconds: 250));
 
+      _resetWatchHistoryMarker();
+
       // Track this initialize request so we can abort if another initializeVideo
       // call starts while this one is running.
       final int myInitId = ++_initRequestCounter;
@@ -247,6 +253,7 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
           await controller.play();
           state = state.copyWith(isPlaying: true);
           _resetControlsTimer();
+          _markWatchHistoryIfNeeded();
         } catch (e) {
           // If play fails, we still keep controller initialized; user can press play manually
           debugPrint('[VideoPlayer] autoplay failed: $e');
@@ -536,6 +543,20 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     });
   }
 
+  void _resetWatchHistoryMarker() {
+    _lastMarkedWatchHistoryVideoId = null;
+  }
+
+  void _markWatchHistoryIfNeeded() {
+    final videoIdString = state.currentVideoId;
+    if (videoIdString == null || videoIdString.isEmpty) return;
+    if (_lastMarkedWatchHistoryVideoId == videoIdString) return;
+    final parsedVideoId = int.tryParse(videoIdString);
+    if (parsedVideoId == null) return;
+    _lastMarkedWatchHistoryVideoId = videoIdString;
+    unawaited(_watchHistoryService.markVideoAsWatched(videoId: parsedVideoId));
+  }
+
   Future<bool> enterPictureInPicture({bool autoTriggered = false}) async {
     if (state.isInPictureInPicture) return true;
 
@@ -613,6 +634,7 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       await controller.play();
       state = state.copyWith(isPlaying: true);
       _resetControlsTimer();
+      _markWatchHistoryIfNeeded();
       _notifyPipPlaybackChange(true);
     } catch (e) {
       // Controller was disposed during play - ignore
@@ -914,6 +936,8 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         currentIndex: null,
         isInPictureInPicture: false,
       );
+
+      _resetWatchHistoryMarker();
 
       _lastPipPlaybackState = null;
       _restoreMiniPlayerAfterPip = false;

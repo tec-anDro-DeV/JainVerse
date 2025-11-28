@@ -134,4 +134,54 @@ class SongHistoryPresenter {
       // swallow errors to avoid interrupting playback
     }
   }
+
+  /// Clear all music history for the logged-in user.
+  /// Sends a POST to `clear_music_history` and handles token expiration.
+  Future<void> clearMusicHistory(String token) async {
+    if (token.isEmpty) return;
+
+    FormData formData = FormData.fromMap({});
+
+    Response<String> response;
+    try {
+      response = await _dio.post(
+        AppConstant.BaseUrl + AppConstant.API_CLEAR_MUSIC_HISTORY,
+        data: formData,
+        options: Options(
+          headers: {
+            "Accept": "application/json",
+            "authorization": "Bearer $token",
+          },
+        ),
+      );
+      // Check for token expiration (best-effort)
+      await TokenExpirationHandler().checkAndHandleResponse(response);
+    } on DioException catch (e) {
+      // Check response for token issues and return silently on errors
+      await TokenExpirationHandler().checkAndHandleResponse(e.response);
+      return;
+    }
+
+    try {
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> parsed = json.decode(
+          response.data.toString(),
+        );
+        if (parsed.containsKey('msg')) {
+          try {
+            Fluttertoast.showToast(
+              msg: parsed['msg'],
+              toastLength: Toast.LENGTH_SHORT,
+              timeInSecForIosWeb: 1,
+              backgroundColor: appColors().black,
+              textColor: appColors().colorBackground,
+              fontSize: 14.0,
+            );
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      // Swallow parse/toast errors to avoid interrupting callers
+    }
+  }
 }

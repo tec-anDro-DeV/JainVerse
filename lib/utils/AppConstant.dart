@@ -64,6 +64,10 @@ class AppConstant {
   static const String API_VIDEO_REPORT_OPTIONS = "video_report_options";
   static const String API_REPORT_VIDEO = "report_video";
   static const String API_WATCH_HISTORY = "watch_history";
+  static const String API_GET_VIDEO_HISTORY = "get_video_history";
+  static const String API_REMOVE_VIDEO_HISTORY = "remove_video_history";
+  static const String API_CLEAR_VIDEO_HISTORY = "clear_video_history";
+  static const String API_CLEAR_MUSIC_HISTORY = "clear_music_history";
 
   static const String API_CREATE_STATION = "station";
   static const String API_GET_COUNTRY = "get_country";
