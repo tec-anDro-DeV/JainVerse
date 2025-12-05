@@ -22,8 +22,9 @@ class MusicListPresenter extends BasePresenter {
       'page': page,
       'limit': limit,
     };
-    if (search != null && search.trim().isNotEmpty)
+    if (search != null && search.trim().isNotEmpty) {
       body[AppConstant.search] = search.trim();
+    }
 
     final formData = FormData.fromMap(body);
 
@@ -35,8 +36,9 @@ class MusicListPresenter extends BasePresenter {
         context: context,
       );
 
-      if (response.statusCode == 200)
+      if (response.statusCode == 200) {
         return response.data ?? '{"status": false, "msg": "Empty response"}';
+      }
       return '{"status": false, "msg": "Server returned ${response.statusCode}"}';
     } on DioException catch (_) {
       return '{"status": false, "msg": "Network error"}';
@@ -57,8 +59,9 @@ class MusicListPresenter extends BasePresenter {
       'page': page,
       'limit': limit,
     };
-    if (search != null && search.trim().isNotEmpty)
+    if (search != null && search.trim().isNotEmpty) {
       body[AppConstant.search] = search.trim();
+    }
 
     final formData = FormData.fromMap(body);
 
@@ -69,8 +72,9 @@ class MusicListPresenter extends BasePresenter {
         options: Options(headers: createAuthHeaders(token)),
       );
 
-      if (response.statusCode == 200)
+      if (response.statusCode == 200) {
         return response.data ?? '{"status": false, "msg": "Empty response"}';
+      }
       return '{"status": false, "msg": "Server returned ${response.statusCode}"}';
     } on DioException catch (_) {
       return '{"status": false, "msg": "Network error"}';

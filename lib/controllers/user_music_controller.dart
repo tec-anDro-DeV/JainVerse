@@ -26,14 +26,14 @@ class UserMusicController extends ChangeNotifier {
 
   // Favorites
   List<DataMusic> _favoritesList = [];
-  String _favoritesImagePath = '';
-  String _favoritesAudioPath = '';
+  final String _favoritesImagePath = '';
+  final String _favoritesAudioPath = '';
   bool _favoritesLoading = false;
 
   // History
   List<DataMusic> _historyList = [];
-  String _historyImagePath = '';
-  String _historyAudioPath = '';
+  final String _historyImagePath = '';
+  final String _historyAudioPath = '';
   bool _historyLoading = false;
 
   // Playlists

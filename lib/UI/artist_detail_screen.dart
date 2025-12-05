@@ -619,8 +619,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                                                   .isNotEmpty)
                                             parentData!.description!,
                                         ];
-                                        if (parts.isEmpty)
+                                        if (parts.isEmpty) {
                                           return SizedBox.shrink();
+                                        }
                                         if (parts.length == 1) {
                                           return Text(
                                             parts.first,

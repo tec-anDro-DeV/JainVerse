@@ -18,14 +18,14 @@ class AutoplayVideoCard extends StatefulWidget {
   final double? width;
 
   const AutoplayVideoCard({
-    Key? key,
+    super.key,
     required this.item,
     this.onTap,
     this.shouldPlay = false,
     this.sharedController,
     this.onVisibilityChanged,
     this.width,
-  }) : super(key: key);
+  });
 
   @override
   State<AutoplayVideoCard> createState() => _AutoplayVideoCardState();
@@ -180,8 +180,9 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
     final controller = widget.sharedController;
     if (barBox == null ||
         controller == null ||
-        !controllerIsInitializedSafely(controller))
+        !controllerIsInitializedSafely(controller)) {
       return;
+    }
     final local = barBox.globalToLocal(globalPosition);
     final rel = (local.dx / barBox.size.width).clamp(0.0, 1.0);
     setState(() => _progress = rel);
@@ -216,8 +217,9 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
 
   void _seekToRelative(double rel) {
     final controller = widget.sharedController;
-    if (controller == null || !controllerIsInitializedSafely(controller))
+    if (controller == null || !controllerIsInitializedSafely(controller)) {
       return;
+    }
     try {
       final duration = controller.value.duration;
       if (duration == Duration.zero) return;
@@ -562,13 +564,12 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Channel avatar
-                    if (widget.item.channelImageUrl != null &&
-                        widget.item.channelImageUrl!.isNotEmpty)
+                    if (widget.item.channelImageUrl.isNotEmpty)
                       CircleAvatar(
                         radius: 18.w,
                         backgroundColor: Colors.grey.shade800,
                         backgroundImage: CachedNetworkImageProvider(
-                          widget.item.channelImageUrl!,
+                          widget.item.channelImageUrl,
                         ),
                       )
                     else
@@ -602,9 +603,8 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                           SizedBox(height: 4.h),
                           Text(
                             [
-                              if (widget.item.channelName != null &&
-                                  widget.item.channelName!.isNotEmpty)
-                                widget.item.channelName!,
+                              if (widget.item.channelName.isNotEmpty)
+                                widget.item.channelName,
                               _formatViews(widget.item.totalViews),
                               _getTimeAgo(widget.item.createdAt),
                             ].where((s) => s.isNotEmpty).join(' • '),

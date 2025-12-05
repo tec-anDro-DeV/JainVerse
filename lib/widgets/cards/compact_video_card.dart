@@ -14,14 +14,14 @@ class CompactVideoCard extends StatelessWidget {
   final VoidCallback? onDelete;
 
   const CompactVideoCard({
-    Key? key,
+    super.key,
     required this.item,
     this.onTap,
     this.showPopupMenu = true,
     this.onMenuAction,
     this.showDeleteButton = false,
     this.onDelete,
-  }) : super(key: key);
+  });
 
   String _getTimeAgo(DateTime? dateTime) {
     if (dateTime == null) return '';
@@ -204,18 +204,15 @@ class CompactVideoCard extends StatelessWidget {
                         radius: 12.w,
                         backgroundColor: Colors.grey.shade100,
                         backgroundImage:
-                            item.channelImageUrl != null &&
-                                item.channelImageUrl!.isNotEmpty
-                            ? CachedNetworkImageProvider(item.channelImageUrl!)
+                            item.channelImageUrl.isNotEmpty
+                            ? CachedNetworkImageProvider(item.channelImageUrl)
                                   as ImageProvider?
                             : null,
                         child:
-                            (item.channelImageUrl == null ||
-                                item.channelImageUrl!.isEmpty)
+                            (item.channelImageUrl.isEmpty)
                             ? Text(
-                                (item.channelName != null &&
-                                        item.channelName!.isNotEmpty)
-                                    ? item.channelName!
+                                (item.channelName.isNotEmpty)
+                                    ? item.channelName
                                           .split(' ')
                                           .map((s) => s.isNotEmpty ? s[0] : '')
                                           .take(2)
@@ -234,9 +231,8 @@ class CompactVideoCard extends StatelessWidget {
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        (item.channelName != null &&
-                                item.channelName!.isNotEmpty)
-                            ? item.channelName!
+                        (item.channelName.isNotEmpty)
+                            ? item.channelName
                             : 'Unknown channel',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

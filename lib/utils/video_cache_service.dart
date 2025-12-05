@@ -23,8 +23,9 @@ class VideoCacheService {
   Future<File?> getCachedFile(String url) async {
     try {
       final fileInfo = await _cacheManager.getFileFromCache(url);
-      if (fileInfo != null && await fileInfo.file.exists())
+      if (fileInfo != null && await fileInfo.file.exists()) {
         return fileInfo.file;
+      }
       return null;
     } catch (e) {
       if (kDebugMode) print('VideoCacheService.getCachedFile error: $e');

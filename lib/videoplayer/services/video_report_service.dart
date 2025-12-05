@@ -52,12 +52,14 @@ class VideoReportService {
       }
       return [];
     } on DioException catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('VideoReportService fetchReportOptions error: $e');
+      }
       rethrow;
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('VideoReportService fetchReportOptions error: $e');
+      }
       throw Exception(e.toString());
     }
   }

@@ -185,7 +185,7 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
       }
 
       // Helper to parse time strings like "hh:mm AM/PM"
-      DateTime _parse(String timeStr, DateTime baseDate) {
+      DateTime parse(String timeStr, DateTime baseDate) {
         try {
           final parts = timeStr.split(' ');
           final hm = parts[0].split(':');
@@ -215,8 +215,8 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
       String? activeName;
 
       for (final slot in daySlots) {
-        final start = _parse(slot['start'] ?? '', nowTime);
-        var end = _parse(slot['end'] ?? '', nowTime);
+        final start = parse(slot['start'] ?? '', nowTime);
+        var end = parse(slot['end'] ?? '', nowTime);
         if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
           end = end.add(const Duration(days: 1));
         }
@@ -229,8 +229,8 @@ class _PanchangCalendarWidgetState extends State<PanchangCalendarWidget> {
 
       if (activeName == null) {
         for (final slot in nightSlots) {
-          final start = _parse(slot['start'] ?? '', nowTime);
-          var end = _parse(slot['end'] ?? '', nowTime);
+          final start = parse(slot['start'] ?? '', nowTime);
+          var end = parse(slot['end'] ?? '', nowTime);
           if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
             end = end.add(const Duration(days: 1));
           }

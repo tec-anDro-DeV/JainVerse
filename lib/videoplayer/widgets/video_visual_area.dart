@@ -309,7 +309,7 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
 
     final controller = videoState.controller;
 
-    String _formatDuration(Duration d) {
+    String formatDuration(Duration d) {
       String two(int n) => n.toString().padLeft(2, '0');
       if (d.inHours > 0) {
         return '${d.inHours}:${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
@@ -411,7 +411,7 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
                               TextSpan(
                                 children: [
                                   TextSpan(
-                                    text: _formatDuration(videoState.position),
+                                    text: formatDuration(videoState.position),
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 14.sp,
@@ -427,7 +427,7 @@ class _VideoVisualAreaState extends ConsumerState<VideoVisualArea> {
                                     ),
                                   ),
                                   TextSpan(
-                                    text: _formatDuration(videoState.duration),
+                                    text: formatDuration(videoState.duration),
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.7),
                                       fontSize: 14.sp,

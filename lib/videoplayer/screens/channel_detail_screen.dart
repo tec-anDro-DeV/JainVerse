@@ -332,12 +332,13 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
 
   Widget _buildModernHeader(ChannelDetailState state) {
     final channel = state.channel;
-    if (channel == null)
+    if (channel == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     final double avatarSize = 100.w;
 
-    Widget _buildBanner() {
+    Widget buildBanner() {
       final Widget image = channel.bannerUrl.isNotEmpty
           ? CachedNetworkImage(
               imageUrl: channel.bannerUrl,
@@ -378,7 +379,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
       );
     }
 
-    Widget _buildAvatar() {
+    Widget buildAvatar() {
       return Hero(
         tag: 'channel_avatar_${channel.userId}',
         child: Container(
@@ -425,13 +426,13 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                     borderRadius: BorderRadius.circular(12.w),
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: _buildBanner(),
+                      child: buildBanner(),
                     ),
                   ),
                   Positioned(
                     left: 20.w,
                     bottom: -avatarSize / 1.5,
-                    child: _buildAvatar(),
+                    child: buildAvatar(),
                   ),
                 ],
               ),

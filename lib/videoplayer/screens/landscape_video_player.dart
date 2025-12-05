@@ -791,7 +791,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer>
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: '${_formatDuration(videoState.position)}',
+                              text: _formatDuration(videoState.position),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 7.sp,
@@ -807,7 +807,7 @@ class _LandscapeVideoPlayerState extends ConsumerState<LandscapeVideoPlayer>
                               ),
                             ),
                             TextSpan(
-                              text: '${_formatDuration(videoState.duration)}',
+                              text: _formatDuration(videoState.duration),
                               style: TextStyle(
                                 color: Colors.white54,
                                 fontSize: 7.sp,

@@ -498,13 +498,13 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
         }
 
         // Sync subscription manager
-        if (currentItem.channelId != null && currentItem.subscribed != null) {
+        if (currentItem.subscribed != null) {
           final globalSub = SubscriptionStateManager().getSubscriptionState(
-            currentItem.channelId!,
+            currentItem.channelId,
           );
           if (globalSub != currentItem.subscribed) {
             SubscriptionStateManager().updateSubscriptionState(
-              currentItem.channelId!,
+              currentItem.channelId,
               currentItem.subscribed!,
             );
           }

@@ -14,7 +14,7 @@ class _AnimatedTapButton extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
 
-  const _AnimatedTapButton({required this.child, this.onTap, super.key});
+  const _AnimatedTapButton({required this.child, this.onTap});
 
   @override
   State<_AnimatedTapButton> createState() => _AnimatedTapButtonState();
@@ -36,7 +36,6 @@ class _DirectionalTapButton extends StatefulWidget {
     this.onTap,
     this.direction = _NudgeDirection.none,
     this.nudgeDistance = 12.0,
-    super.key,
   });
 
   @override

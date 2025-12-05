@@ -11,11 +11,11 @@ class VideoCardSkeleton extends StatefulWidget {
   final BorderRadius? borderRadius;
 
   const VideoCardSkeleton({
-    Key? key,
+    super.key,
     this.width,
     this.animate = true,
     this.borderRadius,
-  }) : super(key: key);
+  });
 
   @override
   State<VideoCardSkeleton> createState() => _VideoCardSkeletonState();

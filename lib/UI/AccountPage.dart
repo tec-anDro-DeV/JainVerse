@@ -24,7 +24,6 @@ import 'package:jainverse/utils/ConnectionCheck.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:session_storage/session_storage.dart';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';

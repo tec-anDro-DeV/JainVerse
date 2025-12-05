@@ -229,13 +229,15 @@ class VideoCardSmall extends StatelessWidget {
     // Seconds
     final seconds = diff.inSeconds;
     if (seconds < 5) return "Just now";
-    if (seconds < 60)
+    if (seconds < 60) {
       return seconds == 1 ? "1 second ago" : "$seconds seconds ago";
+    }
 
     // Minutes
     final minutes = diff.inMinutes;
-    if (minutes < 60)
+    if (minutes < 60) {
       return minutes == 1 ? "1 minute ago" : "$minutes minutes ago";
+    }
 
     // Hours (use 'hr' / 'hrs')
     final hours = diff.inHours;

@@ -119,7 +119,7 @@ class ProfilePresenter {
     }
     log('Mobile: "$mbl" (isEmpty: ${mbl.isEmpty})');
     log('DOB: "$dob" (isEmpty: ${dob.isEmpty})');
-    log('Gender: ${gender == null ? "<null>" : gender}');
+    log('Gender: ${gender ?? "<null>"}');
     log('Country: "$countryId" (isEmpty: ${countryId.isEmpty})');
     log(
       'Password: "${pass.isNotEmpty ? "[SET]" : "[EMPTY]"}" (isEmpty: ${pass.isEmpty})',

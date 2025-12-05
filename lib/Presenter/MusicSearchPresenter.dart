@@ -157,10 +157,11 @@ class MusicSearchPresenter extends BasePresenter {
             });
           }
 
-          if (dioError.response?.statusCode == 404)
+          if (dioError.response?.statusCode == 404) {
             throw Exception(
               'Search service not found. Please try again later.',
             );
+          }
           throw Exception('Server error. Please try again later.');
         default:
           throw Exception('Failed to search. Please try again.');

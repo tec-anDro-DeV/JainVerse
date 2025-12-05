@@ -421,8 +421,9 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user if the picked image is very large and allow cancel
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
           return;
+        }
         final cropped = await UserChannelImageHelper.cropProfileImage(
           context,
           local,
@@ -455,8 +456,9 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large images (may blow native cropper memory)
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
           return;
+        }
         final cropped = await UserChannelImageHelper.cropProfileImage(
           context,
           local,
@@ -487,8 +489,9 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large banner images
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
           return;
+        }
         final cropped = await UserChannelImageHelper.cropBannerImage(
           context,
           local,
@@ -520,8 +523,9 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large banner images
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local))
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
           return;
+        }
         final cropped = await UserChannelImageHelper.cropBannerImage(
           context,
           local,
@@ -1084,9 +1088,9 @@ class _UserChannelState extends State<UserChannel>
     // - If a minLines is provided (e.g. description), allow multiline by
     //   leaving maxLines null so the field can grow. For other fields,
     //   enforce single-line by setting maxLines = 1.
-    final bool _expands = expands ?? false;
-    final int? _minLines = minLines;
-    final int? _maxLines = (minLines != null) ? null : (maxLines ?? 1);
+    final bool expands0 = expands ?? false;
+    final int? minLines0 = minLines;
+    final int? maxLines0 = (minLines != null) ? null : (maxLines ?? 1);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,9 +1109,9 @@ class _UserChannelState extends State<UserChannel>
           focusNode: focusNode,
           validator: validator,
           maxLength: maxLength,
-          minLines: _minLines,
-          maxLines: _maxLines,
-          expands: _expands,
+          minLines: minLines0,
+          maxLines: maxLines0,
+          expands: expands0,
           style: TextStyle(fontSize: 16.sp, color: appColors().colorTextHead),
           decoration: InputDecoration(
             hintText: hint,

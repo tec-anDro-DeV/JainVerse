@@ -15,14 +15,14 @@ class VideoCard extends StatelessWidget {
   final String? blockedReason;
 
   const VideoCard({
-    Key? key,
+    super.key,
     required this.item,
     this.onTap,
     this.showPopupMenu = true,
     this.width,
     this.onMenuAction,
     this.blockedReason,
-  }) : super(key: key);
+  });
 
   String _getTimeAgo(DateTime? dateTime) {
     if (dateTime == null) return '';
@@ -166,19 +166,16 @@ class VideoCard extends StatelessWidget {
                     radius: 18.w,
                     backgroundColor: Colors.grey.shade300,
                     backgroundImage:
-                        item.channelImageUrl != null &&
-                            item.channelImageUrl!.isNotEmpty
-                        ? CachedNetworkImageProvider(item.channelImageUrl!)
+                        item.channelImageUrl.isNotEmpty
+                        ? CachedNetworkImageProvider(item.channelImageUrl)
                               as ImageProvider?
                         : null,
                     child:
-                        (item.channelImageUrl == null ||
-                            item.channelImageUrl!.isEmpty)
+                        (item.channelImageUrl.isEmpty)
                         ? Text(
                             // show initials fallback if name available
-                            (item.channelName != null &&
-                                    item.channelName!.isNotEmpty)
-                                ? item.channelName!
+                            (item.channelName.isNotEmpty)
+                                ? item.channelName
                                       .split(' ')
                                       .map((s) => s.isNotEmpty ? s[0] : '')
                                       .take(2)
@@ -218,9 +215,8 @@ class VideoCard extends StatelessWidget {
                         // Channel name · views · time ago
                         Text(
                           [
-                            (item.channelName != null &&
-                                    item.channelName!.isNotEmpty)
-                                ? item.channelName!
+                            (item.channelName.isNotEmpty)
+                                ? item.channelName
                                 : 'Unknown channel',
                             _formatViews(item.totalViews),
                             _getTimeAgo(item.createdAt),

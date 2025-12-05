@@ -18,7 +18,7 @@ class ChannelSettings extends StatefulWidget {
 }
 
 class _ChannelSettingsState extends State<ChannelSettings> {
-  bool _loading = false;
+  final bool _loading = false;
 
   Future<void> _deleteChannel() async {
     // Navigate to dedicated delete screen (no modal)

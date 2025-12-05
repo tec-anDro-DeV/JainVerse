@@ -41,7 +41,7 @@ class ModelAllCat {
           .toList();
     }
 
-    final Map<String, dynamic> metaSource = dataNode != null ? dataNode : json;
+    final Map<String, dynamic> metaSource = dataNode ?? json;
 
     return ModelAllCat(
       json['status'] ?? false,

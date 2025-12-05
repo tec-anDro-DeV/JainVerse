@@ -321,8 +321,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     // If already preloaded or a controller for this id is attached to state,
     // skip.
     if (_preloadedControllers.containsKey(videoId) ||
-        state.currentVideoId == videoId)
+        state.currentVideoId == videoId) {
       return;
+    }
 
     try {
       final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
@@ -623,8 +624,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     final controller = state.controller;
     if (controller == null ||
         !controller.value.isInitialized ||
-        !_isControllerActive)
+        !_isControllerActive) {
       return;
+    }
 
     if (_awaitingManualResumeAfterSystemPipClose) {
       _awaitingManualResumeAfterSystemPipClose = false;
@@ -646,8 +648,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     final controller = state.controller;
     if (controller == null ||
         !controller.value.isInitialized ||
-        !_isControllerActive)
+        !_isControllerActive) {
       return;
+    }
 
     try {
       await controller.pause();
@@ -705,8 +708,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     final controller = state.controller;
     if (controller == null ||
         !controller.value.isInitialized ||
-        !_isControllerActive)
+        !_isControllerActive) {
       return;
+    }
 
     try {
       await controller.seekTo(position);

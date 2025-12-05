@@ -16,7 +16,7 @@ import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 import 'package:jainverse/widgets/common/search_bar.dart';
 
 class VideoListScreen extends StatelessWidget {
-  const VideoListScreen({Key? key}) : super(key: key);
+  const VideoListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +29,7 @@ class VideoListScreen extends StatelessWidget {
 
 /// Embeddable video list widget (no scaffold) so it can be placed inside other screens.
 class VideoListBody extends StatefulWidget {
-  const VideoListBody({Key? key}) : super(key: key);
+  const VideoListBody({super.key});
 
   @override
   State<VideoListBody> createState() => _VideoListBodyState();

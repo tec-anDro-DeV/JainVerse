@@ -9,7 +9,6 @@ import 'package:jainverse/Model/ModelPlanList.dart';
 import 'package:jainverse/Model/ModelSettings.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Presenter/CatSubCatMusicPresenter.dart';
 import 'package:jainverse/Presenter/DownloadPresenter.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';

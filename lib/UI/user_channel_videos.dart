@@ -15,14 +15,14 @@ class UserChannelVideosSection extends StatelessWidget {
   final void Function(String, VideoItem) onMenuAction;
 
   const UserChannelVideosSection({
-    Key? key,
+    super.key,
     required this.videos,
     required this.isLoading,
     required this.error,
     required this.onRetry,
     required this.onTap,
     required this.onMenuAction,
-  }) : super(key: key);
+  });
 
   List<VideoItem> get blockedVideos =>
       videos.where((v) => (v.block ?? 0) == 1).toList();

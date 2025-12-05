@@ -89,7 +89,7 @@ extension ChannelModelCopyWith on ChannelModel {
       updatedAt: updatedAt,
       subscribersCount: subscribersCount ?? this.subscribersCount,
       subscribed: subscribed ?? this.subscribed,
-      isOwn: this.isOwn,
+      isOwn: isOwn,
     );
   }
 }

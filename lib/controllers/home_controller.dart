@@ -169,36 +169,43 @@ class HomeController extends ChangeNotifier {
         _featuredVideos,
         newData.featuredVideos,
         (v) => v.id,
-      ))
+      )) {
         return true;
-      if (listChanged<ChannelModel>(_channels, newData.channels, (c) => c.id))
+      }
+      if (listChanged<ChannelModel>(_channels, newData.channels, (c) => c.id)) {
         return true;
+      }
       if (listChanged<SongModel>(
         _featuredSongs,
         newData.featuredSongs,
         (s) => s.id,
-      ))
+      )) {
         return true;
+      }
       if (listChanged<SongModel>(
         _latestSongs,
         newData.latestSongs,
         (s) => s.id,
-      ))
+      )) {
         return true;
+      }
       if (listChanged<VideoModel>(
         _popularVideos,
         newData.popularVideos,
         (v) => v.id,
-      ))
+      )) {
         return true;
+      }
       if (listChanged<GenreModel>(
         _trendingGenres,
         newData.trendingGenres,
         (g) => (g.id ?? -1),
-      ))
+      )) {
         return true;
-      if (listChanged<VideoModel>(_newVideos, newData.newVideos, (v) => v.id))
+      }
+      if (listChanged<VideoModel>(_newVideos, newData.newVideos, (v) => v.id)) {
         return true;
+      }
 
       // Fallback: no structural change detected
       return false;

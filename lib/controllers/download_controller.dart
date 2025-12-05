@@ -33,8 +33,8 @@ class DownloadController extends ChangeNotifier {
   List<DownloadedMusic> _downloadedTracks = [];
   bool _isLoading = false;
   bool _isInitialized = false;
-  String _imagePath = '';
-  String _audioPath = '';
+  final String _imagePath = '';
+  final String _audioPath = '';
 
   // Download progress tracking
   final Map<String, double> _downloadProgress = {};

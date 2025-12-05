@@ -128,7 +128,7 @@ class VideoTitleChannelRow extends StatelessWidget {
                       if (subscriberCount != null) SizedBox(height: 4.h),
                       if (subscriberCount != null)
                         Text(
-                          '${subscriberCount} subscribers',
+                          '$subscriberCount subscribers',
                           style: TextStyle(
                             color: theme.textColor.withOpacity(0.7),
                             fontSize: 12.sp,

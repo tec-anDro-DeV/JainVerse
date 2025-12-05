@@ -888,8 +888,9 @@ class _BlogDetailModal extends StatelessWidget {
                                             );
                                           },
                                           loadingBuilder: (context, child, loadingProgress) {
-                                            if (loadingProgress == null)
+                                            if (loadingProgress == null) {
                                               return child;
+                                            }
                                             return Container(
                                               color: appColors().gray[100],
                                               child: Center(
@@ -933,8 +934,9 @@ class _BlogDetailModal extends StatelessWidget {
                                         );
                                       },
                                       loadingBuilder: (context, child, loadingProgress) {
-                                        if (loadingProgress == null)
+                                        if (loadingProgress == null) {
                                           return child;
+                                        }
                                         debugPrint(
                                           'Detail image loading $primary: ${loadingProgress.cumulativeBytesLoaded}/${loadingProgress.expectedTotalBytes ?? -1}',
                                         );

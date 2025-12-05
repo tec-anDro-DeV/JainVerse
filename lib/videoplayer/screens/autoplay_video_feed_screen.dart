@@ -22,7 +22,7 @@ import 'package:jainverse/videoplayer/managers/like_dislike_state_manager.dart';
 /// - Smooth thumbnail-to-video transitions
 /// - Pauses on scroll and app lifecycle changes
 class AutoplayVideoFeedScreen extends StatelessWidget {
-  const AutoplayVideoFeedScreen({Key? key}) : super(key: key);
+  const AutoplayVideoFeedScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +44,7 @@ class AutoplayVideoFeedScreen extends StatelessWidget {
 
 /// Embeddable video feed widget (no scaffold).
 class AutoplayVideoFeedBody extends StatefulWidget {
-  const AutoplayVideoFeedBody({Key? key}) : super(key: key);
+  const AutoplayVideoFeedBody({super.key});
 
   @override
   State<AutoplayVideoFeedBody> createState() => _AutoplayVideoFeedBodyState();

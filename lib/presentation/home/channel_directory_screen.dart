@@ -79,12 +79,6 @@ class ChannelDirectoryScreen extends StatelessWidget {
 
   void _openChannel(BuildContext context, ChannelModel channel) {
     final channelId = channel.id ?? channel.userId;
-    if (channelId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Channel unavailable.')));
-      return;
-    }
 
     Navigator.push(
       context,

@@ -171,8 +171,9 @@ class _AnimatedSubscribeButtonState extends State<AnimatedSubscribeButton>
               AnimatedBuilder(
                 animation: _partyController,
                 builder: (context, _) {
-                  if (_partyController.value <= 0)
+                  if (_partyController.value <= 0) {
                     return const SizedBox.shrink();
+                  }
                   return Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(

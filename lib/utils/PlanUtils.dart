@@ -121,10 +121,12 @@ class PlanUtils {
       return plans.firstWhere((plan) {
         if (plan['id'] != null && plan['id'].toString() == planId) return true;
         if (plan['numeric_id'] != null &&
-            plan['numeric_id'].toString() == planId)
+            plan['numeric_id'].toString() == planId) {
           return true;
-        if (plan['product_id'] != null && plan['product_id'] == planId)
+        }
+        if (plan['product_id'] != null && plan['product_id'] == planId) {
           return true;
+        }
         return false;
       });
     } catch (e) {

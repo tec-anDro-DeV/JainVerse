@@ -475,19 +475,19 @@ class _State extends State<FavoriteGenres> with SingleTickerProviderStateMixin {
 
                                               // Compute grid bottom padding so we don't
                                               // double-reserve space for the mini-player.
-                                              final double _overlayH =
+                                              final double overlayH =
                                                   MediaOverlayManager
                                                       .instance
                                                       .miniPlayerHeight
                                                       .value;
-                                              final double _gridBottom =
+                                              final double gridBottom =
                                                   AppPadding.bottom(context) -
-                                                  _overlayH;
+                                                  overlayH;
 
                                               return GridView.builder(
                                                 padding: EdgeInsets.only(
-                                                  bottom: _gridBottom > 0
-                                                      ? _gridBottom
+                                                  bottom: gridBottom > 0
+                                                      ? gridBottom
                                                       : 0,
                                                 ),
                                                 scrollDirection: Axis.vertical,

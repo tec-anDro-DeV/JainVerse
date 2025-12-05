@@ -220,7 +220,7 @@ class FileUploadService {
       print(
         '🎭 MIME type detected: $mimeType (not sent in headers to avoid signature mismatch)',
       );
-      print('⏱️ Timeout: ${timeoutMinutes} minutes');
+      print('⏱️ Timeout: $timeoutMinutes minutes');
       print('➡️ HTTP PUT ${_shortenUrlForLog(presignedUrl)}');
       print('📋 Upload headers (attempt $attempt): $maskedHeaders');
 
@@ -276,7 +276,7 @@ class FileUploadService {
     // attempt to mask querystring values
     try {
       final uri = Uri.parse(url);
-      if (uri.queryParameters.isEmpty) return url.substring(0, keep) + '...';
+      if (uri.queryParameters.isEmpty) return '${url.substring(0, keep)}...';
       final maskedParts = uri.queryParameters.entries.map((e) {
         final v = e.value;
         if (v.length > 10) {
@@ -288,7 +288,7 @@ class FileUploadService {
       final base = '${uri.scheme}://${uri.host}${uri.path}';
       return '$base?$maskedQuery';
     } catch (_) {
-      return url.substring(0, keep) + '...';
+      return '${url.substring(0, keep)}...';
     }
   }
 

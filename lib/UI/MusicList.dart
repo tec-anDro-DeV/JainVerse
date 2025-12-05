@@ -1089,7 +1089,9 @@ class StateClass extends State<MusicList> {
     }).toList();
 
     // If fewer than 4 tiles (defensive), fill with placeholders
-    while (tiles.length < 4) tiles.add(_buildPlaceholderImage());
+    while (tiles.length < 4) {
+      tiles.add(_buildPlaceholderImage());
+    }
 
     return Container(
       decoration: BoxDecoration(

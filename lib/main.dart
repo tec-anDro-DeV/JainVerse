@@ -189,7 +189,7 @@ Future<void> main() async {
             debugPrint('DownloadController initialization timed out');
           },
         );
-        UIPlaybackState()..attachDownloadLinker(
+        UIPlaybackState().attachDownloadLinker(
           DownloadStateLinker(downloadController),
           startImmediately: true,
         );

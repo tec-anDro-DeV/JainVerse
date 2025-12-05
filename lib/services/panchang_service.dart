@@ -459,8 +459,12 @@ class PanchangService {
     double localTime = utcTime + timezone;
 
     // Handle day overflow
-    while (localTime >= 24) localTime -= 24;
-    while (localTime < 0) localTime += 24;
+    while (localTime >= 24) {
+      localTime -= 24;
+    }
+    while (localTime < 0) {
+      localTime += 24;
+    }
 
     int hours = localTime.floor();
     int minutes = ((localTime - hours) * 60).round();
@@ -517,8 +521,12 @@ class PanchangService {
     double localTime = utcTime + timezone;
 
     // Handle day overflow
-    while (localTime >= 24) localTime -= 24;
-    while (localTime < 0) localTime += 24;
+    while (localTime >= 24) {
+      localTime -= 24;
+    }
+    while (localTime < 0) {
+      localTime += 24;
+    }
 
     int hours = localTime.floor();
     int minutes = ((localTime - hours) * 60).round();
@@ -626,8 +634,12 @@ class PanchangService {
     double sunriseLocal = sunriseUTC + timezone * 60;
 
     // Normalize to 0-1440 minutes
-    while (sunriseLocal < 0) sunriseLocal += 1440;
-    while (sunriseLocal >= 1440) sunriseLocal -= 1440;
+    while (sunriseLocal < 0) {
+      sunriseLocal += 1440;
+    }
+    while (sunriseLocal >= 1440) {
+      sunriseLocal -= 1440;
+    }
 
     int hours = (sunriseLocal / 60).floor();
     int minutes = (sunriseLocal % 60).round();
@@ -737,8 +749,12 @@ class PanchangService {
     double sunsetLocal = sunsetUTC + timezone * 60;
 
     // Normalize to 0-1440 minutes
-    while (sunsetLocal < 0) sunsetLocal += 1440;
-    while (sunsetLocal >= 1440) sunsetLocal -= 1440;
+    while (sunsetLocal < 0) {
+      sunsetLocal += 1440;
+    }
+    while (sunsetLocal >= 1440) {
+      sunsetLocal -= 1440;
+    }
 
     int hours = (sunsetLocal / 60).floor();
     int minutes = (sunsetLocal % 60).round();
@@ -953,7 +969,7 @@ class PanchangService {
     sb.writeln('         PANCHANG CALENDAR');
     sb.writeln('═══════════════════════════════════════════');
     sb.writeln('Date: ${panchang['date']}');
-    sb.writeln('Location: Lat ${latitude}°, Long ${longitude}°');
+    sb.writeln('Location: Lat $latitude°, Long $longitude°');
     sb.writeln('Sunrise: ${panchang['sunrise']}');
     sb.writeln('Sunset: ${panchang['sunset']}');
     sb.writeln('');

@@ -167,7 +167,7 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
     List<dynamic> daySlots = List<dynamic>.from(choghadiya['day'] ?? []);
     List<dynamic> nightSlots = List<dynamic>.from(choghadiya['night'] ?? []);
 
-    DateTime _parse(String timeStr, DateTime baseDate) {
+    DateTime parse(String timeStr, DateTime baseDate) {
       try {
         final parts = timeStr.split(' ');
         final hm = parts[0].split(':');
@@ -191,8 +191,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
 
     // Check day slots (sunrise..sunset) on the same day
     for (final slot in daySlots) {
-      final start = _parse(slot['start'] ?? '', today);
-      var end = _parse(slot['end'] ?? '', today);
+      final start = parse(slot['start'] ?? '', today);
+      var end = parse(slot['end'] ?? '', today);
       if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
         end = end.add(const Duration(days: 1));
       }
@@ -204,8 +204,8 @@ class _PanchangCalendarScreenState extends State<PanchangCalendarScreen>
 
     // Check night slots (sunset..next sunrise) - may cross midnight
     for (final slot in nightSlots) {
-      final start = _parse(slot['start'] ?? '', today);
-      var end = _parse(slot['end'] ?? '', today);
+      final start = parse(slot['start'] ?? '', today);
+      var end = parse(slot['end'] ?? '', today);
       if (end.isBefore(start) || end.isAtSameMomentAs(start)) {
         end = end.add(const Duration(days: 1));
       }

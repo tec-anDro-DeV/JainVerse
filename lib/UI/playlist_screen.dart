@@ -821,8 +821,9 @@ class _PlaylistScreenState extends State<PlaylistScreen>
                                                   );
 
                                               if (result == true) {
-                                                if (mounted)
+                                                if (mounted) {
                                                   await _loadPlaylists();
+                                                }
                                               }
                                             },
                                           ),

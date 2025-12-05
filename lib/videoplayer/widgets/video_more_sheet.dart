@@ -440,8 +440,9 @@ class _VideoMoreSheetState extends State<VideoMoreSheet> {
                               InkWell(
                                 onTap: () {
                                   Navigator.of(context).pop();
-                                  if (widget.onChannelTap != null)
+                                  if (widget.onChannelTap != null) {
                                     widget.onChannelTap!();
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(20.w),
                                 child:
@@ -473,8 +474,9 @@ class _VideoMoreSheetState extends State<VideoMoreSheet> {
                                 child: InkWell(
                                   onTap: () {
                                     Navigator.of(context).pop();
-                                    if (widget.onChannelTap != null)
+                                    if (widget.onChannelTap != null) {
                                       widget.onChannelTap!();
+                                    }
                                   },
                                   child: Column(
                                     crossAxisAlignment:
@@ -519,8 +521,9 @@ class _VideoMoreSheetState extends State<VideoMoreSheet> {
                                           _isSubscriptionInProgressLocal = true;
                                         });
 
-                                        if (widget.onSubscribePressed != null)
+                                        if (widget.onSubscribePressed != null) {
                                           widget.onSubscribePressed!();
+                                        }
                                       },
                                     ),
                                   ),
