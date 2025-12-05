@@ -25,8 +25,9 @@ class _MiniVideoPlayerConfig {
   static double get marginHorizontal => 10.w;
   static double get spacing => 10.w;
   // previewSize removed — preview now sized dynamically as 30% of card width
-  static double get playButtonSize => 46.w;
-  static double get playIconSize => 22.w;
+  // Align play/pause sizing with the music mini player for better UX
+  static double get playButtonSize => 56.w;
+  static double get playIconSize => 36.w;
   static double get progressBarHeight => 6.w;
 }
 
@@ -842,34 +843,64 @@ class _MiniVideoPlayerState extends ConsumerState<MiniVideoPlayer>
     return GestureDetector(
       onTap: () {
         HapticFeedback.mediumImpact();
-        videoNotifier.togglePlayPause();
+        try {
+          videoNotifier.togglePlayPause();
+        } catch (_) {}
       },
       child: Container(
         width: _MiniVideoPlayerConfig.playButtonSize,
         height: _MiniVideoPlayerConfig.playButtonSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.transparent,
-          border: Border.all(color: Colors.black26, width: 1.w),
-        ),
+        decoration: _buildButtonDecoration(),
         child: Center(
-          child: videoState.isLoading
+          child: videoState.isLoading == true
               ? SizedBox(
-                  width: _MiniVideoPlayerConfig.playIconSize,
-                  height: _MiniVideoPlayerConfig.playIconSize,
-                  child: CircularProgressIndicator(
+                  width: 24.w,
+                  height: 24.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2.4,
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.black38),
                   ),
                 )
-              : SvgPicture.asset(
-                  videoState.isPlaying
-                      ? 'assets/icons/pause_icon.svg'
-                      : 'assets/icons/play_icon.svg',
-                  width: _MiniVideoPlayerConfig.playIconSize,
-                  height: _MiniVideoPlayerConfig.playIconSize,
-                  fit: BoxFit.contain,
+              : AnimatedSwitcher(
+                  duration: _MiniVideoPlayerConfig.animationDuration,
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: _buildPlayIcon(
+                    videoState.isPlaying == true,
+                    key: ValueKey<bool>(videoState.isPlaying == true),
+                  ),
                 ),
         ),
+      ),
+    );
+  }
+
+  /// Button decoration matching the music mini player's white circular style
+  BoxDecoration _buildButtonDecoration() {
+    return BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.white,
+      border: Border.all(color: Colors.grey.shade200, width: 1.5.w),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 8.0,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  /// Builds the play/pause icon with consistent sizing and animation keying
+  Widget _buildPlayIcon(bool isPlaying, {required Key key}) {
+    return SizedBox(
+      key: key,
+      width: _MiniVideoPlayerConfig.playIconSize,
+      height: _MiniVideoPlayerConfig.playIconSize,
+      child: Icon(
+        isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+        size: _MiniVideoPlayerConfig.playIconSize,
+        color: appColors().primaryColorApp,
       ),
     );
   }

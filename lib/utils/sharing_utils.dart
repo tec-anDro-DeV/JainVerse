@@ -28,14 +28,16 @@ class SharingUtils {
   }) async {
     try {
       // Extract audio ID from extras or use default sharing logic
-      final audioId = mediaItem.extras?['audio_id'] ?? mediaItem.id;
+      // Ensure audioId is a String to avoid type errors (some sources store it as int)
+      final audioId = (mediaItem.extras?['audio_id'] ?? mediaItem.id)
+          .toString();
       final slug = mediaItem.album ?? 'music';
-      final title =
-          mediaItem.title.isEmpty ? 'this amazing song' : mediaItem.title;
-      final artist =
-          mediaItem.artist?.isEmpty == true
-              ? 'great artist'
-              : (mediaItem.artist ?? 'great artist');
+      final title = mediaItem.title.isEmpty
+          ? 'this amazing song'
+          : mediaItem.title;
+      final artist = mediaItem.artist?.isEmpty == true
+          ? 'great artist'
+          : (mediaItem.artist ?? 'great artist');
 
       await _performShare(
         audioId: audioId,
@@ -150,7 +152,9 @@ class SharingUtils {
     required String audioId,
     required String slug,
   }) {
-    return '"$title" by $artist. Check it out now on $_appName! 🎵\n\n$_siteUrl/audio/single/$audioId/$slug';
+    // Trim any trailing slashes from the site URL so we don't produce double slashes
+    final normalizedBase = _siteUrl.replaceAll(RegExp(r'/+$'), '');
+    return '"$title" by $artist. Check it out now on $_appName! 🎵\n\n$normalizedBase/audio/single/$audioId/$slug';
   }
 
   /// Get a formatted share text without sharing (for preview purposes)
@@ -198,7 +202,7 @@ class SharingUtils {
       return false;
     }
 
-    final audioId = mediaItem.extras?['audio_id'] ?? mediaItem.id;
+    final audioId = (mediaItem.extras?['audio_id'] ?? mediaItem.id).toString();
     if (!canShare(
       audioId: audioId,
       title: mediaItem.title,

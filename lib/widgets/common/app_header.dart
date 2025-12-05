@@ -25,6 +25,7 @@ class AppHeader extends StatefulWidget {
   final bool? isGridView;
   final double scrollUpThreshold;
   final double scrollDownThreshold;
+  final EdgeInsetsGeometry? contentPadding;
 
   const AppHeader({
     super.key,
@@ -45,6 +46,7 @@ class AppHeader extends StatefulWidget {
     this.isGridView,
     this.scrollUpThreshold = defaultScrollUpThreshold,
     this.scrollDownThreshold = defaultScrollDownThreshold,
+    this.contentPadding,
   }) : assert(
          !(showBackButton && leadingWidget != null),
          'Cannot show both back button and leading widget',
@@ -81,12 +83,13 @@ class _AppHeaderState extends State<AppHeader>
       duration: const Duration(milliseconds: 300),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, -1),
-    ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0, -1)).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
   }
 
   void _setupScrollListener() {
@@ -181,7 +184,9 @@ class _AppHeaderState extends State<AppHeader>
         color: bgColor,
         elevation: widget.elevation,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 5.w, 14.w, 5.w),
+          padding:
+              widget.contentPadding ??
+              EdgeInsets.fromLTRB(10.w, 5.w, 10.w, 5.w),
           child: _buildRowContent(layoutType, theme),
         ),
       ),
@@ -318,18 +323,16 @@ class _AppHeaderState extends State<AppHeader>
             );
             return Transform(
               alignment: Alignment.center,
-              transform:
-                  Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(angle),
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY(angle),
               child: IconButton(
                 icon: iconWidget,
                 onPressed: isEnabled ? widget.onGridToggle : null,
                 constraints: BoxConstraints(minWidth: 46.w, minHeight: 46.w),
-                tooltip:
-                    widget.isGridView == true
-                        ? 'Switch to list view'
-                        : 'Switch to grid view',
+                tooltip: widget.isGridView == true
+                    ? 'Switch to list view'
+                    : 'Switch to grid view',
               ),
             );
           } else {
@@ -346,19 +349,17 @@ class _AppHeaderState extends State<AppHeader>
             );
             return Transform(
               alignment: Alignment.center,
-              transform:
-                  Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(angle)
-                    ..rotateY(3.1416), // flip back horizontally
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY(angle)
+                ..rotateY(3.1416), // flip back horizontally
               child: IconButton(
                 icon: iconWidget,
                 onPressed: isEnabled ? widget.onGridToggle : null,
                 constraints: BoxConstraints(minWidth: 46.w, minHeight: 46.w),
-                tooltip:
-                    widget.isGridView == true
-                        ? 'Switch to list view'
-                        : 'Switch to grid view',
+                tooltip: widget.isGridView == true
+                    ? 'Switch to list view'
+                    : 'Switch to grid view',
               ),
             );
           }

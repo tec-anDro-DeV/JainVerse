@@ -916,12 +916,12 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
           // History section header
           SizedBox(
             child: HomeSectionHeader(
-              title: "History",
+              title: "Song History",
               sharedPreThemeData: sharedPreThemeData,
               onViewAllPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => Favorite('his')),
+                  MaterialPageRoute(builder: (context) => HistoryScreen()),
                 );
               },
             ),

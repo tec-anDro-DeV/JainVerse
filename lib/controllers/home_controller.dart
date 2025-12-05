@@ -31,6 +31,7 @@ class HomeController extends ChangeNotifier {
   List<VideoModel> _popularVideos = const [];
   List<GenreModel> _trendingGenres = const [];
   List<VideoModel> _newVideos = const [];
+  bool _isDisposed = false;
 
   bool get isLoading => _isLoading;
   bool get isRefreshing => _isRefreshing;
@@ -205,5 +206,24 @@ class HomeController extends ChangeNotifier {
       debugPrint('HomeController._hasDataChanged error: $e');
       return true;
     }
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    } else {
+      if (kDebugMode) {
+        debugPrint(
+          '[HomeController] notifyListeners called after dispose - ignored',
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 }

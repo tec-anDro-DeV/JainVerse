@@ -643,11 +643,13 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
       );
 
       if (mounted) {
+        _restoreDefaultSystemUI();
         widget.onBackPressed();
       }
     } catch (e) {
       // Fallback if animation fails
       if (mounted) {
+        _restoreDefaultSystemUI();
         widget.onBackPressed();
       }
     }
@@ -675,6 +677,23 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
         });
       }
     }
+  }
+
+  /// Restore the system UI (status bar) to the app's default appearance.
+  void _restoreDefaultSystemUI() {
+
+    final overlayStyle = SystemUiOverlayStyle.dark.copyWith(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        SystemChrome.setSystemUIOverlayStyle(overlayStyle);
+      } catch (_) {}
+    });
   }
 
   /// Update the current MediaItem's favorite status in the audio handler
@@ -727,6 +746,8 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
 
     // Then dispose the theme service
     _themeService.dispose();
+    // Restore system UI to default when the player is disposed
+    _restoreDefaultSystemUI();
     super.dispose();
   }
 

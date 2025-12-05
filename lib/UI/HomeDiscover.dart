@@ -49,6 +49,8 @@ class _HomeDiscoverState extends State<HomeDiscover>
   final SessionStorage session = SessionStorage();
   final NumberFormat _numberFormat = NumberFormat.compact();
 
+  String? _lastErrorMessageShown;
+
   late final ScrollController _scrollController;
   late final HomeController _controller;
   late final FavoriteService _favoriteService;
@@ -147,7 +149,6 @@ class _HomeDiscoverState extends State<HomeDiscover>
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
-        statusBarColor: Colors.white,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -155,10 +156,38 @@ class _HomeDiscoverState extends State<HomeDiscover>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: appColors().colorBackground,
+        final scaffold = Scaffold(
+          backgroundColor: appColors().white,
           body: SafeArea(child: _buildBody()),
         );
+
+        // Show a snackbar once when an error occurs while we already have content.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final hasError = _controller.hasError;
+          final hasContent = _controller.hasContent;
+          final msg = _controller.errorMessage;
+
+          if (hasError &&
+              hasContent &&
+              msg != null &&
+              msg.isNotEmpty &&
+              msg != _lastErrorMessageShown) {
+            _lastErrorMessageShown = msg;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(msg),
+                action: SnackBarAction(
+                  label: 'Retry',
+                  onPressed: _controller.loadContent,
+                ),
+                duration: const Duration(seconds: 6),
+              ),
+            );
+          }
+        });
+
+        return scaffold;
       },
     );
   }
@@ -172,56 +201,56 @@ class _HomeDiscoverState extends State<HomeDiscover>
       return _buildErrorState();
     }
 
-    return RefreshIndicator(
-      color: appColors().primaryColorApp,
-      onRefresh: _controller.refresh,
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _buildAnimatedHeader()),
-          if (_controller.isRefreshing)
-            SliverToBoxAdapter(
-              child: LinearProgressIndicator(
-                minHeight: 2,
-                color: appColors().primaryColorApp,
-                backgroundColor: appColors().gray[200],
+    return Container(
+      color: appColors().white,
+      child: RefreshIndicator(
+        color: appColors().primaryColorApp,
+        onRefresh: _controller.refresh,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Use a SliverAppBar with floating + snap so the header
+            // appears smoothly on small upward scrolls.
+            SliverAppBar(
+              backgroundColor: appColors().white.withOpacity(0.95),
+              surfaceTintColor: Colors.transparent, // Add this line
+              // Remove default horizontal title padding so AppHeader fills full width
+              titleSpacing: 7.w,
+              floating: true,
+              snap: true,
+              pinned: false,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              title: AppHeader(
+                title: 'Discover',
+                showProfileIcon: true,
+                onProfileTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountPage(),
+                    ),
+                  );
+                },
+                scrollController: _scrollController,
+                scrollAware: false,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
-          ..._buildSections(),
-          SliverToBoxAdapter(
-            child: SizedBox(height: AppPadding.bottom(context, extra: 50.w)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnimatedHeader() {
-    return AnimatedSlide(
-      offset: _isHeaderVisible ? Offset.zero : const Offset(0, -1),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      child: Container(
-        color: Colors.transparent,
-        child: SafeArea(
-          bottom: false,
-          child: Container(
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.95)),
-            child: AppHeader(
-              title: 'Discover',
-              showProfileIcon: true,
-              onProfileTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AccountPage()),
-                );
-              },
-              backgroundColor: Colors.transparent,
-              scrollController: _scrollController,
-              scrollAware: false,
+            if (_controller.isRefreshing)
+              SliverToBoxAdapter(
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: appColors().primaryColorApp,
+                  backgroundColor: appColors().gray[200],
+                ),
+              ),
+            ..._buildSections(),
+            SliverToBoxAdapter(
+              child: SizedBox(height: AppPadding.bottom(context, extra: 50.w)),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -233,7 +262,8 @@ class _HomeDiscoverState extends State<HomeDiscover>
     final currentPosition = _scrollController.position.pixels;
     final scrollDelta = currentPosition - _lastScrollPosition;
     const double hideThreshold = 10.0;
-    const double showThreshold = -3.0;
+    // Show header on any slight upward scroll (delta < 0).
+    const double showThreshold = 0.0;
     final isAtTop = currentPosition <= 5.0;
 
     if (isAtTop) {
@@ -331,7 +361,48 @@ class _HomeDiscoverState extends State<HomeDiscover>
       identity: 'popularVideos-${_controller.popularVideos.length}',
     );
 
+    // If we have content but an error occurred (for example a timeout on refresh),
+    // show an inline non-blocking banner at the top of the sections so the UI
+    // handles transient errors gracefully while still showing content.
+    if (_controller.hasError && _controller.hasContent) {
+      sections.insert(0, SliverToBoxAdapter(child: _buildInlineErrorBanner()));
+    }
+
     return sections;
+  }
+
+  Widget _buildInlineErrorBanner() {
+    final msg =
+        _controller.errorMessage ?? 'Something went wrong. Please try again.';
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.w),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.amber.shade100,
+            borderRadius: BorderRadius.circular(8.w),
+            border: Border.all(color: Colors.amber.shade300),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.w),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  msg,
+                  style: TextStyle(color: Colors.black87, fontSize: 13.sp),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              TextButton(
+                onPressed: _controller.loadContent,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget? _buildVideoSection({
