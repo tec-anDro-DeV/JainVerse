@@ -110,19 +110,29 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      final success = await _authService.requestOTP(
+      final response = await _authService.requestOTP(
         context,
         _phoneController.text.trim(),
       );
 
-      if (success && mounted) {
-        // Navigate to OTP verification screen
+      final bool success = response['success'] == true;
+      final String? verificationId = response['verificationId'];
+
+      if (success && verificationId != null && mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => OTPVerificationScreen(
               phoneNumber: _phoneController.text.trim(),
+              verificationId: verificationId,
             ),
+          ),
+        );
+      } else if (success && verificationId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to proceed: missing verification ID'),
+            backgroundColor: Colors.red,
           ),
         );
       }

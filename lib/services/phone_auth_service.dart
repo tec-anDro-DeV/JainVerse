@@ -11,8 +11,11 @@ class PhoneAuthService {
   final SharedPref _sharedPref = SharedPref();
 
   /// Request OTP for phone number
-  /// Returns true if OTP was sent successfully
-  Future<bool> requestOTP(BuildContext context, String mobile) async {
+  /// Returns a map that contains the success flag and the verificationId
+  Future<Map<String, dynamic>> requestOTP(
+    BuildContext context,
+    String mobile,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/request_mobile_otp'),
@@ -29,18 +32,29 @@ class PhoneAuthService {
             data['msg'] ?? 'OTP sent successfully',
             isError: false,
           );
-          return true;
+          final verificationId = data['data'] is Map
+              ? data['data']['verificationId']?.toString()
+              : null;
+
+          return {
+            'success': true,
+            'verificationId': verificationId,
+            'message': data['msg'],
+          };
         } else {
           _showToast(
             context,
             data['msg'] ?? 'Failed to send OTP',
             isError: true,
           );
-          return false;
+          return {
+            'success': false,
+            'message': data['msg'] ?? 'Failed to send OTP',
+          };
         }
       } else {
         _showToast(context, 'Server error. Please try again.', isError: true);
-        return false;
+        return {'success': false, 'message': 'Server error. Please try again.'};
       }
     } catch (e) {
       print('Request OTP Error: $e');
@@ -49,7 +63,10 @@ class PhoneAuthService {
         'Network error. Please check your connection.',
         isError: true,
       );
-      return false;
+      return {
+        'success': false,
+        'message': 'Network error. Please check your connection.',
+      };
     }
   }
 
@@ -58,13 +75,18 @@ class PhoneAuthService {
   Future<Map<String, dynamic>> verifyOTP(
     BuildContext context,
     String mobile,
-    String otp,
-  ) async {
+    String otp, {
+    required String verificationId,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/verify_otp'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'mobile': mobile, 'otp': otp}),
+        body: jsonEncode({
+          'mobile': mobile,
+          'otp': otp,
+          'verification_id': verificationId,
+        }),
       );
 
       print('Verify OTP Response: ${response.statusCode}');

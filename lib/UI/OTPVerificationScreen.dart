@@ -13,8 +13,13 @@ import 'package:jainverse/widgets/auth/auth_header.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String phoneNumber;
+  final String verificationId;
 
-  const OTPVerificationScreen({super.key, required this.phoneNumber});
+  const OTPVerificationScreen({
+    super.key,
+    required this.phoneNumber,
+    required this.verificationId,
+  });
 
   @override
   State<OTPVerificationScreen> createState() => _OTPVerificationScreenState();
@@ -22,19 +27,28 @@ class OTPVerificationScreen extends StatefulWidget {
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen>
     with SingleTickerProviderStateMixin {
+  static const int _otpLength = 4;
+
   final List<TextEditingController> _otpControllers = List.generate(
-    6,
+    _otpLength,
     (_) => TextEditingController(),
   );
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _otpFocusNodes = List.generate(
+    _otpLength,
+    (_) => FocusNode(),
+  );
   // Separate focus nodes used by the ancestor Focus widgets to listen for key events
-  final List<FocusNode> _otpKeyNodes = List.generate(6, (_) => FocusNode());
+  final List<FocusNode> _otpKeyNodes = List.generate(
+    _otpLength,
+    (_) => FocusNode(),
+  );
   final PhoneAuthService _authService = PhoneAuthService();
 
   bool _isLoading = false;
   bool _canResend = false;
   int _resendCooldown = 30;
   Timer? _cooldownTimer;
+  late String _verificationId;
 
   // Animation controllers
   late AnimationController _animationController;
@@ -44,6 +58,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
   @override
   void initState() {
     super.initState();
+
+    _verificationId = widget.verificationId;
 
     // Set status bar icons to dark
     SystemChrome.setSystemUIOverlayStyle(
@@ -143,7 +159,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
   Future<void> _handleVerifyOTP() async {
     final otp = _getOTP();
 
-    if (otp.length != 6) {
+    if (otp.length != _otpLength) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter complete OTP'),
@@ -162,6 +178,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
         context,
         widget.phoneNumber,
         otp,
+        verificationId: _verificationId,
       );
 
       if (result['success'] == true && mounted) {
@@ -219,12 +236,19 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
     });
 
     try {
-      final success = await _authService.requestOTP(
+      final response = await _authService.requestOTP(
         context,
         widget.phoneNumber,
       );
+      final bool success = response['success'] == true;
+      final String? newVerificationId = response['verificationId'];
 
       if (success && mounted) {
+        if (newVerificationId != null) {
+          setState(() {
+            _verificationId = newVerificationId;
+          });
+        }
         // Clear existing OTP
         for (var controller in _otpControllers) {
           controller.clear();
@@ -305,13 +329,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
           onChanged: (value) {
             if (value.isNotEmpty) {
               // Move to next field
-              if (index < 5) {
+              if (index < _otpLength - 1) {
                 FocusScope.of(context).requestFocus(_otpFocusNodes[index + 1]);
               } else {
                 // Last field, dismiss keyboard
                 FocusScope.of(context).unfocus();
                 // Auto-verify if all fields are filled
-                if (_getOTP().length == 6) {
+                if (_getOTP().length == _otpLength) {
                   _handleVerifyOTP();
                 }
               }
@@ -417,7 +441,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
                                 children: [
                                   // Title
                                   Text(
-                                    'Enter Verification Code',
+                                    'Enter 4-digit Verification Code',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: appColors().black,
@@ -460,7 +484,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceEvenly,
                                     children: List.generate(
-                                      6,
+                                      _otpLength,
                                       (index) => _buildOTPField(index),
                                     ),
                                   ),
