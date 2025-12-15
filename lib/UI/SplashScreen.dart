@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import StringsLocalization directly
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/PhoneNumberInputScreen.dart'; // Updated import
+import 'package:jainverse/UI/Login.dart'; // Updated import
 import 'package:jainverse/services/app_router_manager.dart';
 import 'package:jainverse/services/offline_mode_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -348,8 +348,7 @@ class _SplashScreenState extends State<SplashScreen>
             onGetStarted: () {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (BuildContext context) =>
-                      const PhoneNumberInputScreen(),
+                  builder: (BuildContext context) => const LoginScreen(),
                 ),
               );
             },

@@ -8,14 +8,14 @@ import 'package:jainverse/services/phone_auth_service.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
 
-class PhoneNumberInputScreen extends StatefulWidget {
-  const PhoneNumberInputScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<PhoneNumberInputScreen> createState() => _PhoneNumberInputScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _PhoneNumberInputScreenState extends State<PhoneNumberInputScreen>
+class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _phoneController = TextEditingController();
   final PhoneAuthService _authService = PhoneAuthService();

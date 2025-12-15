@@ -25,7 +25,7 @@ class VideoCardSmall extends StatelessWidget {
     this.totalViews,
     this.publishedAt,
     this.onTap,
-    this.width = 260,
+    this.width = 280,
   });
 
   // -----------------------------
@@ -72,18 +72,6 @@ class VideoCardSmall extends StatelessWidget {
             SizedBox(height: 6.w),
 
             _buildChannelRow(),
-            SizedBox(height: 4.w),
-
-            /// Views · RelativeTime
-            Text(
-              [
-                _formatViews(totalViews),
-                _formatRelativeTime(publishedAt),
-              ].join(' · '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
-            ),
           ],
         ),
       ),
@@ -161,46 +149,74 @@ class VideoCardSmall extends StatelessWidget {
   }
 
   // ----------------------------------------------------
-  // CHANNEL ROW → Avatar + Channel Name
+  // CHANNEL AREA → Two-column layout
+  // Left: avatar centered. Right: channel name (row1) and
+  // views · relative time (row2).
   // ----------------------------------------------------
   Widget _buildChannelRow() {
     final hasAvatar = channelImageUrl != null && channelImageUrl!.isNotEmpty;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 14.w,
-          backgroundColor: Colors.grey.shade300,
-          backgroundImage: hasAvatar
-              ? CachedNetworkImageProvider(channelImageUrl!)
-              : null,
-          child: !hasAvatar && (channelName?.isNotEmpty ?? false)
-              ? Text(
-                  _buildInitials(channelName!),
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
-                )
-              : Icon(
-                  Icons.person_outline,
-                  size: 16.w,
-                  color: Colors.grey.shade700,
-                ),
-        ),
-        SizedBox(width: 8.w),
-
-        Expanded(
-          child: Text(
-            channelName ?? "Unknown channel",
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade800,
+        // Left column: fixed-width avatar area, avatar centered
+        SizedBox(
+          width: 40.w,
+          child: Center(
+            child: CircleAvatar(
+              radius: 18.w,
+              backgroundColor: Colors.grey.shade300,
+              backgroundImage: hasAvatar
+                  ? CachedNetworkImageProvider(channelImageUrl!)
+                  : null,
+              child: !hasAvatar && (channelName?.isNotEmpty ?? false)
+                  ? Text(
+                      _buildInitials(channelName!),
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    )
+                  : Icon(
+                      Icons.person_outline,
+                      size: 20.w,
+                      color: Colors.grey.shade700,
+                    ),
             ),
+          ),
+        ),
+
+        SizedBox(width: 4.w),
+
+        // Right column: channel name and views · relative time
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                channelName ?? "Unknown channel",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+
+              SizedBox(height: 4.w),
+
+              Text(
+                [
+                  _formatViews(totalViews),
+                  _formatRelativeTime(publishedAt),
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
+              ),
+            ],
           ),
         ),
       ],

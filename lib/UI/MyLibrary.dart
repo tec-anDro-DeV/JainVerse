@@ -14,6 +14,7 @@ import 'package:jainverse/controllers/home_controller.dart';
 import 'package:jainverse/Model/home_models.dart';
 import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:jainverse/widgets/cards/video_card_small.dart';
+import 'package:jainverse/widgets/cards/modern_video_card.dart';
 import 'package:jainverse/Presenter/FavMusicPresenter.dart';
 import 'package:jainverse/Presenter/SongHistoryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
@@ -1114,32 +1115,50 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
             ),
           ),
           SizedBox(
-            height: 250.w,
+            height: 270.w,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               itemBuilder: (context, index) {
                 final video = videos[index];
                 final videoItem = contextItems[index];
+                // Use ModernVideoCard for "New" videos, and the smaller
+                // VideoCardSmall for other sections such as "Popular Videos".
+                final useModern = title.toLowerCase().contains('new');
+
+                Future<void> onTap() => launchVideoPlayer(
+                  context,
+                  videoUrl: video.videoUrl,
+                  videoId: video.id.toString(),
+                  videoTitle: video.title,
+                  videoSubtitle: video.channelName,
+                  thumbnailUrl: video.thumbnailUrl,
+                  videoItem: videoItem,
+                  contextVideos: contextItems,
+                  contextLabel: title,
+                );
+
+                if (useModern) {
+                  return ModernVideoCard(
+                    title: video.title,
+                    thumbnailUrl: video.thumbnailUrl,
+                    duration: video.duration,
+                    channelName: video.channelName,
+                    totalViews: video.totalViews,
+                    publishedAt: video.createdAt,
+                    onTap: onTap,
+                  );
+                }
+
                 return VideoCardSmall(
                   title: video.title,
                   thumbnailUrl: video.thumbnailUrl,
+                  channelImageUrl: video.channelImageUrl,
                   duration: video.duration,
                   channelName: video.channelName,
-                  channelImageUrl: video.channelImageUrl,
                   totalViews: video.totalViews,
                   publishedAt: video.createdAt,
-                  onTap: () => launchVideoPlayer(
-                    context,
-                    videoUrl: video.videoUrl,
-                    videoId: video.id.toString(),
-                    videoTitle: video.title,
-                    videoSubtitle: video.channelName,
-                    thumbnailUrl: video.thumbnailUrl,
-                    videoItem: videoItem,
-                    contextVideos: contextItems,
-                    contextLabel: title,
-                  ),
+                  onTap: onTap,
                 );
               },
               separatorBuilder: (context, _) => SizedBox(width: 12.w),

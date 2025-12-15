@@ -13,7 +13,6 @@ class GenreCard extends StatefulWidget {
   final ModelTheme sharedPreThemeData;
   final double width;
   final double height;
-  final String? description;
 
   const GenreCard({
     super.key,
@@ -23,7 +22,6 @@ class GenreCard extends StatefulWidget {
     required this.sharedPreThemeData,
     this.width = 135,
     this.height = 135,
-    this.description,
   });
 
   @override
@@ -103,15 +101,15 @@ class _GenreCardState extends State<GenreCard> {
           SizedBox(height: 4.w),
           Expanded(
             child: Container(
-              margin: EdgeInsets.fromLTRB(4.w, 0, 4.w, 1.w),
+              margin: EdgeInsets.fromLTRB(4.w, 0, 4.w, 0.w),
               width: side,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     widget.genreName,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -119,37 +117,12 @@ class _GenreCardState extends State<GenreCard> {
                       fontSize:
                           AppSizes.fontNormal * 0.95, // Slightly smaller font
                       fontWeight: FontWeight.w400,
-                      height: 1.1,
+                      height: 1,
                       letterSpacing: -0.2,
-                      color:
-                          (widget.sharedPreThemeData.themeImageBack.isEmpty)
-                              ? appColors().colorText
-                              : appColors().colorText,
+                      color: appColors().colorText,
                     ),
                   ),
-                  if (widget.description != null &&
-                      widget.description!.isNotEmpty) ...[
-                    SizedBox(height: 4.w),
-                    Flexible(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.w),
-                        child: Text(
-                          widget.description!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: AppSizes.fontSmall * 0.90,
-                            fontWeight: FontWeight.w400,
-                            height: 1.1,
-                            color:
-                                  appColors().colorText.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  // description removed
                 ],
               ),
             ),

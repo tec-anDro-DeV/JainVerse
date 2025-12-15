@@ -366,12 +366,16 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
                 colors: [
-                  Colors.black.withOpacity(0.15),
-                  Colors.black.withOpacity(0.55),
+                  Colors.white,
+                  Colors.white70,
+                  Colors.white30,
+                  Colors.white10,
+                  Colors.transparent,
                 ],
+                stops: [0.0, 0.05, 0.12, 0.18, 1.0],
               ),
             ),
           ),
@@ -883,7 +887,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
       return ListView(
         padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, bottomPadding),
         children: [
-          _buildModernStatsCards(channel, state),
+          _buildModernStatsCards(channel, state, sheetContext),
           SizedBox(height: 20.h),
           if (channel.description.isNotEmpty) ...[
             _buildInfoSection(
@@ -943,33 +947,49 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   Widget _buildModernStatsCards(
     ChannelDetailInfo channel,
     ChannelDetailState state,
+    BuildContext? sheetContext,
   ) {
     return Row(
       children: [
         Expanded(
-          child: _buildStatCard(
-            icon: Icons.video_library,
-            label: 'Videos',
-            value: state.videos.length,
-            color: Colors.red,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16.w),
+              onTap: sheetContext == null
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _tabController.animateTo(0);
+                    },
+              child: _buildStatCard(
+                icon: Icons.video_library,
+                label: 'Videos',
+                value: state.videos.length,
+                color: Colors.red,
+              ),
+            ),
           ),
         ),
         SizedBox(width: 12.w),
         Expanded(
-          child: _buildStatCard(
-            icon: Icons.music_note,
-            label: 'Songs',
-            value: state.songs.length,
-            color: appColors().primaryColorApp,
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.people,
-            label: 'Subscribers',
-            value: channel.subscribersCount,
-            color: Colors.blue,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16.w),
+              onTap: sheetContext == null
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _tabController.animateTo(1);
+                    },
+              child: _buildStatCard(
+                icon: Icons.music_note,
+                label: 'Songs',
+                value: state.songs.length,
+                color: appColors().primaryColorApp,
+              ),
+            ),
           ),
         ),
       ],

@@ -6,7 +6,7 @@ import 'package:flutter/services.dart'; // Add this import for SystemChrome
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
-import 'package:jainverse/UI/PhoneNumberInputScreen.dart';
+import 'package:jainverse/UI/Login.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onGetStarted;
@@ -256,7 +256,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) =>
-                                            const PhoneNumberInputScreen(),
+                                            const LoginScreen(),
                                       ),
                                     );
                                   },

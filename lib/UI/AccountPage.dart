@@ -37,7 +37,7 @@ import 'contact_us.dart';
 import 'VerifyArtistScreen.dart';
 import 'CreateChannel.dart';
 import 'UserChannel.dart';
-import 'PhoneNumberInputScreen.dart';
+import 'Login.dart';
 
 class ModernMenuItem {
   final IconData icon;
@@ -247,9 +247,7 @@ class MyState extends State<AccountPage>
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (BuildContext context) => const PhoneNumberInputScreen(),
-      ),
+      MaterialPageRoute(builder: (BuildContext context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
     Logout().logout(context, token);
@@ -639,7 +637,7 @@ class MyState extends State<AccountPage>
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (BuildContext context) =>
-                                    const PhoneNumberInputScreen(),
+                                    const LoginScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -1369,7 +1367,7 @@ class MyState extends State<AccountPage>
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (BuildContext context) =>
-                                    const PhoneNumberInputScreen(),
+                                    const LoginScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -1526,7 +1524,7 @@ class MyState extends State<AccountPage>
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
                                   builder: (BuildContext context) =>
-                                      const PhoneNumberInputScreen(),
+                                      const LoginScreen(),
                                 ),
                                 (Route<dynamic> route) => false,
                               );

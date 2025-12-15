@@ -31,7 +31,7 @@ import 'package:jainverse/widgets/common/country_dropdown_with_search.dart';
 import 'package:jainverse/widgets/common/custom_date_picker.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
 import 'package:jainverse/widgets/common/loader.dart';
-import 'PhoneNumberInputScreen.dart';
+import 'Login.dart';
 
 class ProfileEdit extends StatefulWidget {
   const ProfileEdit({super.key});
@@ -327,9 +327,7 @@ class myState extends State<ProfileEdit> {
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (BuildContext context) => const PhoneNumberInputScreen(),
-      ),
+      MaterialPageRoute(builder: (BuildContext context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
 

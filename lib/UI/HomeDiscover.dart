@@ -25,6 +25,7 @@ import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
 import 'package:jainverse/widgets/cards/video_card_small.dart';
+import 'package:jainverse/widgets/cards/modern_video_card.dart';
 import 'package:jainverse/UI/AccountPage.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
 import 'package:jainverse/widgets/common/loader.dart';
@@ -424,18 +425,39 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(section),
           ),
           SizedBox(
-            height: _HomeSectionMetrics.videoCarouselHeight,
+            height:
+                (section == _HomeSection.featuredVideos ||
+                    section == _HomeSection.popularVideos)
+                ? _HomeSectionMetrics.modernVideoCarouselHeight
+                : _HomeSectionMetrics.smallVideoCarouselHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               itemBuilder: (context, index) {
                 final video = videos[index];
+
+                // Use ModernVideoCard for featured & popular sections,
+                // keep VideoCardSmall for new videos (more compact).
+                if (section == _HomeSection.featuredVideos ||
+                    section == _HomeSection.popularVideos) {
+                  return ModernVideoCard(
+                    title: video.title,
+                    thumbnailUrl: _resolveVideoThumb(video),
+                    duration: video.duration,
+                    channelName: video.channelName,
+                    totalViews: video.totalViews,
+                    publishedAt: video.createdAt,
+                    onTap: () => _openVideo(videos, index, title),
+                    // keep width aligned with carousel metric (260 logical px)
+                  );
+                }
+
                 return VideoCardSmall(
                   title: video.title,
                   thumbnailUrl: _resolveVideoThumb(video),
+                  channelImageUrl: video.channelImageUrl,
                   duration: video.duration,
                   channelName: video.channelName,
-                  channelImageUrl: video.channelImageUrl,
                   totalViews: video.totalViews,
                   publishedAt: video.createdAt,
                   onTap: () => _openVideo(videos, index, title),
@@ -586,7 +608,6 @@ class _HomeDiscoverState extends State<HomeDiscover>
                 return GenreCard(
                   imagePath: _resolveGenreImage(genre),
                   genreName: genre.name,
-                  description: genre.description,
                   onTap: () => _handleGenreTap(genre),
                   sharedPreThemeData: theme,
                 );
@@ -1049,13 +1070,26 @@ enum _HomeSection {
 class _HomeSectionMetrics {
   static double get _songArtSize => 135.w;
 
-  static double get videoCarouselHeight {
-    final cardWidth = 260.w;
+  // Height used when displaying the newer ModernVideoCard (overlay-style,
+  // more compact metadata). Suitable for featured/popular carousels.
+  static double get modernVideoCarouselHeight {
+    final cardWidth = 300.w;
+    final thumbnailHeight = cardWidth * 9 / 16;
+    final titleHeight = _textBlock(15.sp, lineHeight: 1.05, lines: 1);
+    final metaHeight = _textBlock(12.sp, lineHeight: 1.0);
+    final spacing = 8.w;
+    return thumbnailHeight + titleHeight + metaHeight + spacing;
+  }
+
+  // Height used by the existing compact-but-vertically-larger VideoCardSmall
+  // (thumbnail + stacked title + channel row + views). This is taller.
+  static double get smallVideoCarouselHeight {
+    final cardWidth = 280.w;
     final thumbnailHeight = cardWidth * 9 / 16;
     final titleHeight = _textBlock(15.sp, lineHeight: 1.25, lines: 2);
-    final channelRow = math.max(28.w, _textBlock(13.sp, lineHeight: 1.0));
-    final metaHeight = _textBlock(12.sp, lineHeight: 1.1);
-    final spacing = 8.w + 6.w + 4.w + 14.w;
+    final channelRow = math.max(42.w, _textBlock(13.sp, lineHeight: 1.0));
+    final metaHeight = _textBlock(12.sp, lineHeight: 1.0);
+    final spacing = 16.w;
     return thumbnailHeight + titleHeight + channelRow + metaHeight + spacing;
   }
 
@@ -1110,11 +1144,8 @@ class _HomeSectionMetrics {
   static double get genreCarouselHeight {
     final artBlock = 125.w;
     final titleHeight = _textBlock(AppSizes.fontNormal * 0.95, lineHeight: 1.1);
-    final descriptionHeight = _textBlock(
-      AppSizes.fontSmall * 0.9,
-      lineHeight: 1.1,
-    );
-    final spacing = 4.w + 4.w + 6.w;
+    final descriptionHeight = _textBlock(AppSizes.fontSmall, lineHeight: 1.1);
+    final spacing = 4.w + 4.w + 10.w;
     return artBlock + titleHeight + descriptionHeight + spacing;
   }
 

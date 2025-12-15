@@ -8,7 +8,7 @@ import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/utils/validators.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
-import 'package:jainverse/UI/PhoneNumberInputScreen.dart';
+import 'package:jainverse/UI/Login.dart';
 
 bool sendOtp = false;
 String textEmail = '';
@@ -278,9 +278,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
 
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const PhoneNumberInputScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
             );
           } else {
             setState(() {
@@ -655,7 +653,7 @@ class _State extends State<ForgotPassword> with SingleTickerProviderStateMixin {
                                           context,
                                           PageRouteBuilder(
                                             pageBuilder: (_, __, ___) =>
-                                                const PhoneNumberInputScreen(),
+                                                const LoginScreen(),
                                             transitionDuration: const Duration(
                                               milliseconds: 300,
                                             ),
