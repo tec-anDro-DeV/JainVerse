@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart';
+import 'package:jainverse/Model/ArtistVerificationModel.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 
 typedef ProgressCallback = void Function(int sent, int total);
@@ -267,6 +268,76 @@ class FileUploadService {
         print('� Error type: Timeout');
       }
       throw Exception('Upload failed: $e');
+    }
+  }
+
+  /// Upload artist documents directly via API (no presigned URL)
+  Future<FileUploadResponse> uploadArtistDocument({
+    required File file,
+    required String token,
+    String? overrideFileName,
+    ProgressCallback? onSendProgress,
+  }) async {
+    await _validateFile(file);
+
+    final originalName = basename(file.path);
+    final uploadName = (overrideFileName?.trim().isNotEmpty ?? false)
+        ? overrideFileName!.trim()
+        : '${DateTime.now().millisecondsSinceEpoch}_$originalName';
+
+    print('📤 Uploading artist document: $uploadName');
+
+    final formData = FormData.fromMap({
+      'document': await MultipartFile.fromFile(file.path, filename: uploadName),
+    });
+
+    try {
+      final response = await _dio.post(
+        AppConstant.BaseUrl + AppConstant.API_UPLOAD_ARTIST_DOCUMENT,
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+        onSendProgress: onSendProgress,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = response.data;
+        if (body is! Map<String, dynamic>) {
+          throw Exception('Unexpected upload response format');
+        }
+
+        final status = body['status'] == true;
+        final message = body['msg']?.toString() ?? 'Upload failed';
+        if (!status) {
+          throw Exception(message);
+        }
+
+        final data = body['data'] as Map<String, dynamic>?;
+        final publicUrl = data?['public_url']?.toString() ?? '';
+        final fileName = data?['file_name']?.toString() ?? uploadName;
+
+        if (publicUrl.isEmpty) {
+          throw Exception('Upload succeeded but no public URL returned');
+        }
+
+        print('✅ Artist document uploaded: $publicUrl');
+        return FileUploadResponse(url: fileName, publicUrl: publicUrl);
+      }
+
+      throw Exception('Upload failed with status: ${response.statusCode}');
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data is Map
+          ? (e.response?.data['msg']?.toString() ?? e.message)
+          : e.message;
+      print('❌ Artist document upload error: $errorMessage');
+      throw Exception('Upload error: $errorMessage');
+    } catch (e) {
+      print('❌ Unexpected upload error: $e');
+      rethrow;
     }
   }
 

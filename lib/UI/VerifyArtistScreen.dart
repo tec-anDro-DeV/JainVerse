@@ -722,16 +722,13 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
 
       final filename =
           '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
-      final contentType = _fileUploadService.getMimeType(filename);
 
-      final publicUrl = await _fileUploadService.uploadFileComplete(
+      final uploadResponse = await _fileUploadService.uploadArtistDocument(
         file: file,
-        filename: filename,
-        contentType: contentType,
         token: _token,
-        maxRetries: 5, // More retries for better reliability on mobile networks
-        onProgress: (received, total) {
-          final progress = received / total;
+        overrideFileName: filename,
+        onSendProgress: (sent, total) {
+          final progress = total > 0 ? sent / total : null;
           setState(() {
             if (isDocument) {
               _documentUploadProgress = progress;
@@ -744,10 +741,10 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
 
       setState(() {
         if (isDocument) {
-          _documentUrl = publicUrl;
+          _documentUrl = uploadResponse.publicUrl;
           _isDocumentUploading = false;
         } else {
-          _certificateUrl = publicUrl;
+          _certificateUrl = uploadResponse.publicUrl;
           _isCertificateUploading = false;
         }
       });
