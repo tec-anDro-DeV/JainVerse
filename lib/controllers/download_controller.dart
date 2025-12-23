@@ -296,7 +296,7 @@ class DownloadController extends ChangeNotifier {
 
       // Show platform-specific starting message
       _showPlatformSpecificMessage(
-        'Starting download for "${track.audio_title}"...',
+        'Starting download for "${track.audioTitle}"...',
       );
 
       // Show initial download notification (Android only for start)
@@ -305,7 +305,7 @@ class DownloadController extends ChangeNotifier {
         await _showDownloadProgressNotification(
           title: 'Downloading Song',
           trackId: trackId,
-          songTitle: track.audio_title,
+          songTitle: track.audioTitle,
           progress: 0.0,
           id: notificationId,
         );
@@ -313,13 +313,13 @@ class DownloadController extends ChangeNotifier {
 
       // Generate safe filenames
       final audioFileName =
-          '${_downloadService.generateSafeFileName(track.audio_title)}_$trackId.${_getFileExtension(track.audio)}';
+          '${_downloadService.generateSafeFileName(track.audioTitle)}_$trackId.${_getFileExtension(track.audioUrl)}';
       final imageFileName =
-          '${_downloadService.generateSafeFileName(track.audio_title)}_$trackId.${_getFileExtension(track.image)}';
+          '${_downloadService.generateSafeFileName(track.audioTitle)}_$trackId.${_getFileExtension(track.imageUrl)}';
 
       // Construct full URLs
-      final audioUrl = _constructFullUrl(track.audio, _audioPath);
-      final imageUrl = _constructFullUrl(track.image, _imagePath);
+      final audioUrl = _constructFullUrl(track.audioUrl, _audioPath);
+      final imageUrl = _constructFullUrl(track.imageUrl, _imagePath);
 
       // Download audio file with enhanced progress tracking
       final localAudioPath = await _downloadService.downloadAudioFile(
@@ -347,11 +347,11 @@ class DownloadController extends ChangeNotifier {
             if (shouldUpdate) {
               _lastNotificationProgress[trackId] = progress;
               developer.log(
-                'iOS UI Update: ${track.audio_title} - $percentage%',
+                'iOS UI Update: ${track.audioTitle} - $percentage%',
                 name: 'DownloadController',
               );
               _showPlatformSpecificMessage(
-                'Downloading "${track.audio_title}": $percentage%',
+                'Downloading "${track.audioTitle}": $percentage%',
               );
             }
           }
@@ -371,7 +371,7 @@ class DownloadController extends ChangeNotifier {
               _showDownloadProgressNotification(
                 title: 'Downloading Song',
                 trackId: trackId,
-                songTitle: track.audio_title,
+                songTitle: track.audioTitle,
                 progress: progress,
                 id: notificationId,
               );
@@ -405,12 +405,12 @@ class DownloadController extends ChangeNotifier {
         // Save metadata to Hive
         final downloadedMusic = DownloadedMusic.fromDataMusic(
           id: trackId,
-          title: track.audio_title,
-          artist: track.artists_name,
-          albumName: track.audio_slug,
+          title: track.audioTitle,
+          artist: track.channelName,
+          albumName: track.audioSlug,
           imageUrl: imageUrl,
           audioUrl: audioUrl,
-          duration: track.audio_duration,
+          duration: track.audioDuration,
           localAudioPath: localAudioPath,
           localImagePath: localImagePath ?? '',
           isDownloadComplete: true,
@@ -426,7 +426,7 @@ class DownloadController extends ChangeNotifier {
 
         // Show platform-specific completion message
         _showPlatformSpecificMessage(
-          'Download completed: "${track.audio_title}"',
+          'Download completed: "${track.audioTitle}"',
           isSuccess: true,
         );
 
@@ -436,7 +436,7 @@ class DownloadController extends ChangeNotifier {
         await _showDownloadProgressNotification(
           title: 'Download Complete',
           trackId: trackId,
-          songTitle: track.audio_title,
+          songTitle: track.audioTitle,
           progress: 1.0,
           id: notificationId,
           isCompleted: true,
@@ -450,7 +450,7 @@ class DownloadController extends ChangeNotifier {
 
         // Show platform-specific failure message
         _showPlatformSpecificMessage(
-          'Download failed: "${track.audio_title}"',
+          'Download failed: "${track.audioTitle}"',
           isError: true,
         );
 
@@ -459,7 +459,7 @@ class DownloadController extends ChangeNotifier {
           await _showDownloadProgressNotification(
             title: 'Download Failed',
             trackId: trackId,
-            songTitle: track.audio_title,
+            songTitle: track.audioTitle,
             progress: 0.0,
             id: notificationId,
             isFailed: true,
@@ -475,7 +475,7 @@ class DownloadController extends ChangeNotifier {
 
       // Show platform-specific failure message
       _showPlatformSpecificMessage(
-        'Download failed: "${track.audio_title}"',
+        'Download failed: "${track.audioTitle}"',
         isError: true,
       );
 
@@ -485,7 +485,7 @@ class DownloadController extends ChangeNotifier {
         await _showDownloadProgressNotification(
           title: 'Download Failed',
           trackId: trackId,
-          songTitle: track.audio_title,
+          songTitle: track.audioTitle,
           progress: 0.0,
           id: notificationId,
           isFailed: true,

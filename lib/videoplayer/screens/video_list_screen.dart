@@ -434,7 +434,7 @@ class _VideoListBodyState extends State<VideoListBody>
               12.w,
               8.h,
               12.w,
-              (AppPadding.bottom(context)),
+              (AppPadding.bottom(context, extra: 100.w)),
             ),
             sliver: _viewModel.hasError && _viewModel.items.isEmpty
                 ? SliverFillRemaining(

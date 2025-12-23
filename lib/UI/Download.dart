@@ -117,25 +117,27 @@ class StateClass extends State {
     // Convert DownloadedMusic objects to DataMusic objects for UI compatibility
     downloadedTracks = _downloadController.downloadedTracks
         .map(
-          (downloaded) => SongModel.legacy(
-            downloaded.id.isNotEmpty ? int.tryParse(downloaded.id) ?? 0 : 0,
-            downloaded.imageUrl, // image
-            downloaded.audioUrl, // audio
-            downloaded.duration, // audio_duration
-            downloaded.title, // audio_title
-            downloaded.albumName, // audio_slug
-            0, // audio_genre_id
-            '', // channel_id (not tracked for downloads)
-            downloaded.artist, // channel_name fallback
-            '', // audio_language
-            0, // listening_count
-            0, // is_featured
-            0, // is_trending
-            '', // created_at
-            0, // is_recommended
-            '', // favourite
-            '', // download_price
-            '', // lyrics
+          (downloaded) => SongModel(
+            id: downloaded.id.isNotEmpty ? int.tryParse(downloaded.id) ?? 0 : 0,
+            channelId: 0,
+            imageUrl: downloaded.imageUrl,
+            bannerImage: null,
+            audioUrl: downloaded.audioUrl,
+            audioDuration: downloaded.duration,
+            audioTitle: downloaded.title,
+            audioSlug: downloaded.albumName,
+            copyright: '',
+            listeningCount: 0,
+            lyrics: null,
+            description: '',
+            releaseDate: downloaded.downloadedAt.toIso8601String(),
+            isFeatured: 0,
+            isTrending: 0,
+            isRecommended: 0,
+            channelName: downloaded.artist,
+            channelHandle: '',
+            channelImageUrl: downloaded.imageUrl,
+            isFavourite: 0,
           ),
         )
         .toList();

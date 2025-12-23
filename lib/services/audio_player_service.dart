@@ -311,9 +311,12 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler
         .throttleTime(const Duration(milliseconds: 100))
         .listen(mediaItem.add);
 
-    // Propagate events with throttling to reduce frequency
+    // Propagate events with a short debounce so we keep the final "ready"
+    // event after a seek. Throttle was occasionally dropping the ready state
+    // if buffering resolved within the throttle window, which left the UI
+    // stuck showing a loading icon and a frozen seekbar.
     _player.playbackEventStream
-        .throttleTime(const Duration(milliseconds: 100))
+        .debounceTime(const Duration(milliseconds: 80))
         .listen(_stateBroadcaster.broadcast);
     _player.shuffleModeEnabledStream.distinct().listen(
       (enabled) => _stateBroadcaster.broadcast(_player.playbackEvent),

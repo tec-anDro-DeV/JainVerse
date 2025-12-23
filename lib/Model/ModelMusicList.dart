@@ -10,8 +10,15 @@ class ModelMusicList {
   final String msg;
   final List<SongModel> data;
   final ParentData? parent;
+  final int totalCount;
 
-  const ModelMusicList(this.status, this.msg, this.data, this.parent);
+  const ModelMusicList(
+    this.status,
+    this.msg,
+    this.data,
+    this.parent, {
+    this.totalCount = 0,
+  });
 
   factory ModelMusicList.fromJson(Map<String, dynamic> json) {
     final List<dynamic> rawSongs = json['data'] is List
@@ -27,11 +34,17 @@ class ModelMusicList {
         ? ParentData.fromJson(json['parent'] as Map<String, dynamic>)
         : null;
 
+    final parsedTotalCount = json['totalCount'] ?? json['total_count'];
+    final totalCount = parsedTotalCount is int
+        ? parsedTotalCount
+        : int.tryParse(parsedTotalCount?.toString() ?? '') ?? rawSongs.length;
+
     return ModelMusicList(
       json['status'] ?? false,
       json['msg'] ?? '',
       songs,
       parentData,
+      totalCount: totalCount,
     );
   }
 
@@ -41,6 +54,7 @@ class ModelMusicList {
       'msg': msg,
       'data': data.map((song) => song.toJson()).toList(),
       if (parent != null) 'parent': parent!.toJson(),
+      'totalCount': totalCount,
     };
   }
 }
