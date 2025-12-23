@@ -58,6 +58,7 @@ class VideoPipService {
 
   Future<bool> isPictureInPictureSupported() async {
     _ensureInitialized();
+    // PiP is disabled on iOS.
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       _supportsPiPCache = false;
       return false;
@@ -83,6 +84,10 @@ class VideoPipService {
     bool autoTriggered = false,
   }) async {
     _ensureInitialized();
+    // Block PiP entirely on iOS.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return false;
+    }
     if (!await isPictureInPictureSupported()) {
       return false;
     }
@@ -124,6 +129,7 @@ class VideoPipService {
 
   Future<void> updatePlaybackState(bool isPlaying) async {
     if (!_initialized) return;
+    if (defaultTargetPlatform == TargetPlatform.iOS) return;
     try {
       await _channel.invokeMethod<void>(
         'updatePlaybackState',
@@ -139,6 +145,7 @@ class VideoPipService {
 
   Future<void> exitPictureInPicture() async {
     if (!_initialized) return;
+    if (defaultTargetPlatform == TargetPlatform.iOS) return;
     try {
       await _channel.invokeMethod<void>('exitPictureInPicture');
     } catch (e) {

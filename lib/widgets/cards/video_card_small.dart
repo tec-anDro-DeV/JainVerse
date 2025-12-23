@@ -152,30 +152,69 @@ class VideoCardSmall extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Left column: fixed-width avatar area, avatar centered
-        SizedBox(
-          width: 40.w,
-          child: Center(
-            child: CircleAvatar(
-              radius: 18.w,
-              backgroundColor: Colors.grey.shade300,
-              child: (channelName?.isNotEmpty ?? false)
+      // Left column: fixed-width avatar area, avatar centered
+      SizedBox(
+        width: 40.w,
+        child: Center(
+        child: SizedBox(
+          width: 36.w,
+          height: 36.w,
+          child: (channelImageUrl != null && channelImageUrl!.isNotEmpty)
+            ? ClipOval(
+              child: CachedNetworkImage(
+              imageUrl: channelImageUrl!,
+              fit: BoxFit.cover,
+              placeholder: (_, __) =>
+                Container(color: Colors.grey.shade200),
+              errorWidget: (_, __, ___) => Container(
+                decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+                ),
+                child: Center(
+                child: (channelName?.isNotEmpty ?? false)
                   ? Text(
-                      _buildInitials(channelName!),
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    )
-                  : Icon(
-                      Icons.person_outline,
-                      size: 20.w,
+                    _buildInitials(channelName!),
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
                       color: Colors.grey.shade700,
                     ),
+                    )
+                  : Icon(
+                    Icons.person_outline,
+                    size: 20.w,
+                    color: Colors.grey.shade700,
+                    ),
+                ),
+              ),
+              ),
+            )
+            : Container(
+              decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              shape: BoxShape.circle,
+              ),
+              child: Center(
+              child: (channelName?.isNotEmpty ?? false)
+                ? Text(
+                  _buildInitials(channelName!),
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                  )
+                : Icon(
+                  Icons.person_outline,
+                  size: 20.w,
+                  color: Colors.grey.shade700,
+                  ),
+              ),
             ),
-          ),
         ),
+        ),
+      ),
 
         SizedBox(width: 4.w),
 

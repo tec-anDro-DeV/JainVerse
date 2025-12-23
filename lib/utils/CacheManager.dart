@@ -471,8 +471,8 @@ class CacheManager {
 
   // Add this method to convert cached data to DataMusic object
   static DataMusic convertToDataMusic(Map<String, dynamic> item) {
-    // Get artist name from multiple possible sources
-    String artistName = getArtistNameFromCache(item);
+    // Get channel name from multiple possible sources
+    String channelName = getChannelNameFromCache(item);
 
     // Get complete audio URL
     String audioUrl = item['audio'] ?? '';
@@ -514,8 +514,8 @@ class CacheManager {
       item['audio_title'] ?? '',
       item['audio_slug'] ?? '',
       int.tryParse(item['audio_genre_id'].toString()) ?? 0,
-      item['artist_id'] ?? '',
-      artistName, // Use the extracted artist name
+      item['channel_id']?.toString() ?? item['artist_id'] ?? '',
+      channelName, // Use the extracted channel name
       item['audio_language'] ?? '',
       int.tryParse(item['listening_count'].toString()) ?? 0,
       int.tryParse(item['is_featured'].toString()) ?? 0,
@@ -623,12 +623,13 @@ class CacheManager {
     }
   }
 
-  // Get artist name from cached item data
-  static String getArtistNameFromCache(Map<String, dynamic> item) {
-    // Try multiple possible keys for artist name
-    return item['artists_name'] ??
+  // Get channel name from cached item data
+  static String getChannelNameFromCache(Map<String, dynamic> item) {
+    // Try multiple possible keys for channel name
+    return item['channel_name'] ??
+        item['channelName'] ??
+        item['artists_name'] ??
         item['artist']?['name'] ??
-        item['artistName'] ??
         '';
   }
 

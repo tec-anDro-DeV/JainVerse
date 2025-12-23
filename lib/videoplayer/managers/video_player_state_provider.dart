@@ -415,6 +415,13 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       );
       state = state.copyWith(controller: null);
 
+      // Pause immediately to prevent overlapping audio while dispose is scheduled
+      try {
+        if (controller.value.isInitialized && controller.value.isPlaying) {
+          await controller.pause();
+        }
+      } catch (_) {}
+
       // Schedule a safe dispose after a short delay so the widget tree has time
       // to react to the controller being cleared.
       debugPrint(
@@ -455,6 +462,13 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
   ) async {
     if (controller == null) return;
     try {
+      // Stop playback immediately so audio does not bleed into the next video
+      try {
+        if (controller.value.isInitialized && controller.value.isPlaying) {
+          await controller.pause();
+        }
+      } catch (_) {}
+
       // Schedule a short delayed dispose to avoid races with the widget tree
       // mounting a VideoPlayer that may still be referencing this controller.
       debugPrint(
@@ -688,6 +702,12 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     }
 
     if (_awaitingManualResumeAfterSystemPipClose) {
+      // Pause immediately to prevent overlapping audio while dispose is scheduled
+      try {
+        if (controller.value.isInitialized && controller.value.isPlaying) {
+          await controller.pause();
+        }
+      } catch (_) {}
       _awaitingManualResumeAfterSystemPipClose = false;
     }
 

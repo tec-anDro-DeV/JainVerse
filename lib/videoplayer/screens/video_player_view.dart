@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,6 +114,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   final LikeDislikeService _likeDislikeService = LikeDislikeService();
   // Local like count used to display and optimistically update totalLikes
   int? _localTotalLikes;
+  bool _hasAttemptedLoad = false;
   // Related videos state
   final RelatedVideosService _relatedVideosService = RelatedVideosService();
   List<VideoItem> _relatedVideos = [];
@@ -269,7 +271,16 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
 
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      // On iOS, disable PiP entirely and aggressively stop playback so audio
+      // cannot continue in the background.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        _autoPipRequestedForLifecycle = true;
+        unawaited(_stopPlaybackForBackground());
+        return;
+      }
+
       if (_autoPipRequestedForLifecycle) return;
       _autoPipRequestedForLifecycle = true;
       unawaited(_attemptAutoEnterPiP());
@@ -365,23 +376,59 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   }
 
   Future<void> _attemptAutoEnterPiP() async {
+    // PiP is disabled on iOS; pause instead when backgrounding.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      await _pausePlaybackForBackground();
+      return;
+    }
     try {
       final videoState = ref.read(videoPlayerProvider);
       if (!videoState.isReady) return;
-      if (!videoState.isPlaying) return;
+      if (!videoState.isPlaying) {
+        await _pausePlaybackForBackground();
+        return;
+      }
       if (videoState.isMinimized || videoState.isInPictureInPicture) return;
 
       final notifier = ref.read(videoPlayerProvider.notifier);
       final supportsPiP = await notifier.isPictureInPictureSupported();
-      if (!supportsPiP) return;
+      if (!supportsPiP) {
+        await _pausePlaybackForBackground();
+        return;
+      }
 
       final entered = await notifier.enterPictureInPicture(autoTriggered: true);
       if (!entered) {
+        await _pausePlaybackForBackground();
         _autoPipRequestedForLifecycle = false;
       }
     } catch (e) {
       debugPrint('[VideoPlayerView] Failed to auto-start PiP: $e');
       _autoPipRequestedForLifecycle = false;
+    }
+  }
+
+  /// Pause playback when PiP is unavailable (e.g., iOS backgrounding) so audio
+  /// does not keep running after the app is backgrounded or terminated.
+  Future<void> _pausePlaybackForBackground() async {
+    try {
+      await ref.read(videoPlayerProvider.notifier).pause();
+    } catch (e) {
+      debugPrint('[VideoPlayerView] Failed to pause during background: $e');
+    }
+  }
+
+  /// Pause playback when the app backgrounds on iOS so audio stops without
+  /// destroying the controller (keeps position for seamless resume).
+  Future<void> _stopPlaybackForBackground() async {
+    try {
+      final notifier = ref.read(videoPlayerProvider.notifier);
+      // Keep the controller alive so we can resume seamlessly on foreground.
+      await notifier.pause();
+    } catch (e) {
+      debugPrint(
+        '[VideoPlayerView] Failed to stop playback for background: $e',
+      );
     }
   }
 
@@ -1331,6 +1378,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   bool _shouldShowOfflineOverlay(dynamic videoState) {
     try {
       if (videoState.errorMessage != null) return true;
+      if (!_hasAttemptedLoad) return false;
       if (!videoState.isLoading && (videoState.controller == null)) return true;
     } catch (_) {}
     return false;
@@ -1637,6 +1685,9 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   Widget build(BuildContext context) {
     final videoState = ref.watch(videoPlayerProvider);
     final videoNotifier = ref.read(videoPlayerProvider.notifier);
+    if (videoState.isLoading && !_hasAttemptedLoad) {
+      _hasAttemptedLoad = true;
+    }
     final theme = _theme ?? VideoPlayerTheme.defaultTheme();
 
     if (videoState.isInPictureInPicture) {

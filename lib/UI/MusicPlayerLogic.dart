@@ -143,7 +143,7 @@ class StateClass extends State<MusicList> {
           '',
           0,
           '',
-          '',
+          'Unknown Channel',
           '',
           0,
           0,

@@ -306,7 +306,7 @@ class MusicManager extends ChangeNotifier {
   Future<void> insertPlayNextById(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
@@ -314,7 +314,7 @@ class MusicManager extends ChangeNotifier {
     await _playbackController!.insertPlayNextById(
       songId,
       songName,
-      artistName,
+      channelName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );
@@ -323,7 +323,7 @@ class MusicManager extends ChangeNotifier {
   Future<void> addToQueueById(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
@@ -331,7 +331,7 @@ class MusicManager extends ChangeNotifier {
     await _playbackController!.addToQueueById(
       songId,
       songName,
-      artistName,
+      channelName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );

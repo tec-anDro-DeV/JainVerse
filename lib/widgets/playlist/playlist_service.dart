@@ -40,7 +40,7 @@ class PlaylistService {
         throw Exception('User not logged in');
       }
 
-      // Using the new user-playlist endpoint. If a BuildContext is available
+      // If a BuildContext is available
       // callers should pass it to enable token-expiration handling. For
       // services called from UI we attempt to read the current context by
       // expecting callers to provide it. Here we keep the existing signature

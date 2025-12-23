@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +6,7 @@ import 'package:jainverse/Model/ModelMusicList.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/MusicEntryPoint.dart' as entry_point;
-import 'package:jainverse/UI/artist_detail_screen.dart';
+import 'package:jainverse/videoplayer/screens/channel_detail_screen.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/hooks/favorites_hook.dart';
 import 'package:jainverse/controllers/music/music_manager.dart';
@@ -20,7 +18,7 @@ import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/utils/sharing_utils.dart'; // Import sharing utility
 import 'package:jainverse/widgets/musicplayer/three_dot_options_menu.dart';
 
-/// Modern track info widget displaying song title, artist, and menu options
+/// Modern track info widget displaying song title, channel, and menu options
 class ModernTrackInfo extends StatefulWidget {
   final MediaItem? mediaItem;
   final VoidCallback? onFavoriteToggle;
@@ -54,9 +52,8 @@ class ModernTrackInfo extends StatefulWidget {
 }
 
 class _ModernTrackInfoState extends State<ModernTrackInfo> {
-  // Cache artist information to prevent recalculations
-  List<String>? _cachedArtistNames;
-  List<String>? _cachedArtistIds;
+  // Cache channel information to prevent recalculations
+  List<String>? _cachedChannelNames;
   String? _lastMediaItemId;
 
   @override
@@ -67,7 +64,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
       widget.audioHandler!.mediaItem.listen((_) {
         if (mounted) {
           // Clear cache when MediaItem changes
-          _clearArtistCache();
+          _clearChannelCache();
           setState(() {
             // Rebuild when MediaItem changes
           });
@@ -76,45 +73,29 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
     }
   }
 
-  void _clearArtistCache() {
-    _cachedArtistNames = null;
-    _cachedArtistIds = null;
+  void _clearChannelCache() {
+    _cachedChannelNames = null;
     _lastMediaItemId = null;
   }
 
-  List<String> _getCachedArtistNames() {
+  List<String> _getCachedChannelNames() {
     final currentMediaItemId = widget.mediaItem?.id;
 
     // Return cached data if available and MediaItem hasn't changed
-    if (_cachedArtistNames != null && _lastMediaItemId == currentMediaItemId) {
-      return _cachedArtistNames!;
+    if (_cachedChannelNames != null && _lastMediaItemId == currentMediaItemId) {
+      return _cachedChannelNames!;
     }
 
     // Recalculate and cache
-    final raw = _getRawArtists() ?? '';
-    _cachedArtistNames = raw
+    final raw = _getRawChannelNames() ?? '';
+    _cachedChannelNames = raw
         .split(',')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
     _lastMediaItemId = currentMediaItemId;
 
-    return _cachedArtistNames!;
-  }
-
-  List<String> _getCachedArtistIds() {
-    final currentMediaItemId = widget.mediaItem?.id;
-
-    // Return cached data if available and MediaItem hasn't changed
-    if (_cachedArtistIds != null && _lastMediaItemId == currentMediaItemId) {
-      return _cachedArtistIds!;
-    }
-
-    // Recalculate and cache
-    _cachedArtistIds = _getArtistIds();
-    _lastMediaItemId = currentMediaItemId;
-
-    return _cachedArtistIds!;
+    return _cachedChannelNames!;
   }
 
   @override
@@ -164,15 +145,14 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: 8.w),
-                        // Clickable artist names
+                        // Clickable channel names
                         Builder(
                           builder: (ctx) {
-                            final names = _getCachedArtistNames();
-                            final ids = _getCachedArtistIds();
+                            final names = _getCachedChannelNames();
 
                             if (names.isEmpty) {
                               return Text(
-                                'Unknown Artist',
+                                'Unknown Channel',
                                 style: TextStyle(
                                   fontSize: AppSizes.fontSmall,
                                   color: Colors.white.withOpacity(0.8),
@@ -189,20 +169,16 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
                                 ) {
                                   if (i.isEven) {
                                     final idx = i ~/ 2;
+                                    final displayName = names[idx];
                                     return TextSpan(
-                                      text: names[idx],
+                                      text: displayName,
                                       style: TextStyle(
                                         fontSize: AppSizes.fontMedium,
                                         color: Colors.white.withOpacity(0.8),
                                       ),
                                       recognizer: TapGestureRecognizer()
                                         ..onTap = () {
-                                          final artistId = idx < ids.length
-                                              ? ids[idx]
-                                              : '';
-                                          final artistName = names[idx];
-
-                                          _onArtistTap(artistId, artistName);
+                                          _onChannelTap(displayName);
                                         },
                                     );
                                   } else {
@@ -241,7 +217,7 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
                           widget.mediaItem?.id ??
                           '',
                       title: widget.mediaItem?.title ?? 'Unknown Title',
-                      artist: _formatArtistNames(widget.mediaItem?.artist),
+                      artist: _formatChannelNames(_getRawChannelNames()),
                       songImage: _extractSongImage(),
                       isFavorite: isFavoriteFromProvider,
                       onFavoriteToggle:
@@ -299,8 +275,8 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
             widget.mediaItem!.title,
             widget.mediaItem!.album ?? '',
             0,
-            widget.mediaItem!.extras?['artist_id'] ?? '',
-            widget.mediaItem!.artist ?? 'Unknown Artist',
+            widget.mediaItem!.extras?['channel_id']?.toString() ?? '',
+            _getRawChannelNames() ?? 'Unknown Channel',
             '',
             0,
             0,
@@ -380,8 +356,8 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
         widget.mediaItem!.title,
         '', // audio_slug
         0, // audio_genre_id
-        '', // artist_id
-        widget.mediaItem!.artist ?? '',
+        widget.mediaItem?.extras?['channel_id']?.toString() ?? '', // channel_id
+        _getRawChannelNames() ?? '',
         '', // audio_language
         0, // listening_count
         0, // is_featured
@@ -475,8 +451,8 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
           widget.mediaItem?.title ?? 'Unknown Title',
           widget.mediaItem?.album ?? '',
           0,
-          widget.mediaItem?.extras?['artist_id'] ?? '',
-          widget.mediaItem?.artist ?? 'Unknown Artist',
+          widget.mediaItem?.extras?['channel_id']?.toString() ?? '',
+          _getRawChannelNames() ?? 'Unknown Channel',
           '',
           0,
           0,
@@ -564,13 +540,13 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
     return null;
   }
 
-  // Add helper to format multiple artist names
-  // Format artist names: one name, or join with commas and 'and' before last
-  String _formatArtistNames(String? rawArtists) {
-    if (rawArtists == null || rawArtists.trim().isEmpty) {
-      return 'Unknown Artist';
+  // Add helper to format multiple channel names if needed
+  // Format channel names: one name, or join with commas and 'and' before last
+  String _formatChannelNames(String? rawChannels) {
+    if (rawChannels == null || rawChannels.trim().isEmpty) {
+      return 'Unknown Channel';
     }
-    final parts = rawArtists
+    final parts = rawChannels
         .split(',')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
@@ -580,116 +556,95 @@ class _ModernTrackInfoState extends State<ModernTrackInfo> {
     return '${parts.sublist(0, parts.length - 1).join(', ')} and ${parts.last}';
   }
 
-  /// Retrieve raw artist string, preferring 'artists_name' from extras if available
-  String? _getRawArtists() {
-    // Check MediaItem extras first
-    if (widget.mediaItem?.extras != null &&
-        widget.mediaItem!.extras!.containsKey('artists_name') &&
-        widget.mediaItem!.extras!['artists_name'] != null &&
-        widget.mediaItem!.extras!['artists_name']
-            .toString()
-            .trim()
-            .isNotEmpty) {
-      return widget.mediaItem!.extras!['artists_name'].toString();
-    }
+  /// Retrieve raw channel string, preferring channel-specific extras values.
+  String? _getRawChannelNames() {
+    final extras = widget.mediaItem?.extras;
+    if (extras == null) return null;
 
-    // Fallback to MediaItem artist
-    return widget.mediaItem?.artist;
+    const channelKeys = [
+      'channel_name',
+      'channelName',
+      'channelname',
+      'artists_name',
+      'artistName',
+      'artist_name',
+    ];
+
+    for (final key in channelKeys) {
+      final candidate = extras[key];
+      if (candidate == null) continue;
+      final trimmed = candidate.toString().trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return null;
   }
 
-  /// Get list of artist IDs by looking up the current song in MediaItem extras first, then fallback to global listCopy
-  List<String> _getArtistIds() {
-    // Primary: Try to get artist_id from MediaItem extras
-    final extraRaw = widget.mediaItem?.extras?['artist_id']?.toString() ?? '';
-
-    if (extraRaw.isNotEmpty) {
-      try {
-        if (extraRaw.startsWith('[') && extraRaw.endsWith(']')) {
-          final decoded = jsonDecode(extraRaw) as List<dynamic>;
-          return decoded.map((e) => e.toString()).toList();
-        }
-        return [extraRaw];
-      } catch (e) {
-        // If parsing fails, try as single value
-        return [extraRaw];
-      }
+  int? _parseIdValue(dynamic rawValue) {
+    if (rawValue == null) return null;
+    if (rawValue is int) return rawValue;
+    if (rawValue is double) return rawValue.toInt();
+    if (rawValue is String) {
+      final trimmed = rawValue.trim();
+      if (trimmed.isEmpty) return null;
+      return int.tryParse(trimmed);
     }
-
-    // Fallback: Look up in global listCopy
-    final audioId = widget.mediaItem?.extras?['audio_id']?.toString();
-
-    if (audioId == null) {
-      return <String>[];
+    if (rawValue is List && rawValue.isNotEmpty) {
+      return _parseIdValue(rawValue.first);
     }
-
-    try {
-      final songData = entry_point.listCopy.firstWhere(
-        (song) => song.id.toString() == audioId,
-      );
-
-      final raw = songData.artist_id;
-
-      if (raw.startsWith('[') && raw.endsWith(']')) {
-        final decoded = jsonDecode(raw) as List<dynamic>;
-        return decoded.map((e) => e.toString()).toList();
-      }
-      return raw.isNotEmpty ? [raw] : <String>[];
-    } catch (e) {
-      return <String>[];
-    }
+    return null;
   }
 
-  /// Navigate to artist page for specific ID and name
-  void _onArtistTap(String artistId, String artistName) async {
+  int? _extractChannelId() {
+    final extras = widget.mediaItem?.extras;
+    if (extras == null) return null;
+
+    const idKeys = ['channel_id', 'channelId', 'artist_id', 'artistId'];
+
+    for (final key in idKeys) {
+      final parsed = _parseIdValue(extras[key]);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  /// Navigate to the channel detail screen for the current song
+  void _onChannelTap(String channelName) async {
+    final channelId = _extractChannelId();
     print(
-      '🎵 DEBUG: _onArtistTap called with artistId: "$artistId", artistName: "$artistName"',
+      '🎵 DEBUG: _onChannelTap called for channel "$channelName" with id $channelId',
     );
 
-    if (artistId.isEmpty) {
-      print('🎵 ERROR: Artist ID is empty, cannot navigate to artist page');
-
-      // Show a user-friendly message
+    if (channelId == null) {
+      print('🎵 ERROR: Channel ID is missing, cannot open channel screen');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Unable to find artist information for "$artistName"',
+              'Unable to find channel information for "$channelName"',
             ),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 2),
           ),
         );
       }
-
-      // TODO: In future, could implement search by artist name fallback
-      // For now, just log and return
-      print('🎵 INFO: Could implement search by artist name as fallback');
       return;
     }
 
-    // Restore bottom nav + mini player flags
     MusicPlayerStateManager().hideFullPlayer();
 
-    // Close the full player route first
     if (mounted) {
       Navigator.of(context).maybePop();
     }
 
-    // Defer push into the current tab's nested navigator
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final route = MaterialPageRoute(
-        builder: (_) => ArtistDetailScreen(
-          audioHandler: widget.audioHandler,
-          idTag: artistId,
-          typ: 'Artists',
-          catName: artistName,
-        ),
-        settings: const RouteSettings(name: '/track_info_to_artist_songs'),
+        builder: (_) =>
+            ChannelVideosScreen(channelId: channelId, channelName: channelName),
+        settings: const RouteSettings(name: '/track_info_to_channel_videos'),
       );
 
       final pushed = TabNavigationService().pushOnCurrentTab(route);
       if (pushed == null) {
-        // Fallback: if service not initialized, push on root to avoid losing navigation
         Navigator.of(context).push(route);
       }
     });

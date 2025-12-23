@@ -134,8 +134,8 @@ class SongModel {
     String audioTitle,
     String audioSlug,
     int audioGenreId,
-    String artistId,
-    String artistsName,
+    String channelId,
+    String channelName,
     String audioLanguage,
     int listeningCount,
     int isFeatured,
@@ -146,7 +146,7 @@ class SongModel {
     String downloadPrice,
     String lyrics,
   ) {
-    final parsedChannelId = int.tryParse(artistId) ?? 0;
+    final parsedChannelId = int.tryParse(channelId) ?? 0;
     final favouriteValue =
         int.tryParse(favourite) ??
         (favourite == 'true'
@@ -172,8 +172,8 @@ class SongModel {
       isFeatured: isFeatured,
       isTrending: isTrending,
       isRecommended: isRecommended,
-      channelName: artistsName,
-      channelHandle: artistId,
+      channelName: channelName,
+      channelHandle: channelId,
       channelImageUrl: image,
       isFavourite: favouriteValue,
     );

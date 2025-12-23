@@ -783,7 +783,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
       );
     }
 
-    final bottomPadding = AppPadding.bottom(context, extra: 32.w) + 16.h;
+    final bottomPadding = AppPadding.bottom(context, extra: 150.w) + 16.h;
 
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, bottomPadding),

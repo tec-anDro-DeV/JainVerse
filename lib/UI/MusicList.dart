@@ -24,6 +24,7 @@ import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/playlist/playlist_service.dart';
+import 'package:jainverse/models/song_playback_payload.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -69,7 +70,7 @@ class StateClass extends State<MusicList> {
   late String typ;
   String? _currentPlaylistId; // non-null when opened from PlaylistScreen
   AudioPlayerHandler? _audioHandler;
-  List<DataMusic> list = [];
+  List<SongModel> list = [];
   bool tillLoading = true;
   bool isOpen = false;
   String token = "";
@@ -113,12 +114,12 @@ class StateClass extends State<MusicList> {
   Future<void> _loadFavorites() async {
     try {
       // For now, we'll extract favorite IDs from the song list itself
-      // since DataMusic has a 'favourite' field
+      // based on the new SongModel.isFavourite flag
       if (mounted) {
         setState(() {
           _favoriteIds.clear();
           for (final song in list) {
-            if (song.favourite == "1") {
+            if (song.isFavourite > 0) {
               _favoriteIds.add(song.id.toString());
             }
           }
@@ -149,19 +150,18 @@ class StateClass extends State<MusicList> {
     // Initialize a single fallback image URL if not set
     if (_fallbackImageUrl == null) {
       final songsWithImages = list
-          .where((song) => song.image.isNotEmpty)
+          .where((song) => song.imageUrl.isNotEmpty)
           .toList();
       if (songsWithImages.isNotEmpty) {
         final randomSong =
             songsWithImages[math.Random().nextInt(songsWithImages.length)];
-        final rawImage = randomSong.image;
-        _fallbackImageUrl = rawImage.startsWith('http')
-            ? rawImage
-            : AppConstant.ImageUrl + rawImage;
+        final rawImage = randomSong.imageUrl;
+        _fallbackImageUrl = _resolveImageUrl(rawImage);
       }
     }
     tillLoading = false;
     if (mounted) {
+      await _loadFavorites();
       setState(() {});
     }
   }
@@ -173,8 +173,8 @@ class StateClass extends State<MusicList> {
     }
   }
 
-  Future<void> addToQueue(var item) async {
-    String s = item.audio_duration.trim();
+  Future<void> addToQueue(SongModel item) async {
+    String s = item.audioDuration.trim();
 
     // Remove any newline characters from the duration string
     s = s.replaceAll('\n', '').trim();
@@ -198,29 +198,31 @@ class StateClass extends State<MusicList> {
     } catch (e) {
       // Fallback to a default duration if parsing fails
       if (kDebugMode) {
-        print('Error parsing duration "${item.audio_duration}": $e');
+        print('Error parsing duration "${item.audioDuration}": $e');
       }
       duration = const Duration(minutes: 3); // Default to 3 minutes
     }
 
-    String imageUrl = '${AppConstant.ImageUrl}images/audio/thumb/${item.image}';
+    final imageUrl = _resolveImageUrl(
+      item.imageUrl.isNotEmpty ? item.imageUrl : '',
+    );
     // Create unique MediaItem ID for queue addition to ensure proper queue management
     final uniqueId =
-        '${item.audio}?addQueue=musicList&ts=${DateTime.now().millisecondsSinceEpoch}';
+        '${item.audioUrl}?addQueue=musicList&ts=${DateTime.now().millisecondsSinceEpoch}';
 
     var mItem = MediaItem(
       id: uniqueId, // Use unique ID for proper queue management
-      title: item.audio_title,
-      artist: item.artists_name,
+      title: item.audioTitle,
+      artist: item.channelName,
       duration: duration,
-      artUri: Uri.parse(imageUrl),
+      artUri: imageUrl.isNotEmpty ? Uri.parse(imageUrl) : null,
       extras: {
         'audio_id': item.id.toString(),
         'actual_audio_url':
-            item.audio, // Store the actual audio URL for playback
+            item.audioUrl, // Store the actual audio URL for playback
         'lyrics': item.lyrics,
-        'favourite': item.favourite, // Include favorite status
-        'artist_id': item.artist_id, // Add artist_id for navigation
+        'favourite': item.isFavourite, // Include favorite status
+        'artist_id': item.channelId.toString(), // Add artist_id for navigation
       },
     );
 
@@ -714,14 +716,11 @@ class StateClass extends State<MusicList> {
   }
 
   // Custom song list item with three dots menu and long press
-  Widget _buildSongListItem(DataMusic song, int index) {
-    String imageUrl = '';
-    if (song.image.isNotEmpty) {
-      imageUrl = '${AppConstant.ImageUrl}images/audio/thumb/${song.image}';
-    }
+  Widget _buildSongListItem(SongModel song, int index) {
+    final imageUrl = _resolveImageUrl(song.imageUrl);
 
     // Determine if the dot should be visible
-    final bool showDot = (song.is_trending == 1);
+    final bool showDot = (song.isTrending == 1);
 
     // Create music manager and check current playing state
     final musicManager = MusicManager();
@@ -814,7 +813,7 @@ class StateClass extends State<MusicList> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              song.audio_title,
+                              song.audioTitle,
                               style: TextStyle(
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w600,
@@ -828,7 +827,7 @@ class StateClass extends State<MusicList> {
                             ),
                             SizedBox(height: 4.h),
                             Text(
-                              song.artists_name,
+                              song.channelName,
                               style: TextStyle(
                                 fontSize: 14.sp,
                                 color: appColors().gray[500],
@@ -870,11 +869,8 @@ class StateClass extends State<MusicList> {
   }
 
   // Create menu data for context menu and long press
-  MusicContextMenuData _createMenuData(DataMusic song, int index) {
-    String imageUrl = '';
-    if (song.image.isNotEmpty) {
-      imageUrl = '${AppConstant.ImageUrl}images/audio/thumb/${song.image}';
-    }
+  MusicContextMenuData _createMenuData(SongModel song, int index) {
+    final imageUrl = _resolveImageUrl(song.imageUrl);
 
     // Use global favorites provider
     final isFavorite = context.read<FavoritesProvider>().isFavorite(
@@ -882,49 +878,47 @@ class StateClass extends State<MusicList> {
     );
 
     return MusicMenuDataFactory.createSongMenuData(
-      title: song.audio_title,
-      artist: song.artists_name.isNotEmpty
-          ? song.artists_name
-          : 'Unknown Artist',
+      title: song.audioTitle,
+      artist: song.channelName.isNotEmpty ? song.channelName : 'Unknown Artist',
       imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       onPlay: () => _playMusic(index),
       onPlayNext: () => _musicActionHandler.handlePlayNext(
         song.id.toString(),
-        song.audio_title,
-        song.artists_name,
+        song.audioTitle,
+        song.channelName,
         imagePath: imageUrl,
         track: song,
       ),
       onAddToQueue: () => _musicActionHandler.handleAddToQueue(
         song.id.toString(),
-        song.audio_title,
-        song.artists_name,
+        song.audioTitle,
+        song.channelName,
         imagePath: imageUrl,
         track: song,
       ),
       onDownload: () => _musicActionHandler.handleDownload(
-        song.audio_title,
+        song.audioTitle,
         "song",
         song.id.toString(),
       ),
       onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
         song.id.toString(),
-        song.audio_title,
-        song.artists_name,
+        song.audioTitle,
+        song.channelName,
       ),
       // If this screen was opened for a specific playlist, offer remove action
       onRemove: (typ == 'User Playlist' && _currentPlaylistId != null)
           ? () => _removeSongFromPlaylist(song, _currentPlaylistId!)
           : null,
       onShare: () => _musicActionHandler.handleShare(
-        song.audio_title,
+        song.audioTitle,
         "song",
         itemId: song.id.toString(),
-        slug: song.audio_slug,
+        slug: song.audioSlug,
       ),
       onFavorite: () => _musicActionHandler.handleFavoriteToggle(
         song.id.toString(),
-        song.audio_title,
+        song.audioTitle,
         favoriteIds: _favoriteIds,
       ),
       isFavorite: isFavorite, // Use global favorites
@@ -932,7 +926,7 @@ class StateClass extends State<MusicList> {
   }
 
   Future<void> _removeSongFromPlaylist(
-    DataMusic song,
+    SongModel song,
     String playlistId,
   ) async {
     // Confirm intent quickly using a dialog
@@ -947,7 +941,7 @@ class StateClass extends State<MusicList> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        content: Text('Remove "${song.audio_title}" from this playlist?'),
+        content: Text('Remove "${song.audioTitle}" from this playlist?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -1007,7 +1001,7 @@ class StateClass extends State<MusicList> {
   }
 
   // Show context menu for three-dot button
-  void _showContextMenu(DataMusic song, int index) {
+  void _showContextMenu(SongModel song, int index) {
     _currentOverlayEntry?.remove();
     _currentOverlayEntry = null;
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
@@ -1031,12 +1025,22 @@ class StateClass extends State<MusicList> {
     );
   }
 
+  // Normalize image URLs coming from API; supports both absolute and relative paths.
+  String _resolveImageUrl(String rawUrl) {
+    if (rawUrl.isEmpty) return '';
+    final trimmed = rawUrl.trim();
+    if (trimmed.startsWith('http')) return trimmed;
+    final normalized = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return '${AppConstant.ImageUrl}$normalized';
+  }
+
   Widget _getCoverImage() {
     Widget imageWidget;
     // Try parent image first
     if (parentData?.image != null && parentData!.image.isNotEmpty) {
+      final imageUrl = _resolveImageUrl(parentData!.image);
       imageWidget = CachedNetworkImage(
-        imageUrl: parentData!.image,
+        imageUrl: imageUrl,
         fit: BoxFit.cover,
         placeholder: (context, url) => _getDefaultCoverImage(),
         errorWidget: (context, url, error) => _getFallbackCoverImage(),
@@ -1070,19 +1074,19 @@ class StateClass extends State<MusicList> {
   }
 
   // Build a simple 2x2 collage using the first 4 song thumbnails.
-  Widget _buildCollage(List<DataMusic> songs) {
+  Widget _buildCollage(List<SongModel> songs) {
     // Safeguard: ensure there are at least 4 items
     final items = songs.length >= 4 ? songs.sublist(0, 4) : songs;
 
     // Prepare image widgets (use placeholder when image missing)
     final tiles = items.map((s) {
-      if (s.image.isNotEmpty) {
-        final url = '${AppConstant.ImageUrl}images/audio/thumb/${s.image}';
+      final url = _resolveImageUrl(s.imageUrl);
+      if (url.isNotEmpty) {
         return CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.cover,
-          placeholder: (context, url) => _buildPlaceholderImage(),
-          errorWidget: (context, url, error) => _buildPlaceholderImage(),
+          placeholder: (context, _) => _buildPlaceholderImage(),
+          errorWidget: (context, _, __) => _buildPlaceholderImage(),
         );
       }
       return _buildPlaceholderImage();
@@ -1168,118 +1172,144 @@ class StateClass extends State<MusicList> {
     return 'Music Collection';
   }
 
-  void _playAllSongs({required bool shuffle}) async {
-    if (list.isEmpty) return;
-    final musicManager = MusicManager();
+  Future<void> _handleInstantSongTap(int index) async {
+    if (index < 0 || index >= list.length) return;
 
-    // Prepare the list we'll pass to the manager. If shuffle is requested,
-    // create a shuffled copy of the current list so the playback order is
-    // actually randomized. We still pick a startIndex inside the shuffled
-    // list so playback begins at a random song.
-    List<DataMusic> queueForPlayback;
-    int startIndex;
+    final tappedSong = list[index];
+    final fallbackSongId = tappedSong.id.toString();
+    final instantIdentifier = fallbackSongId.isNotEmpty
+        ? fallbackSongId
+        : tappedSong.audioUrl.trim();
 
-    if (shuffle) {
-      queueForPlayback = List<DataMusic>.from(list);
-      queueForPlayback.shuffle(math.Random());
-      startIndex = math.Random().nextInt(queueForPlayback.length);
-    } else {
-      queueForPlayback = list;
-      startIndex = 0;
+    if (instantIdentifier.isEmpty) {
+      _showSnackbar('Song unavailable.');
+      return;
     }
 
-    // Optimistically mark pending audio to avoid flash. Use the ID from the
-    // shuffled queue so UI highlights the correct upcoming track.
-    _pendingAudioId = queueForPlayback[startIndex].id.toString();
+    if (!_hasPlayableAudio(tappedSong)) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    final payloads = _buildInstantPayloads(list);
+    if (payloads.isEmpty) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    final normalizedIndex = payloads.indexWhere(
+      (payload) => payload.id == instantIdentifier,
+    );
+
+    if (normalizedIndex == -1) {
+      await _fallbackToSmartPlay(fallbackSongId, tappedSong.audioTitle);
+      return;
+    }
+
+    _pendingAudioId = instantIdentifier;
     if (mounted) setState(() {});
 
+    final forwardQueue = payloads.sublist(normalizedIndex);
+
     try {
-      await musicManager.replaceQueue(
-        musicList: queueForPlayback,
-        startIndex: startIndex,
-        callSource: 'MusicList._playAllSongs',
+      await _musicActionHandler.handleInstantPlay(
+        payload: forwardQueue.first,
+        context: forwardQueue,
+        contextIndex: 0,
       );
 
-      // Ensure audio handler queue reflects the new queue and explicitly
-      // skip to the intended startIndex and play to avoid race conditions.
-      final handler = _audioHandler;
-      if (handler != null) {
-        final timeout = Duration(seconds: 5);
-        final deadline = DateTime.now().add(timeout);
-        while (DateTime.now().isBefore(deadline)) {
-          try {
-            final q = handler.queue.value;
-            if (q.length > startIndex) break;
-          } catch (_) {}
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-
-        try {
-          await handler.skipToQueueItem(startIndex);
-        } catch (_) {}
-        try {
-          await handler.play();
-        } catch (_) {}
+      if (fallbackSongId.isNotEmpty) {
+        addRemoveHisAPI(fallbackSongId);
       }
-
-      // Add first song to history
-      addRemoveHisAPI(list[startIndex].id.toString());
-
-      // Show mini player
-      final stateManager = MusicPlayerStateManager();
-      stateManager.showMiniPlayerForMusicStart();
-
-      developer.log(
-        '[MusicList] ${shuffle ? 'Shuffle' : 'Play'} all completed',
-      );
     } catch (e) {
-      developer.log('[MusicList] Play all failed: $e');
+      developer.log('[MusicList] Instant play failed: $e');
     } finally {
-      // Clear pending state after queue setup
       _pendingAudioId = null;
       if (mounted) setState(() {});
     }
   }
 
-  // Update _playMusic to work with filtered index
-  void _playMusic(int index) async {
-    if (index < 0 || index >= list.length) return;
+  List<SongPlaybackPayload> _buildInstantPayloads(List<SongModel> songs) {
+    return songs.where(_hasPlayableAudio).map((song) {
+      final payload = SongPlaybackPayload.fromSongModel(song);
+      final resolvedImage = _resolveImageUrl(song.imageUrl);
+      final extras = Map<String, dynamic>.from(payload.extras);
+      extras['category_type'] = typ;
+      extras['category_id'] = idTag;
+      if (catName.isNotEmpty) {
+        extras['category_name'] = catName;
+      }
 
-    // Optimistically mark pending audio to avoid flash
-    _pendingAudioId = list[index].id.toString();
-    setState(() {});
-    // Use the simplified music manager for queue replacement and playback
-    final musicManager = MusicManager();
+      return payload.copyWith(
+        imageUrl: resolvedImage.isNotEmpty ? resolvedImage : payload.imageUrl,
+        extras: extras,
+      );
+    }).toList();
+  }
+
+  bool _hasPlayableAudio(SongModel song) {
+    return song.audioUrl.trim().isNotEmpty;
+  }
+
+  Future<void> _fallbackToSmartPlay(String? songId, String songTitle) async {
+    if (songId == null || songId.isEmpty) {
+      _showSnackbar('Song unavailable.');
+      return;
+    }
+    await _musicActionHandler.handlePlaySong(songId, songTitle);
+  }
+
+  void _showSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _playAllSongs({required bool shuffle}) async {
+    if (list.isEmpty) {
+      _showSnackbar('No songs available.');
+      return;
+    }
+
+    final payloads = _buildInstantPayloads(list);
+    if (payloads.isEmpty) {
+      _showSnackbar('No playable songs found.');
+      return;
+    }
+
+    final queue = List<SongPlaybackPayload>.from(payloads);
+    if (shuffle) {
+      queue.shuffle(math.Random());
+    }
+
+    final firstPayload = queue.first;
+    _pendingAudioId = firstPayload.id;
+    if (mounted) setState(() {});
 
     try {
-      await musicManager.replaceQueue(
-        musicList: list,
-        startIndex: index,
-        callSource: 'MusicList._playMusic',
+      await _musicActionHandler.handleInstantPlay(
+        payload: firstPayload,
+        context: queue,
+        contextIndex: 0,
       );
 
-      // Add to history in background without blocking UI
-      addRemoveHisAPI(list[index].id.toString());
-
-      // Ensure mini player is shown and navigation remains visible
-      final stateManager = MusicPlayerStateManager();
-      stateManager.showMiniPlayerForMusicStart();
-
-      // Show mini player only - don't navigate to full player
-      // The mini player will automatically appear when queue is set up
-      developer.log(
-        '[MusicList] Queue replacement completed, mini player should be visible',
-      );
+      final historyId =
+          firstPayload.extras['audio_id']?.toString() ?? firstPayload.id;
+      if (historyId.isNotEmpty) {
+        addRemoveHisAPI(historyId);
+      }
     } catch (e) {
-      developer.log('[MusicList] Queue replacement failed: $e');
+      developer.log('[MusicList] Play all failed: $e');
     } finally {
-      // Clear pending state after queue setup
       _pendingAudioId = null;
       if (mounted) setState(() {});
     }
+  }
 
-    // NO NAVIGATION TO FULL PLAYER - let mini player handle this
-    // User can tap mini player to open full player if needed
+  // Update _playMusic to use instant-play flow
+  Future<void> _playMusic(int index) async {
+    await _handleInstantSongTap(index);
   }
 
   /// Restores navigation state when coming from the full music player

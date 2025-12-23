@@ -1626,8 +1626,12 @@ class _AnimatedMiniMusicPlayerState extends State<AnimatedMiniMusicPlayer>
           mediaItem.title, // audio_title
           '', // audio_slug
           0, // audio_genre_id
-          '', // artist_id
-          mediaItem.artist ?? '', // artists_name
+          mediaItem.extras?['channel_id']?.toString() ??
+              mediaItem.extras?['artist_id']?.toString() ??
+              '',
+          mediaItem.extras?['channel_name']?.toString() ??
+              mediaItem.artist ??
+              'Unknown Channel',
           '', // audio_language
           0, // listening_count
           0, // is_featured

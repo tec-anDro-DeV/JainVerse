@@ -224,14 +224,14 @@ class AudioPlaybackController {
   Future<void> insertPlayNextById(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
     final track = await _singleSongSource.fetchOrFallback(
       songId,
       songName: songName,
-      artistName: artistName,
+      channelName: channelName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );
@@ -242,14 +242,14 @@ class AudioPlaybackController {
   Future<void> addToQueueById(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
     final track = await _singleSongSource.fetchOrFallback(
       songId,
       songName: songName,
-      artistName: artistName,
+      channelName: channelName,
       fallbackImagePath: fallbackImagePath,
       fallbackAudioPath: fallbackAudioPath,
     );

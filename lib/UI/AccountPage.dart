@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -78,6 +79,8 @@ class MyState extends State<AccountPage>
   String buildNumber = '', appPackageName = '';
   String audioPath = 'images/audio/thumb/';
   String token = '';
+  static const Duration _profileFetchTimeout = Duration(seconds: 25);
+  bool _isProfileFetchInProgress = false;
   TextEditingController nameController = TextEditingController();
   var focusNode = FocusNode();
   bool connected = true, checkRuning = false;
@@ -115,7 +118,11 @@ class MyState extends State<AccountPage>
 
   Future<dynamic> value() async {
     try {
-      model = await sharePrefs.getUserData();
+      final userFuture = sharePrefs.getUserData();
+      final themeFuture = sharePrefs.getThemeData();
+      final packageFuture = PackageInfo.fromPlatform();
+
+      model = await userFuture;
 
       try {
         name = (model.data.name ?? '').trim();
@@ -129,14 +136,19 @@ class MyState extends State<AccountPage>
         artistStatus = 'P';
       }
 
-      PackageInfo.fromPlatform().then((PackageInfo packageInfo) {
-        version = packageInfo.version;
-        buildNumber = packageInfo.buildNumber;
-        appPackageName = packageInfo.packageName;
-      });
+      final PackageInfo packageInfo = await packageFuture;
+      version = packageInfo.version;
+      buildNumber = packageInfo.buildNumber;
+      appPackageName = packageInfo.packageName;
+
+      sharedPreThemeData = await themeFuture;
       token = await sharePrefs.getToken();
-      await _fetchProfileFromApi(token);
-      sharedPreThemeData = await sharePrefs.getThemeData();
+
+      await Future.wait([
+        _fetchProfileFromApi(token),
+        _fetchArtistVerifyStatus(overrideToken: token),
+      ]);
+
       if (mounted) setState(() {});
       return model.data.name;
     } on Exception {}
@@ -321,13 +333,14 @@ class MyState extends State<AccountPage>
   }
 
   Future<void> _fetchProfileFromApi(String token) async {
-    if (token.isEmpty) return;
+    if (token.isEmpty || _isProfileFetchInProgress) return;
+    _isProfileFetchInProgress = true;
+    final client = http.Client();
     try {
       final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
-      final resp = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final resp = await client
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(_profileFetchTimeout);
 
       if (resp.statusCode == 200) {
         final Map<String, dynamic> jsonResp = json.decode(resp.body);
@@ -360,8 +373,13 @@ class MyState extends State<AccountPage>
           print('my_profile returned ${resp.statusCode}: ${resp.body}');
         }
       }
+    } on TimeoutException catch (e) {
+      if (kDebugMode) print('Profile fetch timed out: $e');
     } catch (e) {
       if (kDebugMode) print('Failed to fetch profile: $e');
+    } finally {
+      client.close();
+      _isProfileFetchInProgress = false;
     }
 
     if (mounted) setState(() {});
@@ -390,8 +408,12 @@ class MyState extends State<AccountPage>
 
     final String? resolvedImage = _resolveProfileImageUrl(payload);
     if (resolvedImage != null && resolvedImage.isNotEmpty) {
+      final bool shouldRefreshImage =
+          imagePresent != resolvedImage || _profileImageProvider == null;
       imagePresent = resolvedImage;
-      await _prepareProfileImage(imagePresent);
+      if (shouldRefreshImage) {
+        unawaited(_prepareProfileImage(imagePresent));
+      }
     } else {
       imagePresent = '';
       if (mounted) setState(() => _profileImageProvider = null);
@@ -476,8 +498,6 @@ class MyState extends State<AccountPage>
     await loadd();
     await checkConn();
     await value();
-
-    await _fetchArtistVerifyStatus();
   }
 
   late Future<void> _initFuture;
@@ -704,15 +724,19 @@ class MyState extends State<AccountPage>
     );
   }
 
-  Future<void> _fetchArtistVerifyStatus() async {
+  Future<void> _fetchArtistVerifyStatus({String? overrideToken}) async {
     try {
-      if (token.isEmpty) {
-        token = await sharePrefs.getToken();
+      final effectiveToken = overrideToken?.isNotEmpty == true
+          ? overrideToken!
+          : (token.isNotEmpty ? token : await sharePrefs.getToken());
+      if (token.isEmpty && effectiveToken.isNotEmpty) {
+        token = effectiveToken;
       }
+      if (effectiveToken.isEmpty) return;
 
       final resp = await ArtistVerificationPresenter().getVerificationStatus(
         context,
-        token,
+        effectiveToken,
       );
 
       if (resp.data != null) {
@@ -1063,7 +1087,7 @@ class MyState extends State<AccountPage>
                           ),
                         );
 
-                        await _fetchArtistVerifyStatus();
+                        await _fetchArtistVerifyStatus(overrideToken: token);
                         await _refreshProfileFromServer();
                       },
                     ),

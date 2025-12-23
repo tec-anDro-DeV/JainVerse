@@ -25,7 +25,7 @@ class PlaylistMusicPresenter extends BasePresenter {
 
     if (context != null) {
       response = await get<String>(
-        AppConstant.BaseUrl + AppConstant.API_USER_PLAYLIST,
+        AppConstant.BaseUrl + AppConstant.API_PLAYLIST,
         options: Options(headers: createAuthHeaders(token)),
         context: context,
       );
@@ -33,7 +33,7 @@ class PlaylistMusicPresenter extends BasePresenter {
       // Legacy behaviour - wrap to handle token expiration and Dio errors
       try {
         response = await dio.get(
-          AppConstant.BaseUrl + AppConstant.API_USER_PLAYLIST,
+          AppConstant.BaseUrl + AppConstant.API_PLAYLIST,
           options: Options(headers: createAuthHeaders(token)),
         );
 

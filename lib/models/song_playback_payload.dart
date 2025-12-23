@@ -39,6 +39,7 @@ class SongPlaybackPayload {
         'audio_title': song.audioTitle,
         'actual_audio_url': song.audioUrl,
         'image_url': song.imageUrl,
+        'channel_id': song.channelId,
         'channel_name': song.channelName,
         'channel_handle': song.channelHandle,
         'channel_image_url': song.channelImageUrl,

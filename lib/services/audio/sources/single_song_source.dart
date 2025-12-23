@@ -63,7 +63,7 @@ class SingleSongSource {
   Future<DataMusic?> fetchOrFallback(
     String songId, {
     String? songName,
-    String? artistName,
+    String? channelName,
     String? fallbackImagePath,
     String? fallbackAudioPath,
   }) async {
@@ -81,7 +81,7 @@ class SingleSongSource {
       '',
       0,
       '',
-      artistName ?? 'Unknown Artist',
+      channelName ?? 'Unknown Channel',
       '',
       0,
       0,

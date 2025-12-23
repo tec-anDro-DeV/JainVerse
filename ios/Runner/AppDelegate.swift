@@ -82,11 +82,8 @@ import AVKit
   }
   
   @objc private func appWillResignActive() {
-    // If we have a pending PiP URL, start PiP now as app is backgrounding
-    if let urlString = pendingPipUrl {
-      NSLog("[VideoPiP][iOS] App backgrounding, auto-starting PiP")
-      // The PiP will automatically start via AVPlayerViewController
-    }
+    // PiP disabled on iOS; ensure any pending resources are cleaned up.
+    cleanupPipResources()
   }
   
   private func setupMethodChannels(controller: FlutterViewController) {
@@ -152,39 +149,21 @@ import AVKit
       guard let self = self else { return }
       switch call.method {
       case "isPictureInPictureSupported":
-        result(AVPictureInPictureController.isPictureInPictureSupported())
+        // PiP disabled on iOS for this app.
+        result(false)
         
       case "enterPictureInPicture":
-        let args = call.arguments as? [String: Any]
-        let url = args?["videoUrl"] as? String
-        let positionMs = args?["positionMs"] as? Int ?? 0
-        let isPlaying = args?["isPlaying"] as? Bool ?? false
-
-        DispatchQueue.main.async {
-          let success = self.startPictureInPicture(
-            videoUrl: url,
-            positionMs: positionMs,
-            isPlaying: isPlaying
-          )
-          result(success)
-        }
+        // Block PiP requests.
+        result(false)
         
       case "updatePlaybackState":
-        if let args = call.arguments as? [String: Any],
-           let isPlaying = args["isPlaying"] as? Bool {
-          DispatchQueue.main.async {
-            if isPlaying {
-              self.pipPlayer?.play()
-            } else {
-              self.pipPlayer?.pause()
-            }
-          }
-        }
+        // No-op; PiP disabled.
         result(nil)
         
       case "exitPictureInPicture":
+        // Ensure resources are cleaned up even if called.
         DispatchQueue.main.async {
-          self.stopPictureInPicture()
+          self.cleanupPipResources()
           result(nil)
         }
         
@@ -195,121 +174,9 @@ import AVKit
   }
 
   private func startPictureInPicture(videoUrl: String?, positionMs: Int, isPlaying: Bool) -> Bool {
-    NSLog("[VideoPiP][iOS] startPictureInPicture - positionMs: \(positionMs), isPlaying: \(isPlaying)")
-
-    guard AVPictureInPictureController.isPictureInPictureSupported() else {
-      NSLog("[VideoPiP][iOS] PiP not supported")
-      return false
-    }
-
-    guard let urlString = videoUrl, let url = URL(string: urlString) else {
-      NSLog("[VideoPiP][iOS] Invalid video URL")
-      return false
-    }
-
-    // Clean up any existing session
+    // PiP disabled on iOS.
     cleanupPipResources()
-    
-    // Store URL for app backgrounding
-    pendingPipUrl = urlString
-
-    // Create player
-    let player = AVPlayer(url: url)
-    self.pipPlayer = player
-    
-    // Seek to position
-    let seekTime = CMTime(value: CMTimeValue(positionMs), timescale: 1000)
-    player.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
-    
-    // Create AVPlayerViewController (the modern iOS way)
-    let playerViewController = AVPlayerViewController()
-    playerViewController.player = player
-    playerViewController.allowsPictureInPicturePlayback = true
-    
-    if #available(iOS 14.2, *) {
-      playerViewController.canStartPictureInPictureAutomaticallyFromInline = true
-    }
-    
-    self.pipViewController = playerViewController
-    
-    // Create player layer for PiP controller
-    let playerLayer = AVPlayerLayer(player: player)
-    playerLayer.videoGravity = .resizeAspect
-    self.pipPlayerLayer = playerLayer
-    
-    // Add as child to root view controller (required for PiP)
-    if let rootVC = window?.rootViewController {
-      rootVC.addChild(playerViewController)
-      
-      // Add view but make it tiny and transparent
-      playerViewController.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-      playerViewController.view.alpha = 0.01
-      playerViewController.view.layer.addSublayer(playerLayer)
-      playerLayer.frame = playerViewController.view.bounds
-      rootVC.view.insertSubview(playerViewController.view, at: 0)
-      playerViewController.didMove(toParent: rootVC)
-      
-      NSLog("[VideoPiP][iOS] Player view controller added to hierarchy")
-    }
-    
-    // Create PiP controller manually
-    guard let controller = AVPictureInPictureController(playerLayer: playerLayer) else {
-      NSLog("[VideoPiP][iOS] Failed to create PiP controller")
-      cleanupPipResources()
-      return false
-    }
-    
-    controller.delegate = self
-    self.pipController = controller
-    
-    if #available(iOS 14.2, *) {
-      controller.canStartPictureInPictureAutomaticallyFromInline = true
-    }
-    
-    if #available(iOS 15.0, *) {
-      controller.requiresLinearPlayback = false
-    }
-    
-    NSLog("[VideoPiP][iOS] PiP controller created")
-    
-    // Wait for player to be ready, then start playback
-    var observer: NSKeyValueObservation?
-    observer = player.currentItem?.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
-      guard let self = self else { return }
-      
-      NSLog("[VideoPiP][iOS] Player status: \(item.status.rawValue)")
-      
-      if item.status == .readyToPlay {
-        observer?.invalidate()
-        
-        NSLog("[VideoPiP][iOS] Player ready!")
-        
-        // Start playback if requested
-        if isPlaying {
-          player.play()
-          NSLog("[VideoPiP][iOS] Playback started")
-        }
-        
-        // Try to start PiP immediately
-        if let pipCtrl = self.pipController {
-          if pipCtrl.isPictureInPicturePossible {
-            NSLog("[VideoPiP][iOS] Attempting to start PiP immediately")
-            pipCtrl.startPictureInPicture()
-          } else {
-            NSLog("[VideoPiP][iOS] PiP not possible yet, will auto-start on background")
-          }
-        } else {
-          NSLog("[VideoPiP][iOS] No PiP controller available")
-        }
-        
-      } else if item.status == .failed {
-        NSLog("[VideoPiP][iOS] Player failed: \(String(describing: item.error))")
-        observer?.invalidate()
-        self.cleanupPipResources()
-      }
-    }
-
-    return true
+    return false
   }
 
   private func stopPictureInPicture() {

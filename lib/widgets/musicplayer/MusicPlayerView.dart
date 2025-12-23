@@ -211,8 +211,10 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
                 currentSong.title,
                 currentSong.album ?? '',
                 1, // Default audio_genre_id
-                currentSong.extras?['artist_id']?.toString() ?? '0',
-                currentSong.artist ?? '',
+                currentSong.extras?['channel_id']?.toString() ?? '0',
+                currentSong.extras?['channel_name']?.toString() ??
+                    currentSong.artist ??
+                    'Unknown Channel',
                 'English', // Default language
                 0, // Default listening_count
                 0, // Default is_featured
@@ -266,8 +268,10 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
             currentSong.title,
             currentSong.album ?? '',
             1, // Default audio_genre_id
-            currentSong.extras?['artist_id']?.toString() ?? '0',
-            currentSong.artist ?? 'Unknown Artist',
+            currentSong.extras?['channel_id']?.toString() ?? '0',
+            currentSong.extras?['channel_name']?.toString() ??
+                currentSong.artist ??
+                'Unknown Channel',
             'English', // Default language
             0, // Default listening_count
             0, // Default is_featured
@@ -681,7 +685,6 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
 
   /// Restore the system UI (status bar) to the app's default appearance.
   void _restoreDefaultSystemUI() {
-
     final overlayStyle = SystemUiOverlayStyle.dark.copyWith(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
@@ -1032,8 +1035,10 @@ class _ModernMusicPlayerState extends State<MusicPlayerView>
           currentMediaItem.title,
           currentMediaItem.album ?? '',
           0,
-          currentMediaItem.extras?['artist_id'] ?? '',
-          currentMediaItem.artist ?? 'Unknown Artist',
+          currentMediaItem.extras?['channel_id'] ?? '',
+          currentMediaItem.extras?['channel_name'] ??
+              currentMediaItem.artist ??
+              'Unknown Channel',
           '',
           0,
           0,

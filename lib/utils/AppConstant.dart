@@ -31,7 +31,6 @@ class AppConstant {
   static const String API_GET_FAVOURITE_LIST = "favouriteList";
   static const String API_ADD_FAVOURITE_LIST = "addFavouriteList";
   static const String API_PLAYLIST = "playlist";
-  static const String API_USER_PLAYLIST = "playlist";
   static const String API_CREATE_PLAYLIST = "create_playlist";
   static const String API_ADD_PLAYLIST_MUSIC = "add_playlist_music";
   static const String API_UPDATE_PLAYLIST_NAME = "update_playlist_name";

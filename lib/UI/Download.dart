@@ -125,8 +125,8 @@ class StateClass extends State {
             downloaded.title, // audio_title
             downloaded.albumName, // audio_slug
             0, // audio_genre_id
-            '', // artist_id
-            downloaded.artist, // artists_name
+            '', // channel_id (not tracked for downloads)
+            downloaded.artist, // channel_name fallback
             '', // audio_language
             0, // listening_count
             0, // is_featured

@@ -42,6 +42,10 @@ class SongSourceResolver {
       'lyrics': music.lyrics,
       'favourite': music.favourite,
       'is_downloaded': actualAudioUrl.startsWith('file://'),
+      'channel_id': music.channelId,
+      'channel_handle': music.channelHandle,
+      'channel_name': music.channelName,
+      'channel_image_url': music.channelImageUrl,
       'artist_id': music.artist_id,
       'artists_name': music.artists_name,
     };
@@ -51,12 +55,10 @@ class SongSourceResolver {
     return MediaItem(
       id: itemId,
       title: music.audio_title.isNotEmpty ? music.audio_title : 'Unknown Title',
-      artist: music.artists_name.isNotEmpty
-          ? music.artists_name
-          : 'Unknown Artist',
-      album: music.artists_name.isNotEmpty
-          ? music.artists_name
-          : 'Unknown Album',
+      artist: music.channelName.isNotEmpty
+          ? music.channelName
+          : 'Unknown Channel',
+      album: music.channelName.isNotEmpty ? music.channelName : 'Unknown Album',
       duration: duration,
       artUri: imageUrl.isNotEmpty ? Uri.tryParse(imageUrl) : null,
       extras: mediaExtras,

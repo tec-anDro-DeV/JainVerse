@@ -220,7 +220,7 @@ class MusicActionHandler {
   Future<void> handlePlayNext(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? imagePath,
     String? audioPath,
     DataMusic? track,
@@ -245,7 +245,7 @@ class MusicActionHandler {
             await musicManager.insertPlayNextById(
               songId,
               songName,
-              artistName,
+              channelName,
               fallbackImagePath: imagePath,
               fallbackAudioPath: audioPath,
             );
@@ -290,7 +290,7 @@ class MusicActionHandler {
   Future<void> handleAddToQueue(
     String songId,
     String songName,
-    String artistName, {
+    String channelName, {
     String? imagePath,
     String? audioPath,
     DataMusic? track,
@@ -315,7 +315,7 @@ class MusicActionHandler {
             await musicManager.addToQueueById(
               songId,
               songName,
-              artistName,
+              channelName,
               fallbackImagePath: imagePath,
               fallbackAudioPath: audioPath,
             );
