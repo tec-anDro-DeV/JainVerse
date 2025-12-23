@@ -135,6 +135,16 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
         color: widget.backgroundColor,
         child: InkWell(
           onTap: () async {
+            // Capture the currently focused node (if any).
+            final previousFocus = FocusManager.instance.primaryFocus;
+
+            // Dismiss the keyboard and prevent the previously focused field
+            // from immediately requesting focus again.
+            previousFocus?.unfocus();
+            if (previousFocus != null) {
+              previousFocus.canRequestFocus = false;
+            }
+
             DateTime effectiveInitialDate = _selectedDate ?? DateTime.now();
             if (effectiveInitialDate.isAfter(effectiveLastDate)) {
               effectiveInitialDate = effectiveLastDate;
@@ -155,6 +165,19 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
               cancelText: widget.cancelText,
               minimumAge: widget.minimumAge,
             );
+
+            // Ensure focus remains cleared after the dialog.
+            FocusScope.of(context).unfocus();
+
+            // Restore the ability for the previously focused node to request
+            // focus after a short delay so normal behavior resumes.
+            if (previousFocus != null) {
+              Future.delayed(const Duration(milliseconds: 200), () {
+                try {
+                  previousFocus.canRequestFocus = true;
+                } catch (_) {}
+              });
+            }
 
             if (result != null) {
               print(
@@ -198,10 +221,9 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
                           : widget.hintText,
                       style: TextStyle(
                         fontSize: 16.sp,
-                        color:
-                            _selectedDate != null
-                                ? Colors.black87
-                                : Colors.grey.shade400,
+                        color: _selectedDate != null
+                            ? Colors.black87
+                            : Colors.grey.shade400,
                         fontFamily: 'Poppins',
                       ),
                     ),
@@ -310,50 +332,50 @@ class _InteractiveDatePickerDialogState
   void _showYearPicker() {
     showDialog(
       context: context,
-      builder:
-          (context) => YearPickerDialog(
-            initialYear: _selectedDate.year,
-            firstYear: widget.firstDate.year,
-            lastYear: widget.lastDate.year,
-            primaryColor: widget.primaryColor,
-            onYearSelected: (year) {
-              _yearController.text = year.toString();
-              _updateDate();
-            },
-          ),
+      builder: (context) => YearPickerDialog(
+        initialYear: _selectedDate.year,
+        firstYear: widget.firstDate.year,
+        lastYear: widget.lastDate.year,
+        primaryColor: widget.primaryColor,
+        onYearSelected: (year) {
+          _yearController.text = year.toString();
+          _updateDate();
+        },
+      ),
     );
   }
 
   void _showMonthPicker() {
     showDialog(
       context: context,
-      builder:
-          (context) => MonthPickerDialog(
-            initialMonth: _selectedDate.month,
-            primaryColor: widget.primaryColor,
-            onMonthSelected: (month) {
-              _monthController.text = _months[month - 1];
-              _updateDate();
-            },
-          ),
+      builder: (context) => MonthPickerDialog(
+        initialMonth: _selectedDate.month,
+        primaryColor: widget.primaryColor,
+        onMonthSelected: (month) {
+          _monthController.text = _months[month - 1];
+          _updateDate();
+        },
+      ),
     );
   }
 
   void _showDayPicker() {
-    final int daysInMonth =
-        DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day;
+    final int daysInMonth = DateTime(
+      _selectedDate.year,
+      _selectedDate.month + 1,
+      0,
+    ).day;
     showDialog(
       context: context,
-      builder:
-          (context) => DayPickerDialog(
-            initialDay: _selectedDate.day,
-            daysInMonth: daysInMonth,
-            primaryColor: widget.primaryColor,
-            onDaySelected: (day) {
-              _dayController.text = day.toString();
-              _updateDate();
-            },
-          ),
+      builder: (context) => DayPickerDialog(
+        initialDay: _selectedDate.day,
+        daysInMonth: daysInMonth,
+        primaryColor: widget.primaryColor,
+        onDaySelected: (day) {
+          _dayController.text = day.toString();
+          _updateDate();
+        },
+      ),
     );
   }
 
@@ -561,8 +583,9 @@ class YearPickerDialog extends StatelessWidget {
                       year.toString(),
                       style: TextStyle(
                         fontFamily: 'Poppins',
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected ? primaryColor : Colors.black87,
                       ),
                     ),
@@ -640,8 +663,9 @@ class MonthPickerDialog extends StatelessWidget {
                       _months[index],
                       style: TextStyle(
                         fontFamily: 'Poppins',
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected ? primaryColor : Colors.black87,
                       ),
                     ),
@@ -717,8 +741,9 @@ class DayPickerDialog extends StatelessWidget {
                         color: isSelected ? primaryColor : Colors.transparent,
                         borderRadius: BorderRadius.circular(8.r),
                         border: Border.all(
-                          color:
-                              isSelected ? primaryColor : Colors.grey.shade300,
+                          color: isSelected
+                              ? primaryColor
+                              : Colors.grey.shade300,
                         ),
                       ),
                       child: Center(
@@ -726,8 +751,9 @@ class DayPickerDialog extends StatelessWidget {
                           day.toString(),
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             color: isSelected ? Colors.white : Colors.black87,
                           ),
                         ),

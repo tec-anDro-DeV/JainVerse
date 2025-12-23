@@ -355,13 +355,9 @@ class _AutoplayVideoCardState extends State<AutoplayVideoCard>
                               ),
                             ),
                           ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey.shade900,
-                            child: Icon(
-                              Icons.broken_image_rounded,
-                              size: 48.w,
-                              color: Colors.grey.shade600,
-                            ),
+                          errorWidget: (context, url, error) => Image.asset(
+                            'assets/images/video_placeholder.png',
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),

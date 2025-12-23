@@ -95,6 +95,26 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // Prevent certain image/HTTP errors from being treated as uncaught
+      // by the Dart VM and causing the debugger to pause. PlatformDispatcher
+      // delivers uncaught asynchronous errors; return `true` to mark handled.
+      try {
+        PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+          final s = error.toString();
+          final isImageHttpError =
+              s.contains('HTTP request failed') ||
+              s.contains('Invalid statusCode') ||
+              s.contains('HttpException');
+          if (isImageHttpError) {
+            debugPrint('Suppressed platform error: $s');
+            return true; // handled
+          }
+          return false; // not handled
+        };
+      } catch (e) {
+        debugPrint('Failed to set PlatformDispatcher.onError: $e');
+      }
+
       // Reduce image memory pressure: set a lower image cache limit.
       // This helps prevent the app from holding too many decoded images in memory.
       try {

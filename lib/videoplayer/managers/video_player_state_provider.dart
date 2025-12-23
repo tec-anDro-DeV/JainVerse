@@ -142,9 +142,60 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
     const int maxRetries = 1;
     try {
       _awaitingManualResumeAfterSystemPipClose = false;
+
+      // Fast path: if the same video is already initialized, reuse its controller
+      // instead of tearing it down and re-creating it. This avoids AVPlayer re-spin
+      // cost on iOS when reopening the same clip.
+      final existingController = state.controller;
+      final bool canReuseExisting =
+          state.currentVideoId == videoId &&
+          existingController != null &&
+          !_disposedControllers.contains(existingController) &&
+          !_scheduledControllerDisposals.contains(existingController) &&
+          existingController.value.isInitialized;
+
+      if (canReuseExisting) {
+        _isControllerActive = true;
+        state = state.copyWith(
+          controller: existingController,
+          isLoading: false,
+          errorMessage: null,
+          currentVideoId: videoId,
+          currentVideoTitle: title ?? state.currentVideoTitle,
+          currentVideoSubtitle: subtitle ?? state.currentVideoSubtitle,
+          thumbnailUrl: thumbnailUrl ?? state.thumbnailUrl,
+          currentVideoItem: videoItem ?? state.currentVideoItem,
+          channelId: channelId ?? state.channelId,
+          channelAvatarUrl: channelAvatarUrl ?? state.channelAvatarUrl,
+          playlist: playlist ?? state.playlist,
+          currentIndex: playlistIndex ?? state.currentIndex,
+          isMinimized: false,
+          showMiniPlayer: false,
+          isPlaying: existingController.value.isPlaying,
+        );
+
+        if (autoPlay && !existingController.value.isPlaying) {
+          try {
+            await existingController.play();
+            state = state.copyWith(isPlaying: true);
+          } catch (_) {}
+
+          _startPositionUpdateTimer();
+          _resetControlsTimer();
+          _markWatchHistoryIfNeeded();
+          return;
+        }
+
+        // Already playing: ensure timers and watch history stay in sync
+        _startPositionUpdateTimer();
+        _resetControlsTimer();
+        _markWatchHistoryIfNeeded();
+
+        return;
+      }
+
       // Capture any existing controller and immediately remove it from state so
       // the UI hides the previous video right away (shows loading overlay).
-      final existingController = state.controller;
       state = state.copyWith(
         controller: null,
         isLoading: true,
@@ -170,9 +221,6 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
       // Perform remaining cleanup tasks (timers/_isControllerActive)
       await _cleanupExistingController();
 
-      // Small delay to ensure previous controller is fully released
-      await Future.delayed(const Duration(milliseconds: 250));
-
       _resetWatchHistoryMarker();
 
       // Track this initialize request so we can abort if another initializeVideo
@@ -182,23 +230,9 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         '[VideoPlayer] initializeVideo START id=$myInitId videoId=$videoId at ${DateTime.now().toIso8601String()}',
       );
 
-      // Quick HTTP HEAD pre-check to avoid platform codec init on unreachable/invalid URLs.
-      try {
-        final uri = Uri.parse(videoUrl);
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 4);
-        final req = await client
-            .openUrl('HEAD', uri)
-            .timeout(const Duration(seconds: 4));
-        final resp = await req.close().timeout(const Duration(seconds: 4));
-        if (resp.statusCode >= 400) {
-          throw Exception('Video URL responded with status ${resp.statusCode}');
-        }
-        client.close(force: true);
-      } catch (e) {
-        debugPrint('[VideoPlayer] HEAD check failed: $e');
-        // Let the native player still attempt to initialize, but this reduces many transient errors.
-      }
+      // Launch a non-blocking HEAD pre-check to surface unreachable URLs without
+      // delaying player initialization on slow networks.
+      _kickoffHeadPrecheck(videoUrl);
 
       // If a preloaded controller exists for this videoId, prefer it so we
       // avoid re-initializing and can attach faster. Otherwise construct a
@@ -387,6 +421,31 @@ class VideoPlayerStateNotifier extends Notifier<VideoPlayerState> {
         '[VideoPlayer] _cleanupExistingController: scheduling dispose for controller at ${DateTime.now().toIso8601String()}',
       );
       _scheduleDisposeController(controller);
+    }
+  }
+
+  /// Fire-and-forget HEAD request to flag obviously bad URLs without blocking init.
+  void _kickoffHeadPrecheck(String videoUrl) {
+    unawaited(_headPrecheck(videoUrl));
+  }
+
+  Future<void> _headPrecheck(String videoUrl) async {
+    try {
+      final uri = Uri.parse(videoUrl);
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final req = await client
+          .openUrl('HEAD', uri)
+          .timeout(const Duration(seconds: 2));
+      final resp = await req.close().timeout(const Duration(seconds: 2));
+      if (resp.statusCode >= 400) {
+        debugPrint(
+          '[VideoPlayer] HEAD check failed with status ${resp.statusCode}',
+        );
+      }
+      client.close(force: true);
+    } catch (e) {
+      debugPrint('[VideoPlayer] HEAD check error: $e');
     }
   }
 

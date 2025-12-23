@@ -32,19 +32,27 @@ class CircularCard extends StatelessWidget {
         InkResponse(
           onTap: onTap,
           child: Container(
+            width: responsiveSize,
+            height: responsiveSize,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(responsiveSize / 2),
-              image: DecorationImage(
-                image: imagePath.isEmpty
-                    ? const AssetImage('assets/images/song_placeholder.png')
-                    : NetworkImage(imagePath) as ImageProvider,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-              ),
             ),
-            width: responsiveSize,
-            height: responsiveSize,
+            child: imagePath.isEmpty
+                ? Image.asset(
+                    'assets/images/song_placeholder.png',
+                    fit: BoxFit.cover,
+                  )
+                : Image.network(
+                    imagePath,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      'assets/images/song_placeholder.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
           ),
         ),
         SizedBox(height: 4.w), // Further reduced spacing

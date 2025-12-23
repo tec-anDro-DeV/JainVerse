@@ -191,13 +191,21 @@ class MyState extends State<AppInfo> {
   Future<void> getSettings() async {
     String? sett = await sharePrefs.getSettings();
 
-    final Map<String, dynamic> parsed = json.decode(sett!);
-    ModelSettings modelSettings = ModelSettings.fromJson(parsed);
-    if (modelSettings.data.download == 1) {
-      allowDown = true;
-    } else {
+    if (sett == null || sett.isEmpty) {
+      allowDown = false;
+      setState(() {});
+      return;
+    }
+
+    try {
+      final Map<String, dynamic> parsed = json.decode(sett);
+      ModelSettings modelSettings = ModelSettings.fromJson(parsed);
+      allowDown = (modelSettings.data.download == 1);
+    } catch (e) {
+      // If parsing fails for any reason, disable download permission safely.
       allowDown = false;
     }
+
     setState(() {});
   }
 

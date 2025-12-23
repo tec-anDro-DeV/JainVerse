@@ -56,6 +56,18 @@ class HomeRepository extends BasePresenter {
       );
 
       final payload = response.data ?? '{}';
+
+      // Debug: show full request URL, headers (contains token) and response payload
+      try {
+        debugPrint(
+          '[HomeRepository] Full Request URL: ${response.requestOptions.uri}',
+        );
+        debugPrint(
+          '[HomeRepository] Request Headers: ${response.requestOptions.headers}',
+        );
+        debugPrint('[HomeRepository] Response payload: $payload');
+      } catch (_) {}
+
       await CacheManager.saveToCache(
         CacheManager.HOME_CONTENT_CACHE_KEY,
         payload,

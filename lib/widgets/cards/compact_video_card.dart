@@ -92,15 +92,9 @@ class CompactVideoCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey.shade300,
-                        child: Center(
-                          child: Icon(
-                            Icons.broken_image_rounded,
-                            size: 32.w,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
+                      errorWidget: (context, url, error) => Image.asset(
+                        'assets/images/video_placeholder.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
@@ -203,29 +197,16 @@ class CompactVideoCard extends StatelessWidget {
                       child: CircleAvatar(
                         radius: 12.w,
                         backgroundColor: Colors.grey.shade100,
-                        backgroundImage:
-                            item.channelImageUrl.isNotEmpty
-                            ? CachedNetworkImageProvider(item.channelImageUrl)
-                                  as ImageProvider?
-                            : null,
-                        child:
-                            (item.channelImageUrl.isEmpty)
-                            ? Text(
-                                (item.channelName.isNotEmpty)
-                                    ? item.channelName
-                                          .split(' ')
-                                          .map((s) => s.isNotEmpty ? s[0] : '')
-                                          .take(2)
-                                          .join()
-                                          .toUpperCase()
-                                    : 'C',
-                                style: TextStyle(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.grey.shade600,
-                                ),
-                              )
-                            : null,
+                        child: Text(
+                          (item.channelName.isNotEmpty)
+                              ? item.channelName.trim()[0].toUpperCase()
+                              : 'C',
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(width: 8.w),

@@ -5,8 +5,6 @@ import AVKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
-  // Native orientation lock used by supportedInterfaceOrientationsFor
-  // Defaults to portrait so the app remains portrait unless changed from Dart.
   static var orientationLock: UIInterfaceOrientationMask = .portrait
 
   private let orientationChannelName = "com.jainverse.orientation"
@@ -16,11 +14,15 @@ import AVKit
   private var methodChannel: FlutterMethodChannel?
   private let pipChannelName = "com.jainverse.pip"
   private var pipChannel: FlutterMethodChannel?
+  
+  // PiP management with AVPlayerViewController
+  private var pipViewController: AVPlayerViewController?
+  private var pipPlayer: AVPlayer?
   private var pipController: AVPictureInPictureController?
-  private weak var pipPlayerLayer: AVPlayerLayer?
-  // Best-effort native state to report to Dart. Kept in sync with AVAudioSession
-  // and interruptions. This is a pragmatic fallback because the app's actual
-  // player runs in Dart; native can only report best-effort state.
+  private var pipPlayerLayer: AVPlayerLayer?
+  private var isInPipMode = false
+  private var pendingPipUrl: String?
+  
   private var nativeIsPlaying: Bool = false
   private var nativeIsAudioServiceRunning: Bool = false
 
@@ -33,7 +35,12 @@ import AVKit
       NSLog("[BackgroundAudioManager][iOS] Failed to configure audio session: \(error)")
     }
 
-    NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption(_:)), name: AVAudioSession.interruptionNotification, object: session)
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleInterruption(_:)),
+      name: AVAudioSession.interruptionNotification,
+      object: session
+    )
   }
 
   @objc private func handleInterruption(_ notification: Notification) {
@@ -43,16 +50,15 @@ import AVKit
 
     switch type {
     case .began:
-  nativeIsPlaying = false
-  methodChannel?.invokeMethod("onAudioFocusChanged", arguments: ["hasFocus": false])
+      nativeIsPlaying = false
+      methodChannel?.invokeMethod("onAudioFocusChanged", arguments: ["hasFocus": false])
     case .ended:
-  // interruption ended; we can't decide whether playback resumed, but
-  // notify Dart that focus returned so it can decide to resume.
-  methodChannel?.invokeMethod("onAudioFocusChanged", arguments: ["hasFocus": true])
+      methodChannel?.invokeMethod("onAudioFocusChanged", arguments: ["hasFocus": true])
     @unknown default:
       break
     }
   }
+  
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -61,197 +67,342 @@ import AVKit
     configureAudioSession()
 
     if let controller = window?.rootViewController as? FlutterViewController {
-      methodChannel = FlutterMethodChannel(name: channelName, binaryMessenger: controller.binaryMessenger)
-      methodChannel?.setMethodCallHandler({ [weak self] (call, result) in
-        guard let self = self else { return }
-        switch call.method {
-        case "isPlaying":
-          // Return true if native believes audio is playing or AVAudioSession
-          // reports other audio active. This is best-effort; the authoritative
-          // player state usually lives in Dart.
-          let session = AVAudioSession.sharedInstance()
-          let isOtherPlaying = session.isOtherAudioPlaying
-          result(self.nativeIsPlaying || isOtherPlaying)
-
-        case "pausePlayback":
-          // If the app used a native player, pause it here. As a fallback
-          // update the native flag so queries reflect the change.
-          self.nativeIsPlaying = false    
-          result(nil)
-
-        case "resumePlayback":
-          // If the app used a native player, resume it here. As a fallback
-          // update the native flag so queries reflect the change.
-          self.nativeIsPlaying = true
-          result(nil)
- 
-        case "isAudioServiceRunning":
-          // If the app runs an iOS audio background task we can't always
-          // introspect it from here; use a pragmatic heuristic: active
-          // AVAudioSession or an explicit native flag.
-          let session = AVAudioSession.sharedInstance()
-          let sessionActive = session.isOtherAudioPlaying || session.isOtherAudioPlaying == false ? session.isOtherAudioPlaying : session.isOtherAudioPlaying
-          // Prefer explicit native flag if set; otherwise report session activity
-          result(self.nativeIsAudioServiceRunning || session.isOtherAudioPlaying || session.isOtherAudioPlaying)
-
-        case "setNativePlayingState":
-          // Optional helper callable from Dart to sync native state when
-          // the Dart player state changes.
-          if let args = call.arguments as? [String: Any], let playing = args["playing"] as? Bool {
-            self.nativeIsPlaying = playing
-          }
-          result(nil)
-
-        case "setNativeServiceRunning":
-          if let args = call.arguments as? [String: Any], let running = args["running"] as? Bool {
-            self.nativeIsAudioServiceRunning = running
-          }
-          result(nil)
-
-        default:
-          result(FlutterMethodNotImplemented)
-        }
-      })
-
-      // Orientation control channel: allows Dart to request a change to the
-      // native supported interface orientations at runtime. This works in
-      // tandem with Info.plist entries - Info.plist must still include the
-      // orientations we want to allow (we already updated it).
-      orientationChannel = FlutterMethodChannel(name: orientationChannelName, binaryMessenger: controller.binaryMessenger)
-      orientationChannel?.setMethodCallHandler({ (call, result) in
-        switch call.method {
-        case "setOrientationLock":
-          if let args = call.arguments as? [String: Any], let orientation = args["orientation"] as? String {
-            switch orientation {
-            case "portrait":
-              AppDelegate.orientationLock = .portrait
-            case "portraitUpsideDown":
-              AppDelegate.orientationLock = .portraitUpsideDown
-            case "landscape":
-              AppDelegate.orientationLock = [.landscapeLeft, .landscapeRight]
-            case "landscapeLeft":
-              AppDelegate.orientationLock = .landscapeLeft
-            case "landscapeRight":
-              AppDelegate.orientationLock = .landscapeRight
-            case "all":
-              AppDelegate.orientationLock = .all
-            default:
-              AppDelegate.orientationLock = .all
-            }
-          }
-          result(nil)
-
-        case "getOrientationLock":
-          result(AppDelegate.orientationLock.rawValue)
-
-        default:
-          result(FlutterMethodNotImplemented)
-        }
-      })
-
-      pipChannel = FlutterMethodChannel(name: pipChannelName, binaryMessenger: controller.binaryMessenger)
-      pipChannel?.setMethodCallHandler({ [weak self] (call, result) in
-        guard let self = self else { return }
-        switch call.method {
-        case "isPictureInPictureSupported":
-          result(AVPictureInPictureController.isPictureInPictureSupported())
-        case "enterPictureInPicture":
-          DispatchQueue.main.async {
-            let success = self.startPictureInPicture(from: controller.view)
-            result(success)
-          }
-        case "updatePlaybackState":
-          result(nil) // Native AVPlayer handles playback state changes automatically
-        case "exitPictureInPicture":
-          DispatchQueue.main.async {
-            self.stopPictureInPicture()
-            result(nil)
-          }
-        default:
-          result(FlutterMethodNotImplemented)
-        }
-      })
+      setupMethodChannels(controller: controller)
     }
+    
+    // Observe app lifecycle for PiP
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(appWillResignActive),
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
+  
+  @objc private func appWillResignActive() {
+    // If we have a pending PiP URL, start PiP now as app is backgrounding
+    if let urlString = pendingPipUrl {
+      NSLog("[VideoPiP][iOS] App backgrounding, auto-starting PiP")
+      // The PiP will automatically start via AVPlayerViewController
+    }
+  }
+  
+  private func setupMethodChannels(controller: FlutterViewController) {
+    // Background audio channel
+    methodChannel = FlutterMethodChannel(name: channelName, binaryMessenger: controller.binaryMessenger)
+    methodChannel?.setMethodCallHandler({ [weak self] (call, result) in
+      guard let self = self else { return }
+      switch call.method {
+      case "isPlaying":
+        let session = AVAudioSession.sharedInstance()
+        result(self.nativeIsPlaying || session.isOtherAudioPlaying)
+      case "pausePlayback":
+        self.nativeIsPlaying = false
+        result(nil)
+      case "resumePlayback":
+        self.nativeIsPlaying = true
+        result(nil)
+      case "isAudioServiceRunning":
+        let session = AVAudioSession.sharedInstance()
+        result(self.nativeIsAudioServiceRunning || session.isOtherAudioPlaying)
+      case "setNativePlayingState":
+        if let args = call.arguments as? [String: Any], let playing = args["playing"] as? Bool {
+          self.nativeIsPlaying = playing
+        }
+        result(nil)
+      case "setNativeServiceRunning":
+        if let args = call.arguments as? [String: Any], let running = args["running"] as? Bool {
+          self.nativeIsAudioServiceRunning = running
+        }
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
 
-  private func startPictureInPicture(from view: UIView?) -> Bool {
-    guard AVPictureInPictureController.isPictureInPictureSupported() else { return false }
-    guard let layer = resolvePlayerLayer(in: view) else { return false }
+    // Orientation channel
+    orientationChannel = FlutterMethodChannel(name: orientationChannelName, binaryMessenger: controller.binaryMessenger)
+    orientationChannel?.setMethodCallHandler({ (call, result) in
+      switch call.method {
+      case "setOrientationLock":
+        if let args = call.arguments as? [String: Any], let orientation = args["orientation"] as? String {
+          switch orientation {
+          case "portrait": AppDelegate.orientationLock = .portrait
+          case "portraitUpsideDown": AppDelegate.orientationLock = .portraitUpsideDown
+          case "landscape": AppDelegate.orientationLock = [.landscapeLeft, .landscapeRight]
+          case "landscapeLeft": AppDelegate.orientationLock = .landscapeLeft
+          case "landscapeRight": AppDelegate.orientationLock = .landscapeRight
+          case "all": AppDelegate.orientationLock = .all
+          default: AppDelegate.orientationLock = .all
+          }
+        }
+        result(nil)
+      case "getOrientationLock":
+        result(AppDelegate.orientationLock.rawValue)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
 
-    if pipController == nil || pipPlayerLayer !== layer {
-      pipPlayerLayer = layer
-      pipController = AVPictureInPictureController(playerLayer: layer)
-      pipController?.delegate = self
-      if #available(iOS 14.0, *) {
-        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+    // PiP channel
+    pipChannel = FlutterMethodChannel(name: pipChannelName, binaryMessenger: controller.binaryMessenger)
+    pipChannel?.setMethodCallHandler({ [weak self] (call, result) in
+      guard let self = self else { return }
+      switch call.method {
+      case "isPictureInPictureSupported":
+        result(AVPictureInPictureController.isPictureInPictureSupported())
+        
+      case "enterPictureInPicture":
+        let args = call.arguments as? [String: Any]
+        let url = args?["videoUrl"] as? String
+        let positionMs = args?["positionMs"] as? Int ?? 0
+        let isPlaying = args?["isPlaying"] as? Bool ?? false
+
+        DispatchQueue.main.async {
+          let success = self.startPictureInPicture(
+            videoUrl: url,
+            positionMs: positionMs,
+            isPlaying: isPlaying
+          )
+          result(success)
+        }
+        
+      case "updatePlaybackState":
+        if let args = call.arguments as? [String: Any],
+           let isPlaying = args["isPlaying"] as? Bool {
+          DispatchQueue.main.async {
+            if isPlaying {
+              self.pipPlayer?.play()
+            } else {
+              self.pipPlayer?.pause()
+            }
+          }
+        }
+        result(nil)
+        
+      case "exitPictureInPicture":
+        DispatchQueue.main.async {
+          self.stopPictureInPicture()
+          result(nil)
+        }
+        
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+  }
+
+  private func startPictureInPicture(videoUrl: String?, positionMs: Int, isPlaying: Bool) -> Bool {
+    NSLog("[VideoPiP][iOS] startPictureInPicture - positionMs: \(positionMs), isPlaying: \(isPlaying)")
+
+    guard AVPictureInPictureController.isPictureInPictureSupported() else {
+      NSLog("[VideoPiP][iOS] PiP not supported")
+      return false
+    }
+
+    guard let urlString = videoUrl, let url = URL(string: urlString) else {
+      NSLog("[VideoPiP][iOS] Invalid video URL")
+      return false
+    }
+
+    // Clean up any existing session
+    cleanupPipResources()
+    
+    // Store URL for app backgrounding
+    pendingPipUrl = urlString
+
+    // Create player
+    let player = AVPlayer(url: url)
+    self.pipPlayer = player
+    
+    // Seek to position
+    let seekTime = CMTime(value: CMTimeValue(positionMs), timescale: 1000)
+    player.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+    
+    // Create AVPlayerViewController (the modern iOS way)
+    let playerViewController = AVPlayerViewController()
+    playerViewController.player = player
+    playerViewController.allowsPictureInPicturePlayback = true
+    
+    if #available(iOS 14.2, *) {
+      playerViewController.canStartPictureInPictureAutomaticallyFromInline = true
+    }
+    
+    self.pipViewController = playerViewController
+    
+    // Create player layer for PiP controller
+    let playerLayer = AVPlayerLayer(player: player)
+    playerLayer.videoGravity = .resizeAspect
+    self.pipPlayerLayer = playerLayer
+    
+    // Add as child to root view controller (required for PiP)
+    if let rootVC = window?.rootViewController {
+      rootVC.addChild(playerViewController)
+      
+      // Add view but make it tiny and transparent
+      playerViewController.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+      playerViewController.view.alpha = 0.01
+      playerViewController.view.layer.addSublayer(playerLayer)
+      playerLayer.frame = playerViewController.view.bounds
+      rootVC.view.insertSubview(playerViewController.view, at: 0)
+      playerViewController.didMove(toParent: rootVC)
+      
+      NSLog("[VideoPiP][iOS] Player view controller added to hierarchy")
+    }
+    
+    // Create PiP controller manually
+    guard let controller = AVPictureInPictureController(playerLayer: playerLayer) else {
+      NSLog("[VideoPiP][iOS] Failed to create PiP controller")
+      cleanupPipResources()
+      return false
+    }
+    
+    controller.delegate = self
+    self.pipController = controller
+    
+    if #available(iOS 14.2, *) {
+      controller.canStartPictureInPictureAutomaticallyFromInline = true
+    }
+    
+    if #available(iOS 15.0, *) {
+      controller.requiresLinearPlayback = false
+    }
+    
+    NSLog("[VideoPiP][iOS] PiP controller created")
+    
+    // Wait for player to be ready, then start playback
+    var observer: NSKeyValueObservation?
+    observer = player.currentItem?.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
+      guard let self = self else { return }
+      
+      NSLog("[VideoPiP][iOS] Player status: \(item.status.rawValue)")
+      
+      if item.status == .readyToPlay {
+        observer?.invalidate()
+        
+        NSLog("[VideoPiP][iOS] Player ready!")
+        
+        // Start playback if requested
+        if isPlaying {
+          player.play()
+          NSLog("[VideoPiP][iOS] Playback started")
+        }
+        
+        // Try to start PiP immediately
+        if let pipCtrl = self.pipController {
+          if pipCtrl.isPictureInPicturePossible {
+            NSLog("[VideoPiP][iOS] Attempting to start PiP immediately")
+            pipCtrl.startPictureInPicture()
+          } else {
+            NSLog("[VideoPiP][iOS] PiP not possible yet, will auto-start on background")
+          }
+        } else {
+          NSLog("[VideoPiP][iOS] No PiP controller available")
+        }
+        
+      } else if item.status == .failed {
+        NSLog("[VideoPiP][iOS] Player failed: \(String(describing: item.error))")
+        observer?.invalidate()
+        self.cleanupPipResources()
       }
     }
 
-    return pipController?.startPictureInPicture() ?? false
+    return true
   }
 
   private func stopPictureInPicture() {
-    guard let controller = pipController else { return }
-    if #available(iOS 14.2, *) {
+    NSLog("[VideoPiP][iOS] Stopping PiP")
+    
+    if let controller = pipController {
       if controller.isPictureInPictureActive {
         controller.stopPictureInPicture()
       }
-    } else {
-      controller.stopPictureInPicture()
     }
+    
+    cleanupPipResources()
   }
 
-  private func resolvePlayerLayer(in view: UIView?) -> AVPlayerLayer? {
-    guard let view = view else { return nil }
-    if let layer = view.layer as? AVPlayerLayer, layer.player != nil {
-      return layer
+  private func cleanupPipResources() {
+    NSLog("[VideoPiP][iOS] Cleaning up PiP resources")
+    
+    pendingPipUrl = nil
+    
+    pipPlayer?.pause()
+    pipPlayer = nil
+    
+    pipPlayerLayer?.removeFromSuperlayer()
+    pipPlayerLayer = nil
+    
+    if let controller = pipController {
+      controller.delegate = nil
     }
-    if let layer = resolvePlayerLayer(in: view.layer) {
-      return layer
+    pipController = nil
+    
+    if let vc = pipViewController {
+      vc.view.removeFromSuperview()
+      vc.removeFromParent()
     }
-    for subview in view.subviews {
-      if let found = resolvePlayerLayer(in: subview) {
-        return found
-      }
-    }
-    return nil
+    pipViewController = nil
+    
+    isInPipMode = false
   }
 
-  private func resolvePlayerLayer(in layer: CALayer?) -> AVPlayerLayer? {
-    guard let layer = layer else { return nil }
-    if let playerLayer = layer as? AVPlayerLayer, playerLayer.player != nil {
-      return playerLayer
-    }
-    if let sublayers = layer.sublayers {
-      for sublayer in sublayers {
-        if let found = resolvePlayerLayer(in: sublayer) {
-          return found
-        }
-      }
-    }
-    return nil
-  }
-
-  // Respect the currently requested orientation mask. This is invoked by
-  // iOS when deciding which orientations the app supports for the active
-  // window. We return the value set by Dart via the orientation channel.
-  override func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+  override func application(
+    _ application: UIApplication,
+    supportedInterfaceOrientationsFor window: UIWindow?
+  ) -> UIInterfaceOrientationMask {
     return AppDelegate.orientationLock
   }
 }
 
 extension AppDelegate: AVPictureInPictureControllerDelegate {
-  func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+  func pictureInPictureControllerWillStartPictureInPicture(
+    _ pictureInPictureController: AVPictureInPictureController
+  ) {
+    NSLog("[VideoPiP][iOS] PiP will start")
+    isInPipMode = true
     pipChannel?.invokeMethod("onPipStateChanged", arguments: ["isInPip": true])
   }
 
-  func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-    pipChannel?.invokeMethod("onPipStateChanged", arguments: ["isInPip": false])
-    pipChannel?.invokeMethod("onPipClosed", arguments: nil)
+  func pictureInPictureControllerDidStartPictureInPicture(
+    _ pictureInPictureController: AVPictureInPictureController
+  ) {
+    NSLog("[VideoPiP][iOS] PiP started successfully!")
+    
+    // Now hide the player view
+    DispatchQueue.main.async { [weak self] in
+      self?.pipViewController?.view.isHidden = true
+    }
   }
 
-  func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void) {
+  func pictureInPictureControllerDidStopPictureInPicture(
+    _ pictureInPictureController: AVPictureInPictureController
+  ) {
+    NSLog("[VideoPiP][iOS] PiP stopped")
+    isInPipMode = false
+    pipChannel?.invokeMethod("onPipStateChanged", arguments: ["isInPip": false])
+    pipChannel?.invokeMethod("onPipClosed", arguments: nil)
+    cleanupPipResources()
+  }
+
+  func pictureInPictureController(
+    _ pictureInPictureController: AVPictureInPictureController,
+    failedToStartPictureInPictureWithError error: Error
+  ) {
+    NSLog("[VideoPiP][iOS] Failed to start PiP: \(error.localizedDescription)")
+    isInPipMode = false
+    pipChannel?.invokeMethod("onPipStateChanged", arguments: ["isInPip": false])
+    cleanupPipResources()
+  }
+
+  func pictureInPictureController(
+    _ pictureInPictureController: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+  ) {
+    NSLog("[VideoPiP][iOS] Restoring UI")
+    pipChannel?.invokeMethod("onPipExpanded", arguments: nil)
     completionHandler(true)
   }
 }

@@ -144,153 +144,122 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Content Column with animations
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingL),
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  const Spacer(flex: 8),
+
+                  // Logo with slide-down animation
+                  SlideTransition(
+                    position: _logoOffsetAnimation!,
+                    child: FadeTransition(
+                      opacity: _logoAnimationController!,
+                      child: Image.asset(
+                        'assets/images/logo-transparent.png',
+                        width: MediaQuery.of(context).size.width * 0.3,
+                        fit: BoxFit.fill,
+                      ),
                     ),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppSizes.paddingL,
+                  ),
+
+                  SizedBox(height: 12.w),
+
+                  // Text with fade-in animation
+                  FadeTransition(
+                    opacity: _textOpacityAnimation!,
+                    child: Column(
+                      children: [
+                        Text(
+                          'Welcome to',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: AppSizes.fontH1 + 6.sp,
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Nunito-Regular',
+                            height: 1.2,
+                          ),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Top Spacing
-                            SizedBox(height: screenHeight * 0.49),
 
-                            // Logo with slide-down animation
-                            SlideTransition(
-                              position: _logoOffsetAnimation!,
-                              child: FadeTransition(
-                                opacity: _logoAnimationController!,
-                                child: Image.asset(
-                                  'assets/images/logo-transparent.png',
-                                  width:
-                                      MediaQuery.of(context).size.width *
-                                      0.3, // Use width-based sizing
-                                  fit: BoxFit.fill,
-                                ),
+                        Text(
+                          'JainVerse',
+                          style: TextStyle(
+                            color: appColors().primaryColorApp,
+                            fontSize: AppSizes.fontH1 + 10.sp,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
+                            height: 1.2,
+                          ),
+                        ),
+
+                        SizedBox(height: AppSizes.paddingM),
+
+                        Text(
+                          'A divine space of stavan and bhakti, guiding your soul towards peace.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: AppSizes.fontSmall + 2.sp,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: screenHeight * 0.02),
+
+                  // Get Started Button with fade-in animation
+                  FadeTransition(
+                    opacity: _buttonOpacityAnimation!,
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: AppSizes.inputHeight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          SystemChrome.setSystemUIOverlayStyle(
+                            SystemUiOverlayStyle.light.copyWith(
+                              statusBarColor: const Color.fromARGB(
+                                255,
+                                255,
+                                255,
+                                255,
                               ),
+                              statusBarIconBrightness: Brightness.dark,
                             ),
-
-                            // Flexible spacer
-                            SizedBox(height: 12.w),
-
-                            // Text with fade-in animation
-                            FadeTransition(
-                              opacity: _textOpacityAnimation!,
-                              child: Column(
-                                children: [
-                                  // Welcome Text
-                                  Text(
-                                    'Welcome to',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: AppSizes.fontH1 + 6.sp,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Nunito-Regular',
-                                      height: 1.2,
-                                    ),
-                                  ),
-
-                                  // App Name Text
-                                  Text(
-                                    'JainVerse',
-                                    style: TextStyle(
-                                      color: appColors()
-                                          .primaryColorApp, // Keeping the punchy orange
-                                      fontSize: AppSizes.fontH1 + 10.sp,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: 'Poppins',
-                                      height: 1.2,
-                                    ),
-                                  ),
-
-                                  // Spacing
-                                  SizedBox(height: AppSizes.paddingM),
-
-                                  // Description Text
-                                  Text(
-                                    'A divine space of stavan and bhakti, guiding your soul towards peace.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: AppSizes.fontSmall + 2.sp,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          );
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
                             ),
-
-                            // Spacing
-                            SizedBox(height: screenHeight * 0.02),
-
-                            // Get Started Button with fade-in animation
-                            FadeTransition(
-                              opacity: _buttonOpacityAnimation!,
-                              child: SizedBox(
-                                width: double.infinity,
-                                height: AppSizes.inputHeight,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    // Reset to dark status bar icons before navigating
-                                    SystemChrome.setSystemUIOverlayStyle(
-                                      SystemUiOverlayStyle.light.copyWith(
-                                        statusBarColor: const Color.fromARGB(
-                                          255,
-                                          255,
-                                          255,
-                                          255,
-                                        ),
-                                        statusBarIconBrightness:
-                                            Brightness.dark,
-                                      ),
-                                    );
-                                    // Direct navigation to Phone Number Input screen - Use pushReplacement to prevent back navigation
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoginScreen(),
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        appColors().primaryColorApp,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        AppSizes.borderRadius,
-                                      ),
-                                    ),
-                                    elevation: 4,
-                                  ),
-                                  child: Text(
-                                    'Get Started',
-                                    style: TextStyle(
-                                      fontSize: AppSizes.fontLarge,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: appColors().primaryColorApp,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppSizes.borderRadius,
                             ),
-
-                            // Bottom spacing
-                            SizedBox(height: screenHeight * 0.06),
-                          ],
+                          ),
+                          elevation: 4,
+                        ),
+                        child: Text(
+                          'Get Started',
+                          style: TextStyle(
+                            fontSize: AppSizes.fontLarge,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                );
-              },
+
+                  const Spacer(flex: 1),
+                ],
+              ),
             ),
           ),
         ],

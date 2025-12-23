@@ -154,6 +154,7 @@ flutter:
     - assets/images/calendar_inactive.svg
     - assets/images/playlist_placeholder.png
     - assets/images/song_placeholder.png
+    - assets/images/video_placeholder.png
 
     # Icons
     - assets/icons/person.png

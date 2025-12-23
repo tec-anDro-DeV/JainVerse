@@ -103,6 +103,9 @@ class PhoneAuthService {
             // Store the token securely
             await _sharedPref.setToken(loginToken);
 
+            // Store profile completion status
+            await _sharedPref.setProfileComplete(profileComplete);
+
             // Persist the full user response so getUserData() returns current user model
             try {
               await _sharedPref.setUserData(jsonEncode(data));
@@ -194,8 +197,6 @@ class PhoneAuthService {
     String? lname,
     String? email,
     String? dob,
-    String? country,
-    int? countryId,
     String? mobile,
     int? gender,
   }) async {
@@ -230,12 +231,6 @@ class PhoneAuthService {
       // Add optional fields if provided
       if (email != null && email.isNotEmpty) body['email'] = email;
       if (dob != null && dob.isNotEmpty) body['dob'] = dob;
-      // prefer country_id if available, otherwise send country name
-      if (countryId != null) {
-        body['country_id'] = countryId;
-      } else if (country != null && country.isNotEmpty) {
-        body['country'] = country;
-      }
       if (mobile != null && mobile.isNotEmpty) body['mobile'] = mobile;
       if (gender != null) body['gender'] = gender;
 
@@ -257,6 +252,9 @@ class PhoneAuthService {
         if (data['status'] == true) {
           // Store updated user data
           await _sharedPref.setUserData(jsonEncode(data));
+
+          // Mark profile as complete after successful update
+          await _sharedPref.setProfileComplete(true);
 
           _showToast(
             context,

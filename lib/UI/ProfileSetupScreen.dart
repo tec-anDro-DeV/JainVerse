@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:jainverse/Model/CountryModel.dart';
-import 'package:jainverse/Presenter/CountryPresenter.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
+import 'package:jainverse/UI/Login.dart';
 import 'package:jainverse/UI/MainNavigation.dart';
 import 'package:jainverse/services/phone_auth_service.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/validators.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
-import 'package:jainverse/widgets/common/country_dropdown_with_search.dart';
 import 'package:jainverse/widgets/common/custom_date_picker.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
 
@@ -32,18 +31,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
   // Services
   final PhoneAuthService _authService = PhoneAuthService();
-  final CountryPresenter _countryPresenter = CountryPresenter();
 
   // State variables
-  Country? _selectedCountry;
   DateTime? _selectedDate;
   int? _selectedGenderInt; // 0 = Male, 1 = Female
   bool _isLoading = false;
-  List<Country> _countries = [];
-  // Track when focus moved to a non-text widget so we can avoid
-  // immediately returning focus to a text field after closing
-  // a date picker / dropdown which briefly focused a non-text widget.
-  DateTime? _lastNonTextFocusAt;
 
   // Animation controllers
   late AnimationController _animationController;
@@ -103,65 +95,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         _animationController.forward();
       }
     });
-
-    // Listen to focus changes so we can dismiss the keyboard when
-    // focus moves to non-text widgets (like date pickers, dropdowns)
-    FocusManager.instance.addListener(_handleFocusChange);
-
-    // Load countries
-    _loadCountries();
-  }
-
-  /// Hide the keyboard when focus changes to a non-text widget.
-  ///
-  /// We check the current primary focus's widget; if it's not an
-  /// [EditableText] (the underlying widget for TextField), we hide
-  /// the text input. This keeps the keyboard visible when moving
-  /// between text fields but hides it when the user focuses a
-  /// control that doesn't need typing.
-  void _handleFocusChange() {
-    try {
-      final primary = FocusManager.instance.primaryFocus;
-      // If there's no focus, ensure keyboard is hidden
-      if (primary == null) {
-        SystemChannels.textInput.invokeMethod('TextInput.hide');
-        _lastNonTextFocusAt = DateTime.now();
-        return;
-      }
-
-      final widget = primary.context?.widget;
-      // EditableText is the underlying widget for TextField/TextFormField
-      if (widget is! EditableText) {
-        // Focus moved to a non-text widget (like date picker controls)
-        // Hide the keyboard and remember when this happened. Some
-        // pickers briefly take focus and then return it to the field —
-        // we'll prevent that quick return by clearing focus if it
-        // happens within a short threshold.
-        SystemChannels.textInput.invokeMethod('TextInput.hide');
-        _lastNonTextFocusAt = DateTime.now();
-        return;
-      }
-
-      // If focus returned to an EditableText very shortly after being on
-      // a non-text widget, it's likely from closing a picker — avoid
-      // automatically re-showing the keyboard by unfocusing.
-      if (_lastNonTextFocusAt != null) {
-        final diff = DateTime.now().difference(_lastNonTextFocusAt!);
-        if (diff.inMilliseconds < 700) {
-          // Clear focus so the keyboard does not flash back.
-          FocusManager.instance.primaryFocus?.unfocus();
-          _lastNonTextFocusAt = null;
-          SystemChannels.textInput.invokeMethod('TextInput.hide');
-          return;
-        }
-        // If it's been longer than the threshold, allow normal behavior
-        _lastNonTextFocusAt = null;
-      }
-    } catch (e) {
-      // ignore any issues while trying to hide the keyboard
-      // (for safety, do not crash the UI)
-      // print('Focus change handler error: $e');
-    }
   }
 
   @override
@@ -173,28 +106,34 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     _phoneController.dispose();
     _firstNameFocus.dispose();
     _lastNameFocus.dispose();
-    FocusManager.instance.removeListener(_handleFocusChange);
     super.dispose();
   }
 
-  /// Load countries from API
-  Future<void> _loadCountries() async {
-    try {
-      final loadedCountries = await _countryPresenter.getCountries(context);
-      if (mounted) {
-        setState(() {
-          _countries = loadedCountries;
-        });
-      }
-    } catch (e) {
-      print('Error loading countries: $e');
-    }
+  // No-op focus handler left for safety to avoid stale listeners from hot reloads.
+  // ignore: unused_element
+  void _handleFocusChange() {}
+
+  // Capitalize each word in a name (First letter uppercase, rest lowercase)
+  String _capitalizeName(String name) {
+    if (name.trim().isEmpty) return name;
+    final parts = name.trim().split(RegExp(r"\s+"));
+    return parts
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() +
+              (word.length > 1 ? word.substring(1).toLowerCase() : '');
+        })
+        .join(' ');
   }
 
   /// Validate and submit profile
   Future<void> _handleSubmitProfile() async {
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
+
+    // Auto-capitalize first and last name inputs
+    _firstNameController.text = _capitalizeName(_firstNameController.text);
+    _lastNameController.text = _capitalizeName(_lastNameController.text);
 
     // Validate required fields: First name and last name are required
     if (_firstNameController.text.trim().isEmpty) {
@@ -257,7 +196,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         fname: fname,
         lname: lname,
         dob: formattedDate,
-        countryId: _selectedCountry?.id,
         mobile: widget.phoneNumber,
         gender: _selectedGenderInt,
       );
@@ -305,6 +243,91 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     }
   }
 
+  /// Show logout confirmation modal
+  Future<bool> _showLogoutModal() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Text(
+            'Logout',
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Poppins',
+              color: appColors().black,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to logout? Your profile setup is incomplete and you will need to complete it next time you login.',
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontFamily: 'Poppins',
+              color: const Color(0xFF555555),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Poppins',
+                  color: const Color(0xFF777777),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Poppins',
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  /// Handle logout
+  Future<void> _handleLogout() async {
+    final confirmed = await _showLogoutModal();
+    if (confirmed) {
+      // Clear user session data
+      final sharedPref = SharedPref();
+      await sharedPref.removeValues();
+
+      // Navigate to login screen
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    }
+  }
+
   /// Build field label with optional indicator
   Widget _buildFieldLabel(String label, {required bool isRequired}) {
     return RichText(
@@ -338,268 +361,287 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     final padding = MediaQuery.of(context).padding;
     final safeAreaHeight = screenHeight - padding.top - padding.bottom;
 
-    return Scaffold(
-      backgroundColor: appColors().backgroundLogin,
-      resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+    return WillPopScope(
+      onWillPop: () async {
+        // Show logout modal on back press
+        return await _showLogoutModal();
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          backgroundColor: appColors().backgroundLogin,
+          // Allow the scaffold to resize when the keyboard appears so
+          // the form and action button remain visible and scrollable.
+          resizeToAvoidBottomInset: true,
+          body: SafeArea(
+            child: Stack(
               children: [
-                // Header
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 4.w,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Complete Your Profile",
-                        style: TextStyle(
-                          color: appColors().black,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Poppins',
-                        ),
+                Column(
+                  children: [
+                    // Header with back button
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 4.w,
                       ),
-                    ],
-                  ),
-                ),
-
-                // Logo
-                AuthHeader(height: safeAreaHeight * 0.12, heroTag: 'app_logo'),
-
-                // Main content
-                Expanded(
-                  child: FadeTransition(
-                    opacity: _fadeInAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: GestureDetector(
-                        onTap: () {
-                          FocusScope.of(context).unfocus();
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(32.r),
-                              topRight: Radius.circular(32.r),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.arrow_back,
+                              size: 24.w,
+                              color: appColors().black,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                spreadRadius: 0,
-                                offset: const Offset(0, -3),
-                              ),
-                            ],
+                            onPressed: () async {
+                              // Show logout modal on back press
+                              final shouldLogout = await _showLogoutModal();
+                              if (shouldLogout) {
+                                _handleLogout();
+                              }
+                            },
                           ),
-                          child: SingleChildScrollView(
-                            controller: _scrollController,
-                            physics: const BouncingScrollPhysics(),
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                top: 24.w,
-                                left: 24.w,
-                                right: 24.w,
-                                bottom:
-                                    24.w +
-                                    MediaQuery.of(context).viewInsets.bottom *
-                                        0.5,
+                          Text(
+                            "Complete Your Profile",
+                            style: TextStyle(
+                              color: appColors().black,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          SizedBox(width: 48.w), // Spacer for alignment
+                        ],
+                      ),
+                    ),
+
+                    // Logo
+                    AuthHeader(
+                      height: safeAreaHeight * 0.12,
+                      heroTag: 'app_logo',
+                    ),
+
+                    // Main content
+                    Expanded(
+                      child: FadeTransition(
+                        opacity: _fadeInAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(32.r),
+                                topRight: Radius.circular(32.r),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Info text
-                                  Text(
-                                    'Help us personalize your experience',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: const Color(0xFF777777),
-                                      fontSize: 14.sp,
-                                      fontFamily: 'Poppins',
-                                    ),
-                                  ),
-                                  SizedBox(height: 24.w),
-
-                                  // First Name (required)
-                                  _buildFieldLabel(
-                                    'First Name',
-                                    isRequired: true,
-                                  ),
-                                  SizedBox(height: 8.w),
-                                  Container(
-                                    key: _firstNameKey,
-                                    child: InputField(
-                                      controller: _firstNameController,
-                                      hintText: 'Enter your first name',
-                                      prefixIcon: Icons.person_outline,
-                                      textInputAction: TextInputAction.next,
-                                      focusNode: _firstNameFocus,
-                                      onSubmitted: (_) => FocusScope.of(
-                                        context,
-                                      ).requestFocus(_lastNameFocus),
-                                    ),
-                                  ),
-                                  SizedBox(height: 16.w),
-
-                                  // Last Name (required)
-                                  _buildFieldLabel(
-                                    'Last Name',
-                                    isRequired: true,
-                                  ),
-                                  SizedBox(height: 8.w),
-                                  Container(
-                                    key: _lastNameKey,
-                                    child: InputField(
-                                      controller: _lastNameController,
-                                      hintText: 'Enter your last name',
-                                      prefixIcon: Icons.person_outline,
-                                      textInputAction: TextInputAction.next,
-                                      focusNode: _lastNameFocus,
-                                      onSubmitted: (_) =>
-                                          FocusScope.of(context).unfocus(),
-                                    ),
-                                  ),
-                                  SizedBox(height: 16.w),
-
-                                  // Email field removed from setup screen
-
-                                  // Phone (Read-only)
-                                  _buildFieldLabel(
-                                    'Phone Number',
-                                    isRequired: true,
-                                  ),
-                                  SizedBox(height: 8.w),
-                                  InputField(
-                                    controller: _phoneController,
-                                    hintText: 'Phone number',
-                                    prefixIcon: Icons.phone_outlined,
-                                    enabled: false,
-                                  ),
-                                  SizedBox(height: 16.w),
-
-                                  // Date of Birth
-                                  _buildFieldLabel(
-                                    'Date of Birth',
-                                    isRequired: false,
-                                  ),
-                                  SizedBox(height: 8.w),
-                                  CustomDatePicker(
-                                    initialDate: _selectedDate,
-                                    firstDate: DateTime(1900),
-                                    lastDate: DateTime.now(),
-                                    onDateSelected: (date) {
-                                      setState(() {
-                                        _selectedDate = date;
-                                      });
-                                    },
-                                    dateFormat: 'MMMM d, yyyy',
-                                    primaryColor: appColors().primaryColorApp,
-                                    backgroundColor: Colors.white,
-                                    title: 'Select Birthdate',
-                                    showTitle: true,
-                                    confirmText: 'SELECT',
-                                    cancelText: 'CANCEL',
-                                    elevation: 0,
-                                    borderRadius: BorderRadius.circular(16.r),
-                                    hintText: 'Select your date of birth',
-                                    minimumAge: 13,
-                                  ),
-                                  SizedBox(height: 16.w),
-
-                                  // Gender
-                                  _buildFieldLabel('Gender', isRequired: false),
-                                  SizedBox(height: 8.w),
-                                  GenderInputField(
-                                    value: _selectedGenderInt,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedGenderInt = value;
-                                      });
-                                    },
-                                  ),
-                                  SizedBox(height: 16.w),
-
-                                  // Country
-                                  _buildFieldLabel(
-                                    'Country',
-                                    isRequired: false,
-                                  ),
-                                  SizedBox(height: 8.w),
-                                  CountryDropdownWithSearch(
-                                    countries: _countries,
-                                    value: _selectedCountry,
-                                    onChanged: (country) {
-                                      setState(() {
-                                        _selectedCountry = country;
-                                      });
-                                    },
-                                    hintText: 'Select your country',
-                                  ),
-                                  SizedBox(height: 32.w),
-
-                                  // Submit Button
-                                  SizedBox(
-                                    height: 56.w,
-                                    child: ElevatedButton(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : _handleSubmitProfile,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            appColors().primaryColorApp,
-                                        disabledBackgroundColor: appColors()
-                                            .primaryColorApp
-                                            .withOpacity(0.6),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppSizes.borderRadius,
-                                          ),
-                                        ),
-                                        elevation: 0,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  spreadRadius: 0,
+                                  offset: const Offset(0, -3),
+                                ),
+                              ],
+                            ),
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  top: 24.w,
+                                  left: 24.w,
+                                  right: 24.w,
+                                  // Use the full viewInsets.bottom to ensure enough
+                                  // space when the keyboard is open so the "Complete Setup"
+                                  // button can be scrolled into view.
+                                  bottom:
+                                      0.w +
+                                      MediaQuery.of(context).viewInsets.bottom,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Info text
+                                    Text(
+                                      'Help us personalize your experience',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: const Color(0xFF777777),
+                                        fontSize: 14.sp,
+                                        fontFamily: 'Poppins',
                                       ),
-                                      child: _isLoading
-                                          ? SizedBox(
-                                              height: 24.w,
-                                              width: 24.w,
-                                              child:
-                                                  const CircularProgressIndicator(
-                                                    strokeWidth: 2.5,
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                          Color
-                                                        >(Colors.white),
-                                                  ),
-                                            )
-                                          : Text(
-                                              'Complete Setup',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: AppSizes.fontMedium,
-                                                fontWeight: FontWeight.w600,
-                                                fontFamily: 'Poppins',
-                                              ),
-                                            ),
                                     ),
-                                  ),
-                                  SizedBox(height: 16.w),
-                                ],
+                                    SizedBox(height: 24.w),
+
+                                    // First Name (required)
+                                    _buildFieldLabel(
+                                      'First Name',
+                                      isRequired: true,
+                                    ),
+                                    SizedBox(height: 8.w),
+                                    Container(
+                                      key: _firstNameKey,
+                                      child: InputField(
+                                        controller: _firstNameController,
+                                        hintText: 'Enter your first name',
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        prefixIcon: Icons.person_outline,
+                                        textInputAction: TextInputAction.next,
+                                        focusNode: _firstNameFocus,
+                                        onSubmitted: (_) => FocusScope.of(
+                                          context,
+                                        ).requestFocus(_lastNameFocus),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16.w),
+
+                                    // Last Name (required)
+                                    _buildFieldLabel(
+                                      'Last Name',
+                                      isRequired: true,
+                                    ),
+                                    SizedBox(height: 8.w),
+                                    Container(
+                                      key: _lastNameKey,
+                                      child: InputField(
+                                        controller: _lastNameController,
+                                        hintText: 'Enter your last name',
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        prefixIcon: Icons.person_outline,
+                                        textInputAction: TextInputAction.next,
+                                        focusNode: _lastNameFocus,
+                                        onSubmitted: (_) =>
+                                            FocusScope.of(context).unfocus(),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16.w),
+
+                                    // Email field removed from setup screen
+
+                                    // Phone (Read-only)
+                                    _buildFieldLabel(
+                                      'Phone Number',
+                                      isRequired: true,
+                                    ),
+                                    SizedBox(height: 8.w),
+                                    InputField(
+                                      controller: _phoneController,
+                                      hintText: 'Phone number',
+                                      prefixIcon: Icons.phone_outlined,
+                                      enabled: false,
+                                    ),
+                                    SizedBox(height: 16.w),
+
+                                    // Date of Birth
+                                    _buildFieldLabel(
+                                      'Date of Birth',
+                                      isRequired: false,
+                                    ),
+                                    SizedBox(height: 8.w),
+                                    CustomDatePicker(
+                                      initialDate: _selectedDate,
+                                      firstDate: DateTime(1900),
+                                      lastDate: DateTime.now(),
+                                      onDateSelected: (date) {
+                                        setState(() {
+                                          _selectedDate = date;
+                                        });
+                                      },
+                                      dateFormat: 'MMMM d, yyyy',
+                                      primaryColor: appColors().primaryColorApp,
+                                      backgroundColor: Colors.white,
+                                      title: 'Select Birthdate',
+                                      showTitle: true,
+                                      confirmText: 'SELECT',
+                                      cancelText: 'CANCEL',
+                                      elevation: 0,
+                                      borderRadius: BorderRadius.circular(16.r),
+                                      hintText: 'Select your date of birth',
+                                      minimumAge: 13,
+                                    ),
+                                    SizedBox(height: 16.w),
+
+                                    // Gender
+                                    _buildFieldLabel(
+                                      'Gender',
+                                      isRequired: false,
+                                    ),
+                                    SizedBox(height: 8.w),
+                                    GenderInputField(
+                                      value: _selectedGenderInt,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedGenderInt = value;
+                                        });
+                                      },
+                                    ),
+                                    SizedBox(height: 16.w),
+
+                                    SizedBox(height: 32.w),
+
+                                    // Submit Button
+                                    SizedBox(
+                                      height: 56.w,
+                                      child: ElevatedButton(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _handleSubmitProfile,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              appColors().primaryColorApp,
+                                          disabledBackgroundColor: appColors()
+                                              .primaryColorApp
+                                              .withOpacity(0.6),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              AppSizes.borderRadius,
+                                            ),
+                                          ),
+                                          elevation: 0,
+                                        ),
+                                        child: _isLoading
+                                            ? SizedBox(
+                                                height: 24.w,
+                                                width: 24.w,
+                                                child:
+                                                    const CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<
+                                                            Color
+                                                          >(Colors.white),
+                                                    ),
+                                              )
+                                            : Text(
+                                                'Complete Setup',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: AppSizes.fontMedium,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontFamily: 'Poppins',
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 16.w),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

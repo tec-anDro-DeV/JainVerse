@@ -86,13 +86,9 @@ class VideoCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           placeholder: (c, u) =>
                               Container(color: Colors.grey.shade200),
-                          errorWidget: (c, u, e) => Container(
-                            color: Colors.grey.shade300,
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 48.w,
-                              color: Colors.grey.shade600,
-                            ),
+                          errorWidget: (c, u, e) => Image.asset(
+                            'assets/images/video_placeholder.png',
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -161,33 +157,45 @@ class VideoCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Channel avatar (left)
-                  CircleAvatar(
-                    radius: 18.w,
-                    backgroundColor: Colors.grey.shade300,
-                    backgroundImage:
-                        item.channelImageUrl.isNotEmpty
-                        ? CachedNetworkImageProvider(item.channelImageUrl)
-                              as ImageProvider?
-                        : null,
-                    child:
-                        (item.channelImageUrl.isEmpty)
-                        ? Text(
-                            // show initials fallback if name available
-                            (item.channelName.isNotEmpty)
-                                ? item.channelName
-                                      .split(' ')
-                                      .map((s) => s.isNotEmpty ? s[0] : '')
-                                      .take(2)
-                                      .join()
-                                : 'C',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                  // Channel avatar (left) with network image + fallback
+                  SizedBox(
+                    width: 36.w,
+                    height: 36.w,
+                    child: item.channelImageUrl.isNotEmpty
+                        ? ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: item.channelImageUrl,
+                              width: 36.w,
+                              height: 36.w,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                width: 36.w,
+                                height: 36.w,
+                                color: Colors.grey.shade300,
+                              ),
+                              errorWidget: (_, __, ___) => Image.asset(
+                                'assets/images/video_placeholder.png',
+                                width: 36.w,
+                                height: 36.w,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           )
-                        : null,
+                        : CircleAvatar(
+                            radius: 18.w,
+                            backgroundColor: Colors.grey.shade300,
+                            child: Text(
+                              // show initials fallback if name available
+                              (item.channelName.isNotEmpty)
+                                  ? item.channelName.trim()[0].toUpperCase()
+                                  : 'C',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
                   ),
 
                   SizedBox(width: 12.w),

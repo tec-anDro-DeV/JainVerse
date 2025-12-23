@@ -478,7 +478,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
     // Only the inner rounded navigation box will be constrained to 50% width on tablets.
     return Container(
       width: double.infinity,
-      height: 110.w,
+      height: 120.w,
       decoration: BoxDecoration(
         // Gradient background for floating effect
         gradient: LinearGradient(
@@ -514,7 +514,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
             final double iPadBottomMargin = isiPad ? 12.w : 0.0;
 
             return Container(
-              height: 75.w,
+              height: 82.w,
               // No top margin; allow a small bottom margin only on iPad
               margin: useCenteredInner
                   ? EdgeInsets.only(bottom: iPadBottomMargin)
@@ -523,6 +523,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: innerWidth),
                 child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 4.w),
                   decoration: BoxDecoration(
                     color: appColors().gray[100],
                     borderRadius: BorderRadius.circular(44.w),
@@ -575,8 +576,8 @@ class BottomNavCustomState extends State<BottomNavCustom>
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    width: isSelected ? 62.w : 0,
-                    height: isSelected ? 62.w : 0,
+                    width: isSelected ? 58.w : 0,
+                    height: isSelected ? 58.w : 0,
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.white : Colors.transparent,
                       shape: BoxShape.circle,
@@ -590,8 +591,8 @@ class BottomNavCustomState extends State<BottomNavCustom>
                       scale: isSelected ? 1.1 : 1.0,
                       child: SvgPicture.asset(
                         isSelected ? activeIconPath : inactiveIconPath,
-                        width: 25.w,
-                        height: 25.w,
+                        width: 26.w,
+                        height: 26.w,
                         colorFilter: ColorFilter.mode(
                           isSelected
                               ? appColors().primaryColorApp

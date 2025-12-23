@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:jainverse/Model/CountryModel.dart';
 import 'package:jainverse/ThemeMain/appColors.dart'; // Add this import
 
 class InputField extends StatelessWidget {
@@ -21,6 +20,7 @@ class InputField extends StatelessWidget {
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters; // Add this line
   final String? errorText; // Add error text support
+  final TextCapitalization textCapitalization; // Add textCapitalization
 
   const InputField({
     super.key,
@@ -40,6 +40,7 @@ class InputField extends StatelessWidget {
     this.maxLength,
     this.inputFormatters, // Add this line
     this.errorText, // Add error text support
+    this.textCapitalization = TextCapitalization.none, // default
   });
 
   @override
@@ -50,6 +51,7 @@ class InputField extends StatelessWidget {
           : 70.w, // Increase height when error is present
       child: TextFormField(
         controller: controller,
+        textCapitalization: textCapitalization,
         obscureText: obscureText,
         keyboardType: keyboardType,
         focusNode: focusNode,
@@ -388,84 +390,6 @@ class GenderInputField extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class CountryInputField extends StatelessWidget {
-  final Country? value; // Changed to Country object
-  final Function(Country?) onChanged;
-  final List<Country> countries; // Accept dynamic country list
-  final bool enabled;
-
-  const CountryInputField({
-    super.key,
-    required this.value,
-    required this.onChanged,
-    required this.countries, // Required countries list
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56.w,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: Colors.grey.shade300, width: 1.w),
-      ),
-      child: DropdownButtonFormField<Country>(
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          prefixIcon: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            child: Icon(
-              Icons.language,
-              size: 22.sp,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          contentPadding: EdgeInsets.symmetric(
-            vertical: 16.w,
-            horizontal: 16.w,
-          ),
-          hintText: 'Select Country',
-        ),
-        value: value,
-        isExpanded: true,
-        icon: Padding(
-          padding: EdgeInsets.only(right: 12.w),
-          child: Icon(
-            Icons.arrow_drop_down,
-            color: Colors.grey.shade600,
-            size: 24.sp,
-          ),
-        ),
-        onChanged: enabled ? onChanged : null,
-        items: countries.map<DropdownMenuItem<Country>>((Country country) {
-          return DropdownMenuItem<Country>(
-            value: country,
-            child: Text(
-              country.nicename,
-              style: TextStyle(
-                fontSize: 16.sp,
-                color: Colors.black87,
-                fontFamily: 'Poppins',
-              ),
-            ),
-          );
-        }).toList(),
-        dropdownColor: Colors.white,
-        hint: Text(
-          'Select Country',
-          style: TextStyle(
-            fontSize: 16.sp,
-            color: Colors.grey.shade400,
-            fontFamily: 'Poppins',
-          ),
-        ),
       ),
     );
   }

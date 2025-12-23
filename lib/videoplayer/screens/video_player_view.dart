@@ -1307,6 +1307,109 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     );
   }
 
+  /// Attempt to reload the thumbnail by clearing any local precache marker
+  /// and re-precaching. This triggers the `CachedNetworkImage` to reattempt
+  /// loading when the widget rebuilds.
+  void _retryLoadThumbnail() async {
+    final url =
+        widget.thumbnailUrl ?? ref.read(videoPlayerProvider).thumbnailUrl;
+    if (url == null) return;
+
+    // Remove from our precache set so precacheImage is attempted again.
+    _precachedThumbnails.remove(url);
+
+    try {
+      await precacheImage(CachedNetworkImageProvider(url), context);
+    } catch (_) {
+      // ignore - will show offline UI
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  /// Decide whether to show a prominent offline/no-data overlay.
+  bool _shouldShowOfflineOverlay(dynamic videoState) {
+    try {
+      if (videoState.errorMessage != null) return true;
+      if (!videoState.isLoading && (videoState.controller == null)) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /// Build a full-screen overlay communicating that video/content couldn't
+  /// be loaded and provide Retry/Back actions.
+  Widget _buildOfflineOverlay(dynamic videoState) {
+    final theme = _theme ?? VideoPlayerTheme.defaultTheme();
+    return Container(
+      color: Colors.black.withOpacity(0.6),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wifi_off_rounded, color: Colors.white, size: 64.w),
+                SizedBox(height: 12.h),
+                Text(
+                  'Can\'t load content',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'No network or cached data available. Please check your connection or try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 14.sp,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        // Retry by attempting to initialize the video again
+                        try {
+                          await _initializeVideoPlayer();
+                        } catch (_) {}
+                      },
+                      icon: Icon(Icons.refresh_rounded, color: Colors.white),
+                      label: Text(
+                        'Retry',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    OutlinedButton(
+                      onPressed: () {
+                        if (mounted) Navigator.of(context).maybePop();
+                      },
+                      child: Text('Back'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     debugPrint('[VideoPlayerView] dispose() called');
@@ -1658,8 +1761,39 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                       height: double.infinity,
                       placeholder: (c, url) =>
                           Container(color: theme.backgroundColor),
-                      errorWidget: (c, url, error) =>
-                          Container(color: theme.backgroundColor),
+                      errorWidget: (c, url, error) => Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cloud_off_rounded,
+                              color: Colors.white.withOpacity(0.9),
+                              size: 48.w,
+                            ),
+                            SizedBox(height: 12.h),
+                            Text(
+                              'Unable to load thumbnail',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                            SizedBox(height: 10.h),
+                            OutlinedButton(
+                              onPressed: _retryLoadThumbnail,
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(
+                                  color: Colors.white.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Text(
+                                'Retry',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   Positioned.fill(
@@ -1677,6 +1811,10 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                     theme: theme,
                     currentVideoIdInt: currentVideoIdInt,
                   ),
+                  // Show an explicit offline/no-data overlay when the player
+                  // failed to initialize or there's no accessible data.
+                  if (_shouldShowOfflineOverlay(videoState))
+                    Positioned.fill(child: _buildOfflineOverlay(videoState)),
                 ],
               ),
             ),

@@ -91,6 +91,19 @@ class SharedPref {
     prefs.remove("boolValue");
     prefs.remove("intValue");
     prefs.remove("doubleValue");
+    prefs.remove("profile_complete");
+  }
+
+  // Profile completion status
+  Future<void> setProfileComplete(bool isComplete) async {
+    SharedPreferences sharedPref = await SharedPreferences.getInstance();
+    await sharedPref.setBool('profile_complete', isComplete);
+  }
+
+  Future<bool> isProfileComplete() async {
+    SharedPreferences sharedPref = await SharedPreferences.getInstance();
+    // Default to false if not found
+    return sharedPref.getBool('profile_complete') ?? false;
   }
 
   // Remember me functionality

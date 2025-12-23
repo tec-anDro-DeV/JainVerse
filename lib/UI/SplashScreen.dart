@@ -6,6 +6,7 @@ import 'package:jainverse/Resources/Strings/StringsLocalization.dart'; // Import
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/ThemeMain/sizes.dart';
 import 'package:jainverse/UI/Login.dart'; // Updated import
+import 'package:jainverse/UI/ProfileSetupScreen.dart';
 import 'package:jainverse/services/app_router_manager.dart';
 import 'package:jainverse/services/offline_mode_service.dart';
 import 'package:jainverse/utils/SharedPref.dart';
@@ -333,6 +334,31 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       loginPresent = await sharePrefs.check();
+
+      if (loginPresent) {
+        // Check if profile is complete
+        final bool profileComplete = await sharePrefs.isProfileComplete();
+
+        if (!profileComplete) {
+          // Profile is incomplete, navigate to profile setup
+          // Get user data to extract phone number
+          try {
+            final userData = await sharePrefs.getUserData();
+            final phoneNumber = userData.data.mobile;
+
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (BuildContext context) =>
+                    ProfileSetupScreen(phoneNumber: phoneNumber),
+              ),
+            );
+            return;
+          } catch (e) {
+            print("Error getting user data: $e");
+            // If we can't get user data, proceed to normal navigation
+          }
+        }
+      }
 
       // Update user login status in offline mode service
       await _offlineModeService.setUserLoggedIn(loginPresent);

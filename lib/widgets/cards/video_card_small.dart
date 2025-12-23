@@ -94,14 +94,9 @@ class VideoCardSmall extends StatelessWidget {
                 imageUrl: thumbnailUrl,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(color: Colors.grey.shade200),
-                errorWidget: (_, __, ___) => Container(
-                  color: Colors.grey.shade300,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.grey.shade600,
-                    size: 32.w,
-                  ),
+                errorWidget: (_, __, ___) => Image.asset(
+                  'assets/images/video_placeholder.png',
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
@@ -154,8 +149,6 @@ class VideoCardSmall extends StatelessWidget {
   // views · relative time (row2).
   // ----------------------------------------------------
   Widget _buildChannelRow() {
-    final hasAvatar = channelImageUrl != null && channelImageUrl!.isNotEmpty;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,10 +159,7 @@ class VideoCardSmall extends StatelessWidget {
             child: CircleAvatar(
               radius: 18.w,
               backgroundColor: Colors.grey.shade300,
-              backgroundImage: hasAvatar
-                  ? CachedNetworkImageProvider(channelImageUrl!)
-                  : null,
-              child: !hasAvatar && (channelName?.isNotEmpty ?? false)
+              child: (channelName?.isNotEmpty ?? false)
                   ? Text(
                       _buildInitials(channelName!),
                       style: TextStyle(
@@ -226,9 +216,10 @@ class VideoCardSmall extends StatelessWidget {
   // Build initials from name
   String _buildInitials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
-    if (parts.isEmpty) return name[0].toUpperCase();
+    if (parts.isEmpty) return name.isNotEmpty ? name[0].toUpperCase() : '';
 
-    return parts.take(2).map((e) => e[0].toUpperCase()).join();
+    final first = parts.first;
+    return first.isNotEmpty ? first[0].toUpperCase() : '';
   }
 
   // ----------------------------------------------------

@@ -70,7 +70,6 @@ class AppConstant {
   static const String API_CLEAR_MUSIC_HISTORY = "clear_music_history";
 
   static const String API_CREATE_STATION = "station";
-  static const String API_GET_COUNTRY = "get_country";
 
   //user-channel api
   static const String API_CREATE_CHANNEL = "create_channel";
@@ -107,7 +106,6 @@ class AppConstant {
   static const String search = "search";
   static const String id = "id";
   static const String mobile = "mobile";
-  static const String country = "country_id";
   static const String OTP = "otp";
   static const String password_confirmation = "password_confirmation";
   static const String confirmationPassword = "confirm_password";

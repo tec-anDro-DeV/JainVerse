@@ -27,19 +27,7 @@ class ModernVideoCard extends StatelessWidget {
     this.width = 340,
   });
 
-  // -----------------------------
-  // FORMAT: Views → "125K views"
-  // -----------------------------
-  String _formatViews(int? views) {
-    if (views == null || views <= 0) return "0 views";
-    if (views < 1000) return "$views views";
-    if (views < 1_000_000) {
-      final v = (views / 1000).toStringAsFixed(1);
-      return "${v.endsWith('.0') ? v.substring(0, v.length - 2) : v}K views";
-    }
-    final v = (views / 1_000_000).toStringAsFixed(1);
-    return "${v.endsWith('.0') ? v.substring(0, v.length - 2) : v}M views";
-  }
+  // (long views formatter removed; using short format only)
 
   // Short numeric views string without the word 'views', e.g. "125K" or "1.2M"
   String _formatViewsShort(int? views) {
@@ -53,16 +41,7 @@ class ModernVideoCard extends StatelessWidget {
     return v.endsWith('.0') ? v.substring(0, v.length - 2) + 'M' : v + 'M';
   }
 
-  String _buildMetadataLine() {
-    final channel = (channelName?.isNotEmpty ?? false)
-        ? channelName!
-        : 'Unknown channel';
-    return [
-      channel,
-      _formatViews(totalViews),
-      _formatRelativeTime(publishedAt),
-    ].join(' · ');
-  }
+  // (metadata assembly helper removed — not used)
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +79,9 @@ class ModernVideoCard extends StatelessWidget {
                 imageUrl: thumbnailUrl,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(color: Colors.grey.shade200),
-                errorWidget: (_, __, ___) => Container(
-                  color: Colors.grey.shade300,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.grey.shade600,
-                    size: 34.w,
-                  ),
+                errorWidget: (_, __, ___) => Image.asset(
+                  'assets/images/video_placeholder.png',
+                  fit: BoxFit.cover,
                 ),
               ),
             ),

@@ -58,6 +58,10 @@ class VideoPipService {
 
   Future<bool> isPictureInPictureSupported() async {
     _ensureInitialized();
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      _supportsPiPCache = false;
+      return false;
+    }
     if (_supportsPiPCache != null) {
       return _supportsPiPCache!;
     }
@@ -87,6 +91,16 @@ class VideoPipService {
     _lastAspectRatio = aspectRatio;
 
     try {
+      final videoUrl = state.currentVideoItem?.videoUrl;
+      debugPrint(
+        '[VideoPiP][Dart] enterPictureInPicture - videoUrl: $videoUrl, position: ${state.position.inMilliseconds}ms, isPlaying: ${state.isPlaying}',
+      );
+      if (videoUrl == null || videoUrl.isEmpty) {
+        debugPrint(
+          '[VideoPiP][Dart] No videoUrl available; currentVideoItem: ${state.currentVideoItem}',
+        );
+        return false;
+      }
       final success =
           await _channel
               .invokeMethod<bool>('enterPictureInPicture', <String, dynamic>{
@@ -98,6 +112,7 @@ class VideoPipService {
                 'durationMs': state.duration.inMilliseconds,
                 'aspectRatio': aspectRatio,
                 'autoTriggered': autoTriggered,
+                'videoUrl': videoUrl,
               }) ??
           false;
       return success;

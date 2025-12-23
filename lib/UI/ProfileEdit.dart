@@ -11,10 +11,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:jainverse/Model/CountryModel.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/UserModel.dart';
-import 'package:jainverse/Presenter/CountryPresenter.dart';
 import 'package:jainverse/Presenter/ProfilePresenter.dart';
 import 'package:jainverse/Presenter/Logout.dart';
 import 'package:jainverse/Resources/Strings/StringsLocalization.dart';
@@ -27,7 +25,6 @@ import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/validators.dart';
 import 'package:jainverse/widgets/common/app_header.dart';
-import 'package:jainverse/widgets/common/country_dropdown_with_search.dart';
 import 'package:jainverse/widgets/common/custom_date_picker.dart';
 import 'package:jainverse/widgets/common/input_field.dart';
 import 'package:jainverse/widgets/common/loader.dart';
@@ -67,18 +64,11 @@ class myState extends State<ProfileEdit> {
   late ModelTheme sharedPreThemeData = ModelTheme('', '', '', '', '', '');
   late UserModel model;
   int? gender; // 0 = Male, 1 = Female, null = not selected
-  Country? selectedCountry; // Changed to Country object
   String dateOfBirth = '';
   String imagePresent = '';
   String token = '';
   bool isOpen = false;
   bool _isLoading = false; // Add loading state
-
-  // Add country-related variables
-  List<Country> countries = []; // Dynamic country list
-  CountryPresenter countryPresenter = CountryPresenter();
-  int? _preferredCountryId;
-  String? _preferredCountryLegacyValue;
   bool _handledInactiveAccount = false;
 
   // Audio handler for mini player detection
@@ -98,6 +88,11 @@ class myState extends State<ProfileEdit> {
   late FocusNode phoneFocusNode;
   late ScrollController _scrollController;
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   Future<dynamic> value() async {
     model = await sharePrefs.getUserData();
     token = await sharePrefs.getToken();
@@ -105,7 +100,7 @@ class myState extends State<ProfileEdit> {
     // Refresh profile from server when possible
     await _fetchProfileFromApi(token);
 
-    setState(() {});
+    _safeSetState(() {});
     return model;
   }
 
@@ -121,9 +116,6 @@ class myState extends State<ProfileEdit> {
 
     // Initialize audio handler
     _audioHandler = const MyApp().called();
-
-    // Load countries from API
-    _loadCountries();
 
     // Add focus listeners for validation
     firstNameFocusNode.addListener(() {
@@ -207,11 +199,7 @@ class myState extends State<ProfileEdit> {
       dateOfBirth = 'Select Birthdate';
     }
 
-    _preferredCountryId = _extractCountryId(payload);
-    _preferredCountryLegacyValue = _extractCountryLegacyValue(payload);
-    _applyCountrySelection();
-
-    if (mounted) setState(() {});
+    _safeSetState(() {});
   }
 
   Map<String, dynamic> _userDataToPayload(UserData data) {
@@ -257,64 +245,6 @@ class myState extends State<ProfileEdit> {
     return null;
   }
 
-  int? _extractCountryId(Map<String, dynamic> payload) {
-    final dynamic numeric = payload['country_id_numeric'];
-    final int? parsedNumeric = _tryParseInt(numeric);
-    if (parsedNumeric != null) return parsedNumeric;
-
-    final dynamic fallback = payload['country_id'];
-    return _tryParseInt(fallback);
-  }
-
-  String? _extractCountryLegacyValue(Map<String, dynamic> payload) {
-    final dynamic value = payload['country_id'];
-    if (value is String) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) return null;
-      if (trimmed.toLowerCase() == 'select country') return null;
-      if (_tryParseInt(trimmed) != null) return null;
-      return trimmed;
-    }
-    return null;
-  }
-
-  int? _tryParseInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is double) return value.round();
-    final String parsed = value.toString().trim();
-    if (parsed.isEmpty) return null;
-    return int.tryParse(parsed);
-  }
-
-  void _applyCountrySelection() {
-    if (countries.isEmpty) return;
-
-    Country? resolved;
-    if (_preferredCountryId != null) {
-      resolved = countryPresenter.findCountryById(
-        countries,
-        _preferredCountryId!,
-      );
-    }
-
-    if (resolved == null &&
-        _preferredCountryLegacyValue != null &&
-        _preferredCountryLegacyValue!.isNotEmpty) {
-      resolved = countryPresenter.findCountryByOldValue(
-        countries,
-        _preferredCountryLegacyValue!,
-      );
-    }
-
-    if (resolved != null && resolved != selectedCountry) {
-      if (!mounted) return;
-      setState(() {
-        selectedCountry = resolved;
-      });
-    }
-  }
-
   Future<void> _handleInactiveAccount() async {
     if (_handledInactiveAccount) return;
     _handledInactiveAccount = true;
@@ -334,20 +264,6 @@ class myState extends State<ProfileEdit> {
     try {
       await Logout().logout(context, token);
     } catch (_) {}
-  }
-
-  // Load countries from API and handle backward compatibility
-  Future<void> _loadCountries() async {
-    try {
-      final loadedCountries = await countryPresenter.getCountries(context);
-      setState(() {
-        countries = loadedCountries;
-      });
-
-      _applyCountrySelection();
-    } catch (e) {
-      print('Error loading countries: $e');
-    }
   }
 
   /// Fetch profile data from server and merge into local fields used by the
@@ -384,7 +300,7 @@ class myState extends State<ProfileEdit> {
       if (kDebugMode) print('Failed to fetch profile: $e');
     }
 
-    if (mounted) setState(() {});
+    _safeSetState(() {});
   }
 
   @override
@@ -504,7 +420,7 @@ class myState extends State<ProfileEdit> {
           _tempSelectedImage = finalFile;
           _imageChanged = true;
           has = true;
-          if (mounted) setState(() {});
+          _safeSetState(() {});
         }
       }
     } catch (e) {
@@ -546,7 +462,7 @@ class myState extends State<ProfileEdit> {
           _tempSelectedImage = finalFile;
           _imageChanged = true;
           has = true;
-          if (mounted) setState(() {});
+          _safeSetState(() {});
         }
       }
     } catch (e) {
@@ -801,7 +717,7 @@ class myState extends State<ProfileEdit> {
       error = Validators.validateName(value, fieldName: 'First Name');
     }
     if (firstNameError != error) {
-      setState(() {
+      _safeSetState(() {
         firstNameError = error;
       });
     }
@@ -817,7 +733,7 @@ class myState extends State<ProfileEdit> {
       error = Validators.validateName(value, fieldName: 'Last Name');
     }
     if (lastNameError != error) {
-      setState(() {
+      _safeSetState(() {
         lastNameError = error;
       });
     }
@@ -826,7 +742,7 @@ class myState extends State<ProfileEdit> {
   void _validatePhone() {
     final error = Validators.validatePhone(mobileController.text);
     if (phoneError != error) {
-      setState(() {
+      _safeSetState(() {
         phoneError = error;
       });
     }
@@ -1137,7 +1053,7 @@ class myState extends State<ProfileEdit> {
                                       child: GenderInputField(
                                         value: gender,
                                         onChanged: (int? newValue) {
-                                          setState(() {
+                                          _safeSetState(() {
                                             gender = newValue;
                                           });
                                         },
@@ -1216,7 +1132,7 @@ class myState extends State<ProfileEdit> {
                                               formattedDate;
                                           dateOfBirth = formattedDate;
 
-                                          setState(() {
+                                          _safeSetState(() {
                                             dateOfBirth = formattedDate;
                                           });
 
@@ -1244,43 +1160,6 @@ class myState extends State<ProfileEdit> {
                                 ),
 
                                 SizedBox(height: AppSizes.paddingM),
-
-                                // Country Section
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 4.w,
-                                        bottom: 8.w,
-                                      ),
-                                      child: Text(
-                                        'Country',
-                                        style: TextStyle(
-                                          fontSize: AppSizes.fontNormal,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black87,
-                                          fontFamily: 'Poppins',
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height: AppSizes.inputHeight,
-                                      child: CountryDropdownWithSearch(
-                                        value: selectedCountry,
-                                        countries:
-                                            countries, // Pass the loaded countries
-                                        onChanged: (Country? newValue) {
-                                          setState(() {
-                                            selectedCountry = newValue;
-                                          });
-                                        },
-                                        hintText: 'Select your country',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
                                 SizedBox(height: 30.w),
 
                                 // Save Button
@@ -1303,17 +1182,6 @@ class myState extends State<ProfileEdit> {
                                                 return; // _validateForm() already handles scrolling to error field
                                               }
 
-                                              // Debug the selectedCountry value before sending
-                                              log(
-                                                '🏳️ DEBUG: selectedCountry value = "$selectedCountry"',
-                                              );
-                                              log(
-                                                '🏳️ DEBUG: selectedCountry isEmpty = ${selectedCountry == null}',
-                                              );
-                                              log(
-                                                '🏳️ DEBUG: selectedCountry == "Select Country" = ${selectedCountry?.nicename == "Select Country"}',
-                                              );
-
                                               // Debug date values
                                               log(
                                                 '📅 DEBUG: dateOfBirth value = "$dateOfBirth"',
@@ -1323,30 +1191,28 @@ class myState extends State<ProfileEdit> {
                                               );
 
                                               // Show loading state with loader widget
-                                              setState(() {
+                                              _safeSetState(() {
                                                 _isLoading = true;
                                               });
 
                                               try {
                                                 // Make a single API call with both profile data and image
-                                                await ProfilePresenter().getProfileUpdate(
-                                                  context,
-                                                  _imageChanged
-                                                      ? _tempSelectedImage
-                                                      : null,
-                                                  // Combine first and last name for API
-                                                  '${firstNameController.text} ${lastNameController.text}'
-                                                      .trim(),
-                                                  passwordController.text,
-                                                  mobileController.text,
-                                                  dateOfBirth,
-                                                  gender,
-                                                  selectedCountry?.id
-                                                          .toString() ??
-                                                      '', // Send country ID as string
-                                                  token,
-                                                  false,
-                                                );
+                                                await ProfilePresenter()
+                                                    .getProfileUpdate(
+                                                      context,
+                                                      _imageChanged
+                                                          ? _tempSelectedImage
+                                                          : null,
+                                                      // Combine first and last name for API
+                                                      '${firstNameController.text} ${lastNameController.text}'
+                                                          .trim(),
+                                                      passwordController.text,
+                                                      mobileController.text,
+                                                      dateOfBirth,
+                                                      gender,
+                                                      token,
+                                                      false,
+                                                    );
 
                                                 // Reset image change tracking after successful save
                                                 _imageChanged = false;
@@ -1359,7 +1225,7 @@ class myState extends State<ProfileEdit> {
 
                                                 // Hide loading state before navigation
                                                 if (mounted) {
-                                                  setState(() {
+                                                  _safeSetState(() {
                                                     _isLoading = false;
                                                   });
 
@@ -1370,7 +1236,7 @@ class myState extends State<ProfileEdit> {
                                               } catch (e) {
                                                 // Hide loading state on error
                                                 if (mounted) {
-                                                  setState(() {
+                                                  _safeSetState(() {
                                                     _isLoading = false;
                                                   });
                                                 }

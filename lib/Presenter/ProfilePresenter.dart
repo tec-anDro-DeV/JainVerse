@@ -33,7 +33,6 @@ class ProfilePresenter {
     String mbl,
     String dob,
     int? gender,
-    String countryId,
     String token,
     bool artist,
   ) async {
@@ -72,15 +71,6 @@ class ProfilePresenter {
     if (dob.isNotEmpty && dob != 'Select Birthdate') {
       formDataMap[AppConstant.dob] = dob;
     }
-    if (countryId.isNotEmpty && countryId != 'Select Country') {
-      log('✅ Adding country_id to FormData: "$countryId"');
-      formDataMap[AppConstant.country] = countryId;
-    } else {
-      log(
-        '❌ NOT adding country_id. Value: "$countryId", isEmpty: ${countryId.isEmpty}, isSelectCountry: ${countryId == 'Select Country'}',
-      );
-    }
-
     // Add image if provided
     if (imageFile != null &&
         imageFile.path.isNotEmpty &&
@@ -120,7 +110,6 @@ class ProfilePresenter {
     log('Mobile: "$mbl" (isEmpty: ${mbl.isEmpty})');
     log('DOB: "$dob" (isEmpty: ${dob.isEmpty})');
     log('Gender: ${gender ?? "<null>"}');
-    log('Country: "$countryId" (isEmpty: ${countryId.isEmpty})');
     log(
       'Password: "${pass.isNotEmpty ? "[SET]" : "[EMPTY]"}" (isEmpty: ${pass.isEmpty})',
     );

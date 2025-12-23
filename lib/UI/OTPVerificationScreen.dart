@@ -11,6 +11,33 @@ import 'package:jainverse/services/token_expiration_handler.dart';
 import 'package:jainverse/utils/music_player_state_manager.dart';
 import 'package:jainverse/widgets/auth/auth_header.dart';
 
+// Formatter to detect backspace/delete attempts from soft keyboards (iOS)
+// and trigger a callback so we can move focus to the previous field.
+// This is a top-level helper used by the OTP fields below.
+class BackspaceTextInputFormatter extends TextInputFormatter {
+  final VoidCallback onBackspaceOnEmpty;
+  BackspaceTextInputFormatter({required this.onBackspaceOnEmpty});
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    try {
+      final wasDeletion = oldValue.text.length > newValue.text.length;
+      final bothEmpty = oldValue.text.isEmpty && newValue.text.isEmpty;
+      if ((wasDeletion && newValue.text.isEmpty) || bothEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            onBackspaceOnEmpty();
+          } catch (_) {}
+        });
+      }
+    } catch (_) {}
+    return newValue;
+  }
+}
+
 class OTPVerificationScreen extends StatefulWidget {
   final String phoneNumber;
   final String verificationId;
@@ -42,7 +69,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
     _otpLength,
     (_) => FocusNode(),
   );
+  // Single hidden controller to reliably capture OTP input (works better
+  // across platforms, including iOS soft-keyboard backspace behavior).
+  final TextEditingController _hiddenController = TextEditingController();
+  final FocusNode _hiddenFocusNode = FocusNode();
   final PhoneAuthService _authService = PhoneAuthService();
+  // When true, the parent unfocus handler will ignore the next tap.
+  bool _suppressUnfocus = false;
 
   bool _isLoading = false;
   bool _canResend = false;
@@ -99,6 +132,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
 
     // Start resend cooldown
     _startResendCooldown();
+
+    // Listen to hidden controller changes to update visible boxes
+    _hiddenController.addListener(() {
+      setState(() {});
+      if (_hiddenController.text.length == _otpLength) {
+        // Auto-verify when filled
+        _handleVerifyOTP();
+      }
+    });
   }
 
   @override
@@ -114,6 +156,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
     for (var node in _otpKeyNodes) {
       node.dispose();
     }
+    _hiddenController.dispose();
+    _hiddenFocusNode.dispose();
     super.dispose();
   }
 
@@ -152,7 +196,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
 
   /// Get the complete OTP from all controllers
   String _getOTP() {
-    return _otpControllers.map((controller) => controller.text).join();
+    return _hiddenController.text;
   }
 
   /// Handle OTP verification
@@ -249,11 +293,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
             _verificationId = newVerificationId;
           });
         }
-        // Clear existing OTP
-        for (var controller in _otpControllers) {
-          controller.clear();
-        }
-        _otpFocusNodes[0].requestFocus();
+        // Clear existing OTP (hidden controller is authoritative)
+        _hiddenController.clear();
+        _hiddenFocusNode.requestFocus();
 
         // Restart cooldown
         _startResendCooldown();
@@ -272,76 +314,38 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
     return SizedBox(
       width: 56.w,
       height: 68.w,
-      child: Focus(
-        focusNode: _otpKeyNodes[index],
-        onKey: (node, event) {
-          // Handle backspace key specifically to manage deleting previous box
-          if (event is RawKeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.backspace) {
-            final currentText = _otpControllers[index].text;
-            if (currentText.isNotEmpty) {
-              // If current box has value, just clear it and keep focus
-              _otpControllers[index].clear();
-              return KeyEventResult.handled;
-            } else if (index > 0) {
-              // If current is empty, move to previous, clear it and focus it
-              _otpControllers[index - 1].clear();
-              _otpFocusNodes[index - 1].requestFocus();
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
+      child: GestureDetector(
+        onTap: () {
+          // Focus the hidden field so keyboard appears and input updates boxes
+          _suppressUnfocus = true;
+          FocusScope.of(context).requestFocus(_hiddenFocusNode);
+          // place caret at end so new input appends
+          _hiddenController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _hiddenController.text.length),
+          );
+          // reset the suppression the next frame
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _suppressUnfocus = false;
+          });
         },
-        child: TextField(
-          controller: _otpControllers[index],
-          focusNode: _otpFocusNodes[index],
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          textAlignVertical: TextAlignVertical.center,
-          maxLength: 1,
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: Colors.grey[300]!, width: 1.5),
           ),
-          decoration: InputDecoration(
-            counterText: '',
-            contentPadding: EdgeInsets.zero,
-            filled: true,
-            fillColor: Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.r),
-              borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.r),
-              borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.r),
-              borderSide: BorderSide(
-                color: appColors().primaryColorApp,
-                width: 2,
-              ),
+          child: Text(
+            // Show the character at this index if present
+            _hiddenController.text.length > index
+                ? _hiddenController.text[index]
+                : '',
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
             ),
           ),
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: (value) {
-            if (value.isNotEmpty) {
-              // Move to next field
-              if (index < _otpLength - 1) {
-                FocusScope.of(context).requestFocus(_otpFocusNodes[index + 1]);
-              } else {
-                // Last field, dismiss keyboard
-                FocusScope.of(context).unfocus();
-                // Auto-verify if all fields are filled
-                if (_getOTP().length == _otpLength) {
-                  _handleVerifyOTP();
-                }
-              }
-            }
-            // Do not handle empty->previous here; onKey handles backspace logic to avoid double-clearing
-          },
         ),
       ),
     );
@@ -405,6 +409,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
                       position: _slideAnimation,
                       child: GestureDetector(
                         onTap: () {
+                          if (_suppressUnfocus) {
+                            _suppressUnfocus = false;
+                            return;
+                          }
                           FocusScope.of(context).unfocus();
                         },
                         child: Container(
@@ -486,6 +494,32 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
                                     children: List.generate(
                                       _otpLength,
                                       (index) => _buildOTPField(index),
+                                    ),
+                                  ),
+                                  // Hidden text field that actually receives input.
+                                  // Keep it invisible but focusable so keyboard works reliably
+                                  // (especially on iOS). We wrap in a tiny SizedBox
+                                  // with zero opacity so it can receive focus.
+                                  SizedBox(
+                                    height: 1,
+                                    child: Opacity(
+                                      opacity: 0.0,
+                                      child: TextField(
+                                        controller: _hiddenController,
+                                        focusNode: _hiddenFocusNode,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                          LengthLimitingTextInputFormatter(
+                                            _otpLength,
+                                          ),
+                                        ],
+                                        decoration: const InputDecoration(
+                                          border: InputBorder.none,
+                                          counterText: '',
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   SizedBox(height: 32.w),

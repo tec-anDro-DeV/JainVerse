@@ -798,8 +798,8 @@ class MyState extends State<AccountPage>
       builder: (context, snapshot) {
         final hasMiniPlayer = snapshot.hasData;
         final bottomPadding = hasMiniPlayer
-            ? AppPadding.bottom(context, extra: 100.w)
-            : AppPadding.bottom(context);
+            ? AppPadding.bottom(context, extra: 120.w)
+            : AppPadding.bottom(context, extra: 50.w);
         return FutureBuilder<void>(
           future: _initFuture,
           builder: (context, initSnap) {
@@ -1401,167 +1401,210 @@ class MyState extends State<AccountPage>
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
+    bool isDeletingAccount = false;
+
     showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 320.w,
-            padding: EdgeInsets.all(24.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20.w),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80.w,
-                  height: 80.w,
-                  decoration: BoxDecoration(
-                    color: appColors().primaryColorApp.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.delete_forever_outlined,
-                    size: 60.w,
-                    color: appColors().primaryColorApp,
-                  ),
-                ),
-
-                SizedBox(height: 24.h),
-
-                Text(
-                  'Are You Sure, You Want to\nDelete your account?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D3748),
-                    fontFamily: 'Poppins',
-                    height: 1.3,
-                  ),
-                ),
-
-                SizedBox(height: 16.h),
-
-                Text(
-                  'This action cannot be undone. All your data will be permanently deleted.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: AppSizes.fontSmall - 2.sp,
-                    color: const Color(0xFF718096),
-                    fontFamily: 'Poppins',
-                    height: 1.4,
-                  ),
-                ),
-
-                SizedBox(height: 32.h),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 48.h,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: appColors().primaryColorApp,
-                            width: 1.5,
-                          ),
-                          borderRadius: BorderRadius.circular(14.w),
-                        ),
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14.w),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: appColors().primaryColorApp,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(width: 16.w),
-
-                    Expanded(
-                      child: Container(
-                        height: 48.h,
-                        decoration: BoxDecoration(
-                          color: appColors().primaryColorApp,
-                          borderRadius: BorderRadius.circular(14.w),
-                        ),
-                        child: TextButton(
-                          onPressed: () async {
-                            int res = await Logout().deleteApi(
-                              context,
-                              token,
-                              model.data.id,
-                            );
-                            if (res == 1) {
-                              sharePrefs.removeValues();
-                              await CacheManager.clearAllCacheIncludingImages();
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (BuildContext context) =>
-                                      const LoginScreen(),
-                                ),
-                                (Route<dynamic> route) => false,
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Failed to delete account. Please try again.',
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14.w),
-                            ),
-                          ),
-                          child: Text(
-                            'Delete',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ),
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext dialogBuilderContext, StateSetter dialogSetState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                width: 320.w,
+                padding: EdgeInsets.all(24.w),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20.w),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 80.w,
+                      height: 80.w,
+                      decoration: BoxDecoration(
+                        color: appColors().primaryColorApp.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.delete_forever_outlined,
+                        size: 60.w,
+                        color: appColors().primaryColorApp,
+                      ),
+                    ),
+
+                    SizedBox(height: 24.h),
+
+                    Text(
+                      'Are You Sure, You Want to\nDelete your account?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2D3748),
+                        fontFamily: 'Poppins',
+                        height: 1.3,
+                      ),
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    Text(
+                      'This action cannot be undone. All your data will be permanently deleted.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: AppSizes.fontSmall - 2.sp,
+                        color: const Color(0xFF718096),
+                        fontFamily: 'Poppins',
+                        height: 1.4,
+                      ),
+                    ),
+
+                    SizedBox(height: 32.h),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 48.h,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: appColors().primaryColorApp,
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(14.w),
+                            ),
+                            child: TextButton(
+                              onPressed: () {
+                                Navigator.pop(dialogBuilderContext);
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14.w),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: appColors().primaryColorApp,
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: 'Poppins',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(width: 16.w),
+
+                        Expanded(
+                          child: Container(
+                            height: 48.h,
+                            decoration: BoxDecoration(
+                              color: appColors().primaryColorApp,
+                              borderRadius: BorderRadius.circular(14.w),
+                            ),
+                            child: TextButton(
+                              onPressed: isDeletingAccount
+                                  ? null
+                                  : () async {
+                                      dialogSetState(
+                                        () => isDeletingAccount = true,
+                                      );
+                                      try {
+                                        int res = await Logout().deleteApi(
+                                          dialogContext,
+                                          token,
+                                          model.data.id,
+                                        );
+                                        if (res == 1) {
+                                          sharePrefs.removeValues();
+                                          await CacheManager.clearAllCacheIncludingImages();
+                                          Navigator.of(
+                                            dialogContext,
+                                          ).pushAndRemoveUntil(
+                                            MaterialPageRoute(
+                                              builder: (BuildContext context) =>
+                                                  const LoginScreen(),
+                                            ),
+                                            (Route<dynamic> route) => false,
+                                          );
+                                          return;
+                                        }
+                                        dialogSetState(
+                                          () => isDeletingAccount = false,
+                                        );
+                                        ScaffoldMessenger.of(
+                                          dialogContext,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Failed to delete account. Please try again.',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      } catch (error) {
+                                        dialogSetState(
+                                          () => isDeletingAccount = false,
+                                        );
+                                        ScaffoldMessenger.of(
+                                          dialogContext,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Failed to delete account. Please try again.',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14.w),
+                                ),
+                              ),
+                              child: isDeletingAccount
+                                  ? SizedBox(
+                                      height: 20.h,
+                                      width: 20.h,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

@@ -249,7 +249,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
               ),
             ..._buildSections(),
             SliverToBoxAdapter(
-              child: SizedBox(height: AppPadding.bottom(context, extra: 50.w)),
+              child: SizedBox(height: AppPadding.bottom(context, extra: 120.w)),
             ),
           ],
         ),
@@ -552,6 +552,8 @@ class _HomeDiscoverState extends State<HomeDiscover>
   }) {
     if (songs.isEmpty) return null;
 
+    final rows = songs.length <= 1 ? 1 : 2;
+
     return Padding(
       padding: EdgeInsets.only(top: 12.w),
       child: Column(
@@ -563,13 +565,13 @@ class _HomeDiscoverState extends State<HomeDiscover>
             onViewAllPressed: () => _handleViewAll(_HomeSection.latestSongs),
           ),
           SizedBox(
-            height: _HomeSectionMetrics.latestSongsGridHeight,
+            height: _HomeSectionMetrics.latestSongsHeightForRows(rows),
             child: GridView.builder(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12.w,
+                crossAxisCount: rows,
+                mainAxisSpacing: rows > 1 ? 12.w : 0,
                 crossAxisSpacing: 12.w,
                 mainAxisExtent: 320.w,
               ),
@@ -1135,10 +1137,11 @@ class _HomeSectionMetrics {
     return padding + math.max(contentHeight, minVisualHeight);
   }
 
-  static double get latestSongsGridHeight {
-    const rows = 2;
-    final rowSpacing = 12.w;
-    return (HorizontalSongCardHeight * rows) + rowSpacing + 12.w;
+  static double latestSongsHeightForRows(int rows) {
+    final safeRows = math.max(1, rows);
+    final spacing = (safeRows - 1) * 12.w;
+    // Add a small bottom padding to avoid tight clipping.
+    return (HorizontalSongCardHeight * safeRows) + spacing + 12.w;
   }
 
   static double get genreCarouselHeight {

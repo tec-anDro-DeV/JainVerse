@@ -152,8 +152,6 @@ class ModelSettingsData {
   String mobile = "";
   String image = "";
   String dob = "";
-  String country_id = ""; // Keep as string for backward compatibility
-  int? country_id_numeric; // Add numeric version for new API
   String currencyCode = "";
   String currencySymbol = "";
   String tax = "";
@@ -182,8 +180,6 @@ class ModelSettingsData {
     this.mobile,
     this.image,
     this.dob,
-    this.country_id,
-    this.country_id_numeric,
     this.currencyCode,
     this.currencySymbol,
     this.tax,
@@ -204,26 +200,6 @@ class ModelSettingsData {
   );
 
   factory ModelSettingsData.fromJson(Map<String, dynamic> json) {
-    // Handle backward compatibility for country_id
-    String countryIdString = json['country_id']?.toString() ?? '';
-    int? countryIdNumeric;
-
-    // Try to parse country_id as numeric if it's a number
-    if (json['country_id'] != null) {
-      if (json['country_id'] is int) {
-        countryIdNumeric = json['country_id'];
-        // For backward compatibility, also store as string
-        countryIdString = json['country_id'].toString();
-      } else if (json['country_id'] is String) {
-        // Try to parse string as number for new format
-        final parsed = int.tryParse(json['country_id']);
-        if (parsed != null) {
-          countryIdNumeric = parsed;
-        }
-        countryIdString = json['country_id'];
-      }
-    }
-
     return ModelSettingsData(
       json['id'] ?? 0,
       json['name'] ?? '',
@@ -233,8 +209,6 @@ class ModelSettingsData {
       json['mobile'] ?? '',
       json['image'] ?? '',
       json['dob'] ?? '',
-      countryIdString, // Use processed country_id string
-      countryIdNumeric, // Add numeric country_id
       json['currencyCode'] ?? '',
       json['currencySymbol'] ?? '',
       json['tax'] ?? '',
