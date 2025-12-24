@@ -14,6 +14,10 @@ import AVKit
   private var methodChannel: FlutterMethodChannel?
   private let pipChannelName = "com.jainverse.pip"
   private var pipChannel: FlutterMethodChannel?
+  private let pluginRegistrarName = "com.jainverse.AppDelegate"
+  private var pluginMessenger: FlutterBinaryMessenger? {
+    registrar(forPlugin: pluginRegistrarName)?.messenger()
+  }
   
   // PiP management with AVPlayerViewController
   private var pipViewController: AVPlayerViewController?
@@ -66,8 +70,10 @@ import AVKit
     GeneratedPluginRegistrant.register(with: self)
     configureAudioSession()
 
-    if let controller = window?.rootViewController as? FlutterViewController {
-      setupMethodChannels(controller: controller)
+    if let messenger = pluginMessenger {
+      setupMethodChannels(messenger: messenger)
+    } else {
+      NSLog("[BackgroundAudioManager][iOS] Unable to register Flutter channels: messenger unavailable")
     }
     
     // Observe app lifecycle for PiP
@@ -86,9 +92,9 @@ import AVKit
     cleanupPipResources()
   }
   
-  private func setupMethodChannels(controller: FlutterViewController) {
+  private func setupMethodChannels(messenger: FlutterBinaryMessenger) {
     // Background audio channel
-    methodChannel = FlutterMethodChannel(name: channelName, binaryMessenger: controller.binaryMessenger)
+    methodChannel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
     methodChannel?.setMethodCallHandler({ [weak self] (call, result) in
       guard let self = self else { return }
       switch call.method {
@@ -120,7 +126,7 @@ import AVKit
     })
 
     // Orientation channel
-    orientationChannel = FlutterMethodChannel(name: orientationChannelName, binaryMessenger: controller.binaryMessenger)
+    orientationChannel = FlutterMethodChannel(name: orientationChannelName, binaryMessenger: messenger)
     orientationChannel?.setMethodCallHandler({ (call, result) in
       switch call.method {
       case "setOrientationLock":
@@ -144,7 +150,7 @@ import AVKit
     })
 
     // PiP channel
-    pipChannel = FlutterMethodChannel(name: pipChannelName, binaryMessenger: controller.binaryMessenger)
+    pipChannel = FlutterMethodChannel(name: pipChannelName, binaryMessenger: messenger)
     pipChannel?.setMethodCallHandler({ [weak self] (call, result) in
       guard let self = self else { return }
       switch call.method {

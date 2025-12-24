@@ -125,7 +125,7 @@ class MyState extends State<AccountPage>
       model = await userFuture;
 
       try {
-        name = (model.data.name ?? '').trim();
+        name = model.data.name.trim();
       } catch (_) {
         name = '';
       }

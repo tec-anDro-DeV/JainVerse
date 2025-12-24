@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Model/video_model.dart';
+import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/repositories/channel_detail_repository.dart';
 
 class ChannelDetailState {
@@ -79,6 +80,13 @@ class ChannelDetailPresenter extends ChangeNotifier {
           error: null,
         ),
       );
+      final channelInfo = payload.channel;
+      if (channelInfo != null) {
+        SubscriptionStateManager().updateSubscriptionState(
+          channelInfo.id,
+          channelInfo.isSubscribed,
+        );
+      }
     } catch (error) {
       _update(
         _state.copyWith(

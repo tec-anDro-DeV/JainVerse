@@ -46,7 +46,11 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
 
   void _onSubscriptionStateChanged() {
     if (!mounted) return;
-    setState(() {});
+    _channels.removeWhere((channel) => !_isChannelSubscribed(channel));
+    if (!mounted) return;
+    setState(() {
+      // Refresh list and buttons whenever the shared state mutates.
+    });
   }
 
   Future<void> _loadSubscribedChannels() async {
@@ -62,6 +66,7 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
           _channels = channels;
           _isLoading = false;
         });
+        _syncSubscriptionState(channels);
       }
     } catch (e) {
       if (mounted) {
@@ -85,6 +90,7 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
           _hasError = false;
         });
       }
+      _syncSubscriptionState(channels);
     } catch (e) {
       if (mounted) {
         _showSnackbar('Failed to refresh channels');
@@ -164,10 +170,7 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
   }
 
   Widget _buildChannelCard(ChannelItem channel) {
-    final bool isSubscribed =
-        _subscriptionManager.getSubscriptionState(channel.id) ??
-        channel.subscribed ??
-        true;
+    final bool isSubscribed = _isChannelSubscribed(channel);
     final bool isLoading = _loadingChannels.contains(channel.id);
 
     return Material(
@@ -240,8 +243,7 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
                             ignoring: isLoading,
                             child: AnimatedSubscribeButton(
                               isSubscribed: isSubscribed,
-                              onPressed: () =>
-                                  _toggleSubscription(channel, isSubscribed),
+                              onPressed: () => _toggleSubscription(channel),
                             ),
                           ),
                           if (isLoading)
@@ -270,6 +272,14 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
       color: const Color(0xFFF0F0F0),
       child: const Icon(Icons.person_rounded, color: Color(0xFFBDBDBD)),
     );
+  }
+
+  bool _isChannelSubscribed(ChannelItem channel) {
+    final bool? cached = _subscriptionManager.getSubscriptionState(channel.id);
+    if (cached != null) {
+      return cached;
+    }
+    return channel.subscribed ?? true;
   }
 
   Widget _buildErrorState() {
@@ -376,14 +386,12 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
     );
   }
 
-  Future<void> _toggleSubscription(
-    ChannelItem channel,
-    bool isSubscribed,
-  ) async {
+  Future<void> _toggleSubscription(ChannelItem channel) async {
     final int channelId = channel.id;
     if (_loadingChannels.contains(channelId)) return;
 
-    final bool nextState = !isSubscribed;
+    final bool currentState = _isChannelSubscribed(channel);
+    final bool nextState = !currentState;
     setState(() {
       _loadingChannels.add(channelId);
     });
@@ -405,13 +413,19 @@ class _SubscribedChannelsScreenState extends State<SubscribedChannelsScreen> {
       }
     } catch (e) {
       // Revert optimistic update
-      _subscriptionManager.updateSubscriptionState(channelId, isSubscribed);
+      _subscriptionManager.updateSubscriptionState(channelId, currentState);
       _showSnackbar('Unable to update subscription');
     } finally {
       if (!mounted) return;
       setState(() {
         _loadingChannels.remove(channelId);
       });
+    }
+  }
+
+  void _syncSubscriptionState(List<ChannelItem> channels) {
+    for (final channel in channels) {
+      _subscriptionManager.updateSubscriptionState(channel.id, true);
     }
   }
 

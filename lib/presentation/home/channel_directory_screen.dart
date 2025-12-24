@@ -78,7 +78,7 @@ class ChannelDirectoryScreen extends StatelessWidget {
   }
 
   void _openChannel(BuildContext context, ChannelModel channel) {
-    final channelId = channel.id ?? channel.userId;
+    final channelId = channel.id;
 
     Navigator.push(
       context,

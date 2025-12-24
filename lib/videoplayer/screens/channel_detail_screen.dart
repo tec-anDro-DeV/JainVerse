@@ -59,6 +59,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   bool? _lastHasMiniPlayer;
   bool _isSubscriptionInFlight = false;
   bool _isHeaderExpanded = true;
+  bool _isPresenterUpdateScheduled = false;
+  bool _isSubscriptionUpdateScheduled = false;
 
   @override
   void initState() {
@@ -161,13 +163,38 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   }
 
   void _onPresenterChanged() {
-    if (!mounted) return;
-    setState(() {});
+    if (!mounted || _isPresenterUpdateScheduled) return;
+    _isPresenterUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isPresenterUpdateScheduled = false;
+      if (!mounted) return;
+      setState(() {});
+    });
   }
 
   void _onSubscriptionChanged() {
-    if (!mounted) return;
-    setState(() {});
+    if (!mounted || _isSubscriptionUpdateScheduled) return;
+    _isSubscriptionUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isSubscriptionUpdateScheduled = false;
+      if (!mounted) return;
+      final channel = _presenter.state.channel;
+      if (channel != null) {
+        final global = SubscriptionStateManager().getSubscriptionState(
+          channel.id,
+        );
+        if (global != null && global != channel.isSubscribed) {
+          _presenter.updateSubscription(global);
+          return;
+        }
+      }
+      setState(() {});
+    });
+  }
+
+  bool _resolveChannelSubscription(ChannelDetailInfo channel) {
+    final global = SubscriptionStateManager().getSubscriptionState(channel.id);
+    return global ?? channel.isSubscribed;
   }
 
   void _onLikeDislikeChanged() {
@@ -186,15 +213,13 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
       return;
     }
 
-    final bool nextValue = !channel.isSubscribed;
+    final bool currentSubscribed = _resolveChannelSubscription(channel);
+    final bool nextValue = !currentSubscribed;
     setState(() {
       _isSubscriptionInFlight = true;
     });
     _presenter.updateSubscription(nextValue);
-    SubscriptionStateManager().updateSubscriptionState(
-      widget.channelId,
-      nextValue,
-    );
+    SubscriptionStateManager().updateSubscriptionState(channel.id, nextValue);
 
     try {
       if (nextValue) {
@@ -495,6 +520,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   }
 
   Widget _buildSubscriberRow(ChannelDetailInfo channel) {
+    final bool isSubscribed = _resolveChannelSubscription(channel);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Row(
@@ -509,7 +535,9 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                       minWidth: 100.w,
                       maxWidth: 240.w,
                     ),
-                    child: _buildModernSubscribeButton(channel),
+                    child: _buildModernSubscribeButton(
+                      isSubscribed: isSubscribed,
+                    ),
                   ),
                   SizedBox(width: 12.w),
                 ],
@@ -524,7 +552,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                   ),
                 ),
                 // If channel has no description, surface the More button here
-                if ((channel.description ?? '').trim().isEmpty) ...[
+                if (channel.description.trim().isEmpty) ...[
                   SizedBox(width: 12.w),
                   _buildInfoMoreButton(_presenter.state),
                 ],
@@ -684,7 +712,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     );
   }
 
-  Widget _buildModernSubscribeButton(ChannelDetailInfo channel) {
+  Widget _buildModernSubscribeButton({required bool isSubscribed}) {
     return SizedBox(
       height: 44.h,
       child: Stack(
@@ -695,7 +723,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24.w),
-                gradient: channel.isSubscribed
+                gradient: isSubscribed
                     ? null
                     : LinearGradient(
                         colors: [
@@ -703,8 +731,8 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                           appColors().primaryColorApp.shade600,
                         ],
                       ),
-                color: channel.isSubscribed ? Colors.grey.shade200 : null,
-                boxShadow: channel.isSubscribed
+                color: isSubscribed ? Colors.grey.shade200 : null,
+                boxShadow: isSubscribed
                     ? null
                     : [
                         BoxShadow(
@@ -728,19 +756,19 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          channel.isSubscribed ? Icons.check : Icons.add,
-                          color: channel.isSubscribed
+                          isSubscribed ? Icons.check : Icons.add,
+                          color: isSubscribed
                               ? Colors.grey.shade700
                               : Colors.white,
                           size: 20.w,
                         ),
                         SizedBox(width: 8.w),
                         Text(
-                          channel.isSubscribed ? 'Subscribed' : 'Subscribe',
+                          isSubscribed ? 'Subscribed' : 'Subscribe',
                           style: TextStyle(
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w600,
-                            color: channel.isSubscribed
+                            color: isSubscribed
                                 ? Colors.grey.shade700
                                 : Colors.white,
                           ),

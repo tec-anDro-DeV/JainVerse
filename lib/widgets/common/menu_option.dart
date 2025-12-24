@@ -355,58 +355,57 @@ class MenuOption extends StatelessWidget {
       context,
       rootNavigator: true,
     );
-    final BuildContext rootContext = rootNavigator.context ?? context;
+    final BuildContext rootContext = rootNavigator.context;
 
     return showModalBottomSheet(
       context: rootContext,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder:
-          (context) => SafeArea(
-            child: Container(
-              margin: EdgeInsets.all(16.w),
-              child: MenuOption(
-                songId: songId,
-                title: title,
-                artist: artist,
-                songImage: songImage,
-                isFavorite: isFavorite,
-                onFavoriteToggle: () {
-                  Navigator.pop(context);
-                  onFavoriteToggle?.call();
-                },
-                onAddToPlaylist: () {
-                  Navigator.pop(context);
-                  onAddToPlaylist?.call();
-                },
-                onAddToQueue: () {
-                  Navigator.pop(context);
-                  onAddToQueue?.call();
-                },
-                onDownload: () {
-                  Navigator.pop(context);
-                  onDownload?.call();
-                },
-                onShare: () {
-                  Navigator.pop(context);
-                  onShare?.call();
-                },
-                onDeleteFromLibrary: () {
-                  Navigator.pop(context);
-                  onDeleteFromLibrary?.call();
-                },
-                onRemoveFromRecent: () {
-                  Navigator.pop(context);
-                  onRemoveFromRecent?.call();
-                },
-                showDeleteFromLibrary: showDeleteFromLibrary,
-                showRemoveFromRecent: showRemoveFromRecent,
-                allowDownload: allowDownload,
-                track: track,
-                customOptions: customOptions,
-              ),
-            ),
+      builder: (context) => SafeArea(
+        child: Container(
+          margin: EdgeInsets.all(16.w),
+          child: MenuOption(
+            songId: songId,
+            title: title,
+            artist: artist,
+            songImage: songImage,
+            isFavorite: isFavorite,
+            onFavoriteToggle: () {
+              Navigator.pop(context);
+              onFavoriteToggle?.call();
+            },
+            onAddToPlaylist: () {
+              Navigator.pop(context);
+              onAddToPlaylist?.call();
+            },
+            onAddToQueue: () {
+              Navigator.pop(context);
+              onAddToQueue?.call();
+            },
+            onDownload: () {
+              Navigator.pop(context);
+              onDownload?.call();
+            },
+            onShare: () {
+              Navigator.pop(context);
+              onShare?.call();
+            },
+            onDeleteFromLibrary: () {
+              Navigator.pop(context);
+              onDeleteFromLibrary?.call();
+            },
+            onRemoveFromRecent: () {
+              Navigator.pop(context);
+              onRemoveFromRecent?.call();
+            },
+            showDeleteFromLibrary: showDeleteFromLibrary,
+            showRemoveFromRecent: showRemoveFromRecent,
+            allowDownload: allowDownload,
+            track: track,
+            customOptions: customOptions,
           ),
+        ),
+      ),
     );
   }
 
@@ -437,51 +436,50 @@ class MenuOption extends StatelessWidget {
     late OverlayEntry overlayEntry;
 
     overlayEntry = OverlayEntry(
-      builder:
-          (context) => ResponsiveMenuOverlay(
-            onDismiss: () => overlayEntry.remove(),
-            position: position,
-            child: MenuOption(
-              songId: songId,
-              title: title,
-              artist: artist,
-              songImage: songImage,
-              isFavorite: isFavorite,
-              onFavoriteToggle: () {
-                overlayEntry.remove();
-                onFavoriteToggle?.call();
-              },
-              onAddToPlaylist: () {
-                overlayEntry.remove();
-                onAddToPlaylist?.call();
-              },
-              onAddToQueue: () {
-                overlayEntry.remove();
-                onAddToQueue?.call();
-              },
-              onDownload: () {
-                overlayEntry.remove();
-                onDownload?.call();
-              },
-              onShare: () {
-                overlayEntry.remove();
-                onShare?.call();
-              },
-              onDeleteFromLibrary: () {
-                overlayEntry.remove();
-                onDeleteFromLibrary?.call();
-              },
-              onRemoveFromRecent: () {
-                overlayEntry.remove();
-                onRemoveFromRecent?.call();
-              },
-              showDeleteFromLibrary: showDeleteFromLibrary,
-              showRemoveFromRecent: showRemoveFromRecent,
-              allowDownload: allowDownload,
-              track: track,
-              customOptions: customOptions,
-            ),
-          ),
+      builder: (context) => ResponsiveMenuOverlay(
+        onDismiss: () => overlayEntry.remove(),
+        position: position,
+        child: MenuOption(
+          songId: songId,
+          title: title,
+          artist: artist,
+          songImage: songImage,
+          isFavorite: isFavorite,
+          onFavoriteToggle: () {
+            overlayEntry.remove();
+            onFavoriteToggle?.call();
+          },
+          onAddToPlaylist: () {
+            overlayEntry.remove();
+            onAddToPlaylist?.call();
+          },
+          onAddToQueue: () {
+            overlayEntry.remove();
+            onAddToQueue?.call();
+          },
+          onDownload: () {
+            overlayEntry.remove();
+            onDownload?.call();
+          },
+          onShare: () {
+            overlayEntry.remove();
+            onShare?.call();
+          },
+          onDeleteFromLibrary: () {
+            overlayEntry.remove();
+            onDeleteFromLibrary?.call();
+          },
+          onRemoveFromRecent: () {
+            overlayEntry.remove();
+            onRemoveFromRecent?.call();
+          },
+          showDeleteFromLibrary: showDeleteFromLibrary,
+          showRemoveFromRecent: showRemoveFromRecent,
+          allowDownload: allowDownload,
+          track: track,
+          customOptions: customOptions,
+        ),
+      ),
     );
 
     Overlay.of(context).insert(overlayEntry);
@@ -773,8 +771,10 @@ class MenuOption extends StatelessWidget {
           } else {
             // Default add to playlist behavior - use the static show method
             // which handles root navigator context properly
-            final rootContext =
-                Navigator.of(context, rootNavigator: true).context;
+            final rootContext = Navigator.of(
+              context,
+              rootNavigator: true,
+            ).context;
             AddToPlaylistBottomSheet.show(
               rootContext,
               songId: songId,
@@ -929,10 +929,9 @@ class MenuOption extends StatelessWidget {
         HapticFeedback.lightImpact();
         onFavoriteToggle?.call();
       },
-      iconColor:
-          isFavorite
-              ? appColors().primaryColorApp.withOpacity(0.8)
-              : Colors.white.withOpacity(0.8),
+      iconColor: isFavorite
+          ? appColors().primaryColorApp.withOpacity(0.8)
+          : Colors.white.withOpacity(0.8),
     );
   }
 
@@ -1036,9 +1035,8 @@ class _ResponsiveMenuOverlayState extends State<ResponsiveMenuOverlay>
                         child: Material(
                           color: Colors.transparent,
                           child: Container(
-                            margin:
-                                EdgeInsets
-                                    .zero, // Remove margin for tighter positioning
+                            margin: EdgeInsets
+                                .zero, // Remove margin for tighter positioning
                             child: GestureDetector(
                               onTap: () {}, // Prevent tap from propagating
                               child: widget.child,
