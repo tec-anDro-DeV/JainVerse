@@ -110,6 +110,7 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isSubscribed = false;
   bool _isSubscriptionInProgress = false;
+  bool _subscriptionListenerAdded = false;
   // Like / Dislike / Report services
   final LikeDislikeService _likeDislikeService = LikeDislikeService();
   // Local like count used to display and optimistically update totalLikes
@@ -206,6 +207,31 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     });
     // Initialize local counts from originating VideoItem when available
     _localTotalLikes = widget.videoItem?.totalLikes;
+    // Initialize subscription state from originating VideoItem when available.
+    // Do NOT overwrite global manager if it already has a more-recent value
+    // (e.g. coming back from Channel detail). Prefer global state when present.
+    if (widget.videoItem?.subscribed != null) {
+      final cid = widget.channelId ?? widget.videoItem?.channelId;
+      if (cid != null) {
+        final global = SubscriptionStateManager().getSubscriptionState(cid);
+        if (global != null) {
+          // Global state exists — treat it as authoritative/newer
+          _isSubscribed = global;
+        } else {
+          // No global state yet — seed it from the incoming VideoItem
+          _isSubscribed = widget.videoItem!.subscribed!;
+          try {
+            SubscriptionStateManager().updateSubscriptionState(
+              cid,
+              _isSubscribed,
+            );
+          } catch (_) {}
+        }
+      } else {
+        // No channel id; just set local state from the VideoItem
+        _isSubscribed = widget.videoItem!.subscribed!;
+      }
+    }
     // Subscription listener & initial value will be registered after we
     // initialize the provider state (below) so we catch cases where the
     // mini-player expansion didn't pass channel metadata in the widget
@@ -480,9 +506,12 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
                 _isSubscribed = global ?? false;
               });
             }
-            SubscriptionStateManager().addListener(
-              _onGlobalSubscriptionChanged,
-            );
+            if (!_subscriptionListenerAdded) {
+              SubscriptionStateManager().addListener(
+                _onGlobalSubscriptionChanged,
+              );
+              _subscriptionListenerAdded = true;
+            }
           }
         } catch (e) {
           debugPrint(
@@ -1721,6 +1750,24 @@ class _VideoPlayerViewState extends ConsumerState<VideoPlayerView>
     // Prefer provider thumbnail (updates when provider changes). Fall back to
     // the initially-passed widget.thumbnailUrl when provider hasn't set one.
     final thumbnail = videoState.thumbnailUrl ?? widget.thumbnailUrl;
+
+    // Ensure subscription listener is registered when provider exposes a
+    // channelId but the widget didn't provide one at construction time.
+    if (!_subscriptionListenerAdded) {
+      try {
+        final cid = widget.channelId ?? videoState.channelId;
+        if (cid != null) {
+          final global = SubscriptionStateManager().getSubscriptionState(cid);
+          if (mounted) {
+            setState(() {
+              _isSubscribed = global ?? false;
+            });
+          }
+          SubscriptionStateManager().addListener(_onGlobalSubscriptionChanged);
+          _subscriptionListenerAdded = true;
+        }
+      } catch (_) {}
+    }
 
     // Detect provider-driven thumbnail changes and handle them asynchronously
     // after the current frame so we don't call setState during build.

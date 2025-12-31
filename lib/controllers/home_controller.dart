@@ -12,6 +12,15 @@ class HomeController extends ChangeNotifier {
   HomeController({HomeRepository? repository})
     : _repository = repository ?? HomeRepository();
 
+  // Shared singleton instance to retain home data across widget rebuilds
+  // and navigation events. Use `HomeController.instance` to get the
+  // app-wide controller instead of creating new instances.
+  static HomeController? _sharedInstance;
+  static HomeController get instance {
+    _sharedInstance ??= HomeController();
+    return _sharedInstance!;
+  }
+
   final HomeRepository _repository;
   final SharedPref _sharedPref = SharedPref();
 
@@ -69,10 +78,15 @@ class HomeController extends ChangeNotifier {
   }
 
   /// Fetch the latest content. When [forceRefresh] is true the cache is bypassed.
-  Future<void> loadContent({bool forceRefresh = false}) async {
+  /// If [suppressIndicator] is true the controller will not set the
+  /// `isRefreshing` flag (useful for silent background refreshes).
+  Future<void> loadContent({
+    bool forceRefresh = false,
+    bool suppressIndicator = false,
+  }) async {
     if (_isLoading && !forceRefresh) return;
 
-    if (forceRefresh) {
+    if (forceRefresh && !suppressIndicator) {
       _isRefreshing = true;
     } else if (!hasContent) {
       _isLoading = true;
@@ -97,7 +111,13 @@ class HomeController extends ChangeNotifier {
       final changed = _hasDataChanged(newData);
       debugPrint('[HomeController] Home data changed: $changed');
 
-      if (changed) {
+      // If caller explicitly requested a force refresh, always apply the
+      // new payload so updated fields (title, views, meta) replace the
+      // current state even when item ids haven't changed. Background
+      // refreshes call this with `suppressIndicator:true` so the UI isn't
+      // showing a refresh progress but will still update when new data
+      // is applied.
+      if (forceRefresh || changed) {
         _applyData(newData);
         _lastUpdated = DateTime.now();
       } else {

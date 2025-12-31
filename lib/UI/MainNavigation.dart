@@ -18,7 +18,6 @@ import '../videoplayer/managers/video_player_state_provider.dart';
 import '../videoplayer/widgets/mini_video_player.dart';
 import '../widgets/music/mini_music_player.dart';
 import '../widgets/offline_mode_prompt.dart';
-// media overlay manager no longer used directly here; padding handled by AppPadding
 import 'HomeDiscover.dart';
 import 'MyLibrary.dart';
 import 'Search.dart';
@@ -35,6 +34,12 @@ class MainNavigationWrapper extends ConsumerStatefulWidget {
 
 class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     with TickerProviderStateMixin {
+  // FIXED: Standardized height constants (logical pixels, not .h)
+  static const double kNavBarHeight = 80.0;
+  // static const double kNavBarGradientHeight = 95.0;
+  static const double kMiniPlayerGap =
+      10.0; // Gap between mini player and nav bar
+
   late TabController _tabController;
   final session = SessionStorage();
 
@@ -87,10 +92,11 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     super.dispose();
   }
 
-  // Calculate dynamic bottom navigation height for mini player positioning
-  double _getBottomNavigationHeight() {
-    // Total height includes gradient area (90.w) + SafeArea bottom
-    return 90.w + MediaQuery.of(context).padding.bottom;
+  // FIXED: Standardized bottom calculation
+  double _getMiniPlayerBottom() {
+    return kNavBarHeight +
+        MediaQuery.of(context).padding.bottom +
+        kMiniPlayerGap;
   }
 
   @override
@@ -183,7 +189,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
 
                       return Stack(
                         children: [
-                          // Tab content with separate navigators (only first 3 tabs are navigable)
+                          // Tab content with separate navigators
                           TabBarView(
                             controller: _tabController,
                             physics: const NeverScrollableScrollPhysics(),
@@ -191,7 +197,6 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                               _buildTabNavigator(0, const HomeDiscover()),
                               _buildTabNavigator(1, const MyLibrary()),
                               _buildTabNavigator(2, Search("")),
-                              // 4th tab now shows the Panchang calendar screen
                               _buildTabNavigator(
                                 3,
                                 const PanchangCalendarScreen(),
@@ -211,23 +216,22 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                               ),
                             ),
 
-                          // Global Persistent Mini Players - Hidden when full player is visible or on restricted pages
-                          // Show either music OR video mini player based on coordination
+                          // FIXED: Global Persistent Mini Players with standardized positioning
                           if (!stateManager.isFullPlayerVisible &&
                               !stateManager.shouldHideMiniPlayer)
                             Positioned(
-                              left: horizontalInset,
-                              right: horizontalInset,
-                              bottom: _getBottomNavigationHeight(),
+                              left: useCenteredLayout ? horizontalInset : 0,
+                              right: useCenteredLayout ? horizontalInset : 0,
+                              bottom: _getMiniPlayerBottom(),
                               child: _buildCoordinatedMiniPlayers(audioHandler),
                             ),
 
                           // Offline Mode Prompt - Shows when connectivity is lost
                           const OfflineModePrompt(),
 
-                          // Offline Mode FAB - Shows when in offline mode
+                          // FIXED: Offline Mode FAB positioning
                           Positioned(
-                            bottom: _getBottomNavigationHeight() + 16.w,
+                            bottom: _getMiniPlayerBottom() + 8.0,
                             right: 16.w,
                             child: const OfflineModeFAB(),
                           ),
@@ -352,6 +356,10 @@ class BottomNavCustom extends StatefulWidget {
 
 class BottomNavCustomState extends State<BottomNavCustom>
     with TickerProviderStateMixin {
+  // FIXED: Use the same constant from MainNavigationWrapper
+  static const double kNavBarHeight = 80.0;
+  static const double kNavBarGradientHeight = 95.0;
+
   final session = SessionStorage();
 
   // Navigation item data structure
@@ -429,9 +437,6 @@ class BottomNavCustomState extends State<BottomNavCustom>
     if (currentIndex >= 0 && currentIndex < _animationControllers.length) {
       _animationControllers[currentIndex].forward();
     }
-
-    // Remove the post-frame callback to prevent setState after dispose
-    // The initial state will be handled by the AnimatedBuilder
   }
 
   @override
@@ -474,11 +479,13 @@ class BottomNavCustomState extends State<BottomNavCustom>
 
   @override
   Widget build(BuildContext context) {
-    // Keep outer container full width to preserve the gradient look.
-    // Only the inner rounded navigation box will be constrained to 50% width on tablets.
+    // FIXED: Use constant height + responsive padding only
+    final double totalHeight =
+        kNavBarGradientHeight + MediaQuery.of(context).padding.bottom;
+
     return Container(
       width: double.infinity,
-      height: 120.w,
+      height: totalHeight,
       decoration: BoxDecoration(
         // Gradient background for floating effect
         gradient: LinearGradient(
@@ -510,29 +517,31 @@ class BottomNavCustomState extends State<BottomNavCustom>
             final bool isiPad =
                 Theme.of(context).platform == TargetPlatform.iOS &&
                 shortestSide >= 600;
-            // Add a small bottom margin for iPad to avoid overlap with system UI
-            final double iPadBottomMargin = isiPad ? 12.w : 0.0;
+            // FIXED: Small consistent bottom margin for iPad
+            final double iPadBottomMargin = isiPad ? 8.0 : 0.0;
 
             return Container(
-              height: 82.w,
-              // No top margin; allow a small bottom margin only on iPad
+              height: kNavBarHeight, // FIXED: Use constant
+              // FIXED: Consistent margins
               margin: useCenteredInner
                   ? EdgeInsets.only(bottom: iPadBottomMargin)
-                  : EdgeInsets.fromLTRB(28.w, 0, 28.w, 12.w),
+                  : EdgeInsets.fromLTRB(18.w, 0, 18.w, 8.0),
               alignment: Alignment.center,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: innerWidth),
                 child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 4.w),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 2.0,
+                  ), // FIXED: Use constant
                   decoration: BoxDecoration(
                     color: appColors().gray[100],
                     borderRadius: BorderRadius.circular(44.w),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.08),
-                        blurRadius: 15.w,
-                        spreadRadius: 1.w,
-                        offset: Offset(0, 3.w),
+                        blurRadius: 15.0, // FIXED: Use constant
+                        spreadRadius: 1.0, // FIXED: Use constant
+                        offset: const Offset(0, 3.0), // FIXED: Use constant
                       ),
                     ],
                     border: Border.all(

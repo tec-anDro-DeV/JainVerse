@@ -67,7 +67,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
     session['page'] = '0';
     _scrollController = ScrollController();
     _scrollController.addListener(_scrollListener);
-    _controller = HomeController();
+    _controller = HomeController.instance;
     _favoriteService = FavoriteService();
     _audioHandler = const MyApp().called();
     _musicActionHandler = MusicActionHandlerFactory.create(
@@ -87,7 +87,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
-    _controller.dispose();
+    // Do not dispose shared controller here; it is reused across navigations.
     WidgetsBinding.instance.removeObserver(this);
     if (_isRouteObserverAttached) {
       try {
@@ -110,7 +110,7 @@ class _HomeDiscoverState extends State<HomeDiscover>
 
   @override
   void didPush() {
-    _handleFocusGained();
+    _handleFocusGained(allowWhenEmpty: true);
   }
 
   @override
@@ -133,8 +133,14 @@ class _HomeDiscoverState extends State<HomeDiscover>
     _isFocusRefreshRunning = true;
     try {
       if (_controller.hasContent) {
-        await _controller.refresh();
+        // Silent background refresh: do not show the pull-to-refresh indicator
+        // but apply new data when it arrives so the UI updates automatically.
+        await _controller.loadContent(
+          forceRefresh: true,
+          suppressIndicator: true,
+        );
       } else {
+        // When there is no content show the usual loading indicator.
         await _controller.loadContent(forceRefresh: true);
       }
     } catch (_) {

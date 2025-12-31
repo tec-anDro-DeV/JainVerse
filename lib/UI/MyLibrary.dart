@@ -729,6 +729,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
             // Featured songs section
             _buildFeaturedSongsSection(),
 
+            // Add spacing between Featured Songs and Popular Videos
+            SizedBox(height: 12.w),
+
             // Popular videos
             _buildVideoSection(
               title: 'Popular Videos',
@@ -999,7 +1002,93 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     if (songs.isEmpty) return SizedBox.shrink();
 
     final theme = sharedPreThemeData;
+    // If there's only one featured song, render the card directly to avoid
+    // extra spacing that can appear with a horizontal ListView when a single
+    // item is present.
+    if (songs.length == 1) {
+      final song = songs.first;
+      final imageUrl = song.imageUrl.isNotEmpty
+          ? song.imageUrl
+          : (song.bannerImage ?? '');
+      final artistName = song.channelName;
 
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HomeSectionHeader(
+            title: 'Featured Songs',
+            sharedPreThemeData: theme,
+            onViewAllPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      AllCategoryByName(_audioHandler, 'Featured Songs'),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 8.w),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: HorizontalSongCard(
+              songId: song.id.toString(),
+              imagePath: imageUrl,
+              songName: song.audioTitle,
+              artistName: artistName,
+              sharedPreThemeData: theme,
+              onTap: () => _musicActionHandler.handlePlaySong(
+                song.id.toString(),
+                song.audioTitle,
+              ),
+              onPlay: () => _musicActionHandler.handlePlaySong(
+                song.id.toString(),
+                song.audioTitle,
+              ),
+              onPlayNext: () => _musicActionHandler.handlePlayNext(
+                song.id.toString(),
+                song.audioTitle,
+                artistName,
+                imagePath: imageUrl,
+                track: song,
+              ),
+              onAddToQueue: () => _musicActionHandler.handleAddToQueue(
+                song.id.toString(),
+                song.audioTitle,
+                artistName,
+                imagePath: imageUrl,
+                track: song,
+              ),
+              onDownload: () => _musicActionHandler.handleDownload(
+                song.audioTitle,
+                'song',
+                song.id.toString(),
+                imagePath: imageUrl,
+              ),
+              onAddToPlaylist: () => _musicActionHandler.handleAddToPlaylist(
+                song.id.toString(),
+                song.audioTitle,
+                artistName,
+                imagePath: imageUrl,
+              ),
+              onShare: () => _musicActionHandler.handleShare(
+                song.audioTitle,
+                'song',
+                itemId: song.id.toString(),
+                slug: song.audioSlug,
+              ),
+              onFavorite: () => _musicActionHandler.handleFavoriteToggle(
+                song.id.toString(),
+                song.audioTitle,
+                favoriteIds: _favoriteIds,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Default multi-item horizontal list
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

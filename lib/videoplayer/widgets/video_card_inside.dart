@@ -80,6 +80,9 @@ class VideoCardInside extends StatelessWidget {
                     // Thumbnail (rounded) for subtle polish
                     Positioned.fill(
                       child: ClipRRect(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(12.w),
+                        ),
                         child: CachedNetworkImage(
                           imageUrl: item.thumbnailUrl,
                           fit: BoxFit.cover,
