@@ -82,6 +82,23 @@ class AppConstant {
   static const String API_ARTIST_VERIFY_REQUEST = "artist/verify-request";
   static const String API_ARTIST_VERIFY_STATUS = "artist/verify-status";
   static const String API_BUCKET_UPLOAD_URL = "bucket_upload_url";
+
+  // Short-video / Reels endpoints
+  static const String API_GET_SHORT_VIDEO = 'get_short_video';
+  static const String API_UPLOAD_SHORT_VIDEO = 'upload_short_video';
+  static const String API_LIKE_DISLIKE_SHORT_VIDEO = 'like_dislike_short_video';
+  static const String API_SHORTS_VIEW = 'shorts_view';
+  static const String API_GET_CHANNEL_SHORTS = 'get_channel_shorts';
+
+  // Bunny CDN — storage zone: jainverse-assets
+  static const String BunnyStorageBase =
+      'https://storage.bunnycdn.com/jainverse-assets/';
+  static const String BunnyCdnBase = 'https://jainverse-assets.b-cdn.net/';
+  static const String BunnyShortVideoPath = 'channel-shorts/';
+  static const String BunnyThumbnailPath = 'channel-thumbnails/';
+  static const String BunnyStorageApiKey =
+      'e031a055-76ce-416f-93af455dc8e3-2f82-4a40';
+
   //strings or paramenter name below
   static const String currency = "\$";
   static const String currencyCode = "USD";

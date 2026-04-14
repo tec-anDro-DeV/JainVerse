@@ -21,6 +21,8 @@ import '../widgets/offline_mode_prompt.dart';
 import 'HomeDiscover.dart';
 import 'MyLibrary.dart';
 import 'Search.dart';
+import 'package:jainverse/features/reels/presentation/screens/reels_screen.dart';
+import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
 
 class MainNavigationWrapper extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -41,6 +43,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
       10.0; // Gap between mini player and nav bar
 
   late TabController _tabController;
+  late int _previousTabIndex;
   final session = SessionStorage();
 
   // Offline mode services
@@ -57,22 +60,50 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     GlobalKey<NavigatorState>(), // Home
     GlobalKey<NavigatorState>(), // Library
     GlobalKey<NavigatorState>(), // Search
-    GlobalKey<NavigatorState>(), // Account
+    GlobalKey<NavigatorState>(), // Calendar
+    GlobalKey<NavigatorState>(), // Reels
   ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4,
+      length: 5,
       vsync: this,
       initialIndex: widget.initialIndex,
     );
+    _previousTabIndex = widget.initialIndex;
 
-    // Update session storage when tab changes
+    // Update session storage when tab changes, pause media when entering the
+    // Reels tab, and release reel controllers when leaving it.
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        session['page'] = _tabController.index.toString();
+        final newIndex = _tabController.index;
+        session['page'] = newIndex.toString();
+
+        // Leaving the Reels tab → dispose all video controllers so their
+        // Android ImageReader buffer slots are freed immediately.
+        if (_previousTabIndex == 4 && newIndex != 4) {
+          ref.read(reelPlayerProvider.notifier).releaseAll();
+        }
+
+        if (newIndex == 4) {
+          // Pause audio (fire-and-forget; null-safe in case handler not ready).
+          try { const MyApp().called().pause(); } catch (_) {}
+          // Pause video mini player if one is active.
+          ref.read(videoPlayerProvider.notifier).pause();
+          // Re-initialize the reel player for the current feed index so the
+          // video starts from position 0 (controllers were released on leave).
+          final feedState = ref.read(reelFeedProvider);
+          if (feedState.reels.isNotEmpty) {
+            ref.read(reelPlayerProvider.notifier).onPageChanged(
+              feedState.currentIndex,
+              feedState.reels,
+            );
+          }
+        }
+
+        _previousTabIndex = newIndex;
       }
     });
 
@@ -142,7 +173,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
         }
 
         return ListenableBuilder(
-          listenable: MusicPlayerStateManager(),
+          listenable: Listenable.merge([MusicPlayerStateManager(), _tabController]),
           builder: (context, child) {
             final stateManager = MusicPlayerStateManager();
 
@@ -197,10 +228,8 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                               _buildTabNavigator(0, const HomeDiscover()),
                               _buildTabNavigator(1, const MyLibrary()),
                               _buildTabNavigator(2, Search("")),
-                              _buildTabNavigator(
-                                3,
-                                const PanchangCalendarScreen(),
-                              ),
+                              _buildTabNavigator(3, const PanchangCalendarScreen()),
+                              _buildTabNavigator(4, const ReelsScreen()),
                             ],
                           ),
 
@@ -217,8 +246,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                             ),
 
                           // FIXED: Global Persistent Mini Players with standardized positioning
+                          // Hidden on the Reels tab (index 4) and upload screen (same stack).
                           if (!stateManager.isFullPlayerVisible &&
-                              !stateManager.shouldHideMiniPlayer)
+                              !stateManager.shouldHideMiniPlayer &&
+                              _tabController.index != 4)
                             Positioned(
                               left: useCenteredLayout ? horizontalInset : 0,
                               right: useCenteredLayout ? horizontalInset : 0,
@@ -383,6 +414,12 @@ class BottomNavCustomState extends State<BottomNavCustom>
       'activeIcon': 'assets/images/calendar_active.svg',
       'inactiveIcon': 'assets/images/calendar_inactive.svg',
       'label': 'Calendar',
+    },
+    // Reels tab — uses a Material icon; replace with SVG assets when available.
+    {
+      'activeIcon': '',
+      'inactiveIcon': '',
+      'label': 'Reels',
     },
   ];
 
@@ -592,23 +629,33 @@ class BottomNavCustomState extends State<BottomNavCustom>
                       shape: BoxShape.circle,
                     ),
                   ),
-                  // SVG icon with direct color handling
+                  // Icon (SVG or Material fallback for tabs without SVG assets)
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Transform.scale(
                       scale: isSelected ? 1.1 : 1.0,
-                      child: SvgPicture.asset(
-                        isSelected ? activeIconPath : inactiveIconPath,
-                        width: 26.w,
-                        height: 26.w,
-                        colorFilter: ColorFilter.mode(
-                          isSelected
-                              ? appColors().primaryColorApp
-                              : Colors.grey[500]!,
-                          BlendMode.srcIn,
-                        ),
-                      ),
+                      child: activeIconPath.isNotEmpty
+                          ? SvgPicture.asset(
+                              isSelected ? activeIconPath : inactiveIconPath,
+                              width: 26.w,
+                              height: 26.w,
+                              colorFilter: ColorFilter.mode(
+                                isSelected
+                                    ? appColors().primaryColorApp
+                                    : Colors.grey[500]!,
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          : Icon(
+                              isSelected
+                                  ? Icons.play_circle_rounded
+                                  : Icons.play_circle_outline_rounded,
+                              size: 26.w,
+                              color: isSelected
+                                  ? appColors().primaryColorApp
+                                  : Colors.grey[500]!,
+                            ),
                     ),
                   ),
                 ],
