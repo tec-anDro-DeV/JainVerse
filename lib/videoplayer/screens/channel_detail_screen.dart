@@ -24,6 +24,7 @@ import 'package:jainverse/videoplayer/managers/report_state_manager.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/videoplayer/services/subscription_service.dart';
+import 'package:jainverse/features/reels/presentation/screens/channel_reels_screen.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/widgets/music/song_card.dart';
 
@@ -67,7 +68,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     super.initState();
     _audioHandler = const MyApp().called();
     _presenter = ChannelDetailPresenter()..addListener(_onPresenterChanged);
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _musicActionHandler = MusicActionHandlerFactory.create(
       context: context,
       audioHandler: _audioHandler,
@@ -254,11 +255,18 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
   @override
   Widget build(BuildContext context) {
     final channel = _presenter.state.channel;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: true,
-      appBar: _buildTopAppBar(channel),
-      body: _buildBody(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        extendBodyBehindAppBar: true,
+        appBar: _buildTopAppBar(channel),
+        body: _buildBody(),
+      ),
     );
   }
 
@@ -305,7 +313,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
             ],
             body: TabBarView(
               controller: _tabController,
-              children: [_buildVideosTab(state), _buildSongsTab(state)],
+              children: [_buildVideosTab(state), _buildSongsTab(state), _buildShortsTab(state)],
             ),
           ),
         );
@@ -707,6 +715,17 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
               ],
             ),
           ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.play_circle_outline, size: 18.w),
+                SizedBox(width: 8.w),
+                Text('Shorts'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -889,6 +908,119 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
           sharedPreThemeData: _sharedTheme,
           enableContextMenu: false,
           onTap: () => _handleInstantSongTap(songs, index),
+        );
+      },
+    );
+  }
+
+  Widget _buildShortsTab(ChannelDetailState state) {
+    final shorts = state.shorts;
+    if (shorts.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.play_circle_outline,
+        message: 'No shorts yet',
+        subtitle: 'Check back later for new short videos',
+      );
+    }
+
+    final bottomPadding = AppPadding.bottom(context, extra: 32.w) + 24.h;
+
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, bottomPadding),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8.h,
+        crossAxisSpacing: 8.w,
+        childAspectRatio: 9 / 16,
+      ),
+      itemCount: shorts.length,
+      itemBuilder: (context, index) {
+        final reel = shorts[index];
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChannelReelsScreen(
+                channelId: widget.channelId,
+                reels: shorts,
+                startIndex: index,
+              ),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Thumbnail
+                reel.thumbnailUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: reel.thumbnailUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            const ColoredBox(color: Colors.black12),
+                        errorWidget: (_, __, ___) =>
+                            const ColoredBox(color: Colors.black12),
+                      )
+                    : const ColoredBox(color: Colors.black12),
+
+                // Bottom gradient + info
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(6.w, 24.h, 6.w, 6.h),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.75),
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      reel.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Duration chip
+                if (reel.duration.isNotEmpty)
+                  Positioned(
+                    top: 6.h,
+                    right: 6.w,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 5.w,
+                        vertical: 2.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        reel.duration,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );

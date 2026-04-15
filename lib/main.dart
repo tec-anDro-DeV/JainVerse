@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:jainverse/ThemeMain/AppSettings.dart';
+import 'package:jainverse/widgets/common/app_keyboard_dismiss_handler.dart';
 import 'package:jainverse/controllers/download_controller.dart';
 import 'package:jainverse/controllers/user_music_controller.dart';
 import 'package:jainverse/controllers/music/download_state_linker.dart';
@@ -43,6 +44,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Global route observer so widgets can be route-aware (didPush/didPop/etc.)
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
+// One RouteObserver per nested tab navigator (5 tabs).
+// A single RouteObserver cannot be attached to multiple navigators — Flutter
+// asserts navigator == null on each attachment. ReelsUIModeScope subscribes
+// to all five; only the observer in the same navigator as the route fires.
+final List<RouteObserver<ModalRoute<void>>> tabNavigatorObservers =
+    List.generate(5, (_) => RouteObserver<ModalRoute<void>>());
 
 // Helper to determine device type and provide an appropriate design size for
 // ScreenUtilInit. Uses the Flutter window to calculate logical dimensions so
@@ -426,8 +433,12 @@ class MyApp extends ConsumerWidget {
         color: appColors().colorBackground,
         debugShowCheckedModeBanner: false,
         theme: AppSettings.define(),
-        builder: (context, child) =>
-            VideoPipOverlay(child: child ?? const SizedBox.shrink()),
+        builder: (context, child) {
+          final safeChild = child ?? const SizedBox.shrink();
+          return AppKeyboardDismissHandler(
+            child: VideoPipOverlay(child: safeChild),
+          );
+        },
         // Add route handling for proper navigation
         onGenerateRoute: (settings) {
           // Handle navigation to specific tabs

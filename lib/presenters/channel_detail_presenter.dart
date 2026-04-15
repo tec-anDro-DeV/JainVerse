@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Model/video_model.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 import 'package:jainverse/repositories/channel_detail_repository.dart';
 
@@ -8,6 +9,7 @@ class ChannelDetailState {
   final ChannelDetailInfo? channel;
   final List<VideoModel> videos;
   final List<SongModel> songs;
+  final List<ReelItem> shorts;
   final bool isLoading;
   final bool isRefreshing;
   final String? error;
@@ -16,18 +18,20 @@ class ChannelDetailState {
     this.channel,
     this.videos = const [],
     this.songs = const [],
+    this.shorts = const [],
     this.isLoading = false,
     this.isRefreshing = false,
     this.error,
   });
 
   bool get hasContent =>
-      channel != null || videos.isNotEmpty || songs.isNotEmpty;
+      channel != null || videos.isNotEmpty || songs.isNotEmpty || shorts.isNotEmpty;
 
   ChannelDetailState copyWith({
     ChannelDetailInfo? channel,
     List<VideoModel>? videos,
     List<SongModel>? songs,
+    List<ReelItem>? shorts,
     bool? isLoading,
     bool? isRefreshing,
     String? error,
@@ -37,6 +41,7 @@ class ChannelDetailState {
       channel: channel ?? this.channel,
       videos: videos ?? this.videos,
       songs: songs ?? this.songs,
+      shorts: shorts ?? this.shorts,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       error: clearError ? null : (error ?? this.error),
@@ -75,6 +80,7 @@ class ChannelDetailPresenter extends ChangeNotifier {
           channel: payload.channel,
           videos: payload.videos,
           songs: payload.songs,
+          shorts: payload.shorts,
           isLoading: false,
           isRefreshing: false,
           error: null,

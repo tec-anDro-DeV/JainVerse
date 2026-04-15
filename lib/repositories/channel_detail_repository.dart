@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:jainverse/Model/song_model.dart';
 import 'package:jainverse/Model/video_model.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/main.dart';
 import 'package:jainverse/presenters/base_presenter.dart';
 import 'package:jainverse/utils/AppConstant.dart';
@@ -96,11 +97,13 @@ class ChannelDetailPayload {
   final ChannelDetailInfo? channel;
   final List<VideoModel> videos;
   final List<SongModel> songs;
+  final List<ReelItem> shorts;
 
   const ChannelDetailPayload({
     required this.channel,
     required this.videos,
     required this.songs,
+    this.shorts = const [],
   });
 }
 
@@ -132,12 +135,16 @@ class ChannelDetailRepository extends BasePresenter {
     final channelMap = _extractMap(payload, 'channel');
     final videosRaw = _extractList(payload, ['videos']);
     final songsRaw = _extractList(payload, ['music', 'songs']);
+    final shortsRaw = _extractList(payload, ['shorts']);
 
     final videos = videosRaw
         .map((entry) => VideoModel.fromJson(entry))
         .toList(growable: false);
     final songs = songsRaw
         .map((entry) => SongModel.fromJson(entry))
+        .toList(growable: false);
+    final shorts = shortsRaw
+        .map((entry) => ReelItem.fromJson(entry))
         .toList(growable: false);
 
     return ChannelDetailPayload(
@@ -146,6 +153,7 @@ class ChannelDetailRepository extends BasePresenter {
           : null,
       videos: videos,
       songs: songs,
+      shorts: shorts,
     );
   }
 

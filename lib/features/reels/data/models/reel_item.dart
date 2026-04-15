@@ -27,6 +27,9 @@ class ReelItem {
   /// 1 if the reel belongs to the authenticated user.
   final int isOwn;
 
+  /// 1 if the current user is subscribed to this channel.
+  final int subscribed;
+
   final DateTime? createdAt;
 
   const ReelItem({
@@ -44,6 +47,7 @@ class ReelItem {
     required this.totalLikes,
     required this.totalViews,
     required this.isOwn,
+    this.subscribed = 0,
     this.createdAt,
   });
 
@@ -78,6 +82,7 @@ class ReelItem {
       totalLikes: toInt(j['total_likes']),
       totalViews: toInt(j['total_views']),
       isOwn: toInt(j['is_own']),
+      subscribed: toInt(j['subscribed']),
       createdAt: j['created_at'] != null
           ? DateTime.tryParse(j['created_at'].toString())
           : null,
@@ -102,6 +107,7 @@ class ReelItem {
       totalLikes: v.totalLikes,
       totalViews: v.totalViews,
       isOwn: v.isOwn,
+      subscribed: 0,
       createdAt: v.createdAt,
     );
   }
@@ -125,6 +131,7 @@ class ReelItem {
         'total_likes': totalLikes,
         'total_views': totalViews,
         'is_own': isOwn,
+        'subscribed': subscribed,
         'created_at': createdAt?.toIso8601String(),
       };
 
@@ -147,6 +154,7 @@ class ReelItem {
     int? totalLikes,
     int? totalViews,
     int? isOwn,
+    int? subscribed,
     DateTime? createdAt,
   }) {
     return ReelItem(
@@ -164,6 +172,7 @@ class ReelItem {
       totalLikes: totalLikes ?? this.totalLikes,
       totalViews: totalViews ?? this.totalViews,
       isOwn: isOwn ?? this.isOwn,
+      subscribed: subscribed ?? this.subscribed,
       createdAt: createdAt ?? this.createdAt,
     );
   }

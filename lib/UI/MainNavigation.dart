@@ -8,7 +8,7 @@ import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:session_storage/session_storage.dart';
 import 'PanchangCalendarScreen.dart';
 
-import '../main.dart';
+import '../main.dart' show MyApp, tabNavigatorObservers;
 import '../managers/media_coordinator.dart';
 import '../services/audio_player_service.dart';
 import '../services/offline_mode_service.dart';
@@ -23,6 +23,7 @@ import 'MyLibrary.dart';
 import 'Search.dart';
 import 'package:jainverse/features/reels/presentation/screens/reels_screen.dart';
 import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
+import 'package:jainverse/features/reels/presentation/providers/screen_ui_mode_provider.dart';
 
 class MainNavigationWrapper extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -45,6 +46,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   late TabController _tabController;
   late int _previousTabIndex;
   final session = SessionStorage();
+
+  /// Tracks whether the reels tab's nested navigator has a sub-route pushed.
+  /// Used to revert the nav bar to normal styling on channel detail etc.
+  final ValueNotifier<bool> _reelsHasSubRoute = ValueNotifier(false);
 
   // Offline mode services
   final OfflineModeService _offlineModeService = OfflineModeService();
@@ -87,6 +92,12 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
           ref.read(reelPlayerProvider.notifier).releaseAll();
         }
 
+        // Reset any globally-active reels UI mode on tab switch.
+        // ChannelReelsScreen (opened from another tab) sets this via
+        // ReelsUIModeScope; the dynamic AnnotatedRegion in build() handles
+        // the status bar declaratively so no imperative SystemChrome call is needed.
+        ref.read(reelsUIModeProvider.notifier).exitReelsMode();
+
         if (newIndex == 4) {
           // Pause audio (fire-and-forget; null-safe in case handler not ready).
           try { const MyApp().called().pause(); } catch (_) {}
@@ -110,6 +121,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
     // Set initial page in session
     session['page'] = widget.initialIndex.toString();
 
+
     // Register tab navigation service so other widgets can push into the
     // active tab's nested navigator after closing full player.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,6 +132,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   @override
   void dispose() {
     _tabController.dispose();
+    _reelsHasSubRoute.dispose();
     super.dispose();
   }
 
@@ -132,6 +145,11 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
 
   @override
   Widget build(BuildContext context) {
+    // True when a reels-style screen is the top route, regardless of active tab.
+    // Combines existing tab-4 logic (handled inside ListenableBuilder below)
+    // with global provider set by ReelsUIModeScope for pushed screens.
+    final isGlobalReelsMode = ref.watch(reelsUIModeProvider);
+
     // Set up media coordination listener (only runs during build, not in initState)
     ref.listen(videoPlayerProvider, (previous, next) {
       final coordinatorNotifier = ref.read(mediaCoordinatorProvider.notifier);
@@ -173,7 +191,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
         }
 
         return ListenableBuilder(
-          listenable: Listenable.merge([MusicPlayerStateManager(), _tabController]),
+          listenable: Listenable.merge([MusicPlayerStateManager(), _tabController, _reelsHasSubRoute]),
           builder: (context, child) {
             final stateManager = MusicPlayerStateManager();
 
@@ -187,8 +205,23 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
               _lastMusicManagerLog = musicSummary;
             }
 
+            // Unified reels-mode flag: active when on the Reels tab (no
+            // sub-route), OR when a reels screen was pushed from another tab.
+            final isReelsModeActive =
+                (_tabController.index == 4 && !_reelsHasSubRoute.value) ||
+                isGlobalReelsMode;
+
             return WillPopScope(
               onWillPop: () async {
+                // Safety net: dismiss keyboard if visible.
+                // The primary guard is AppKeyboardDismissHandler in
+                // MaterialApp.builder (fires via didPopRoute before this).
+                // This fallback covers iOS and any edge-cases where the
+                // BackButtonListener does not fire first.
+                if (MediaQuery.of(context).viewInsets.bottom > 0) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  return false;
+                }
                 // Handle back button for current tab's navigator
                 final currentNavigator =
                     _navigatorKeys[_tabController.index].currentState;
@@ -200,9 +233,20 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                 // Exit app when on root of current tab
                 return true;
               },
-              child: Scaffold(
-                resizeToAvoidBottomInset: false,
-                extendBodyBehindAppBar: true,
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: isReelsModeActive
+                      ? Brightness.light
+                      : Brightness.dark,
+                  statusBarBrightness: isReelsModeActive
+                      ? Brightness.dark
+                      : Brightness.light,
+                ),
+                child: Scaffold(
+                  backgroundColor: isReelsModeActive ? Colors.black : null,
+                  resizeToAvoidBottomInset: false,
+                  extendBodyBehindAppBar: true,
                 extendBody: true,
                 body: SafeArea(
                   bottom: false,
@@ -242,14 +286,15 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                               child: BottomNavCustom(
                                 tabController: _tabController,
                                 navigatorKeys: _navigatorKeys,
+                                isReelsMode: isReelsModeActive,
                               ),
                             ),
 
-                          // FIXED: Global Persistent Mini Players with standardized positioning
-                          // Hidden on the Reels tab (index 4) and upload screen (same stack).
+                          // Hidden whenever reels mode is active (Reels tab or
+                          // any reels screen pushed from another tab).
                           if (!stateManager.isFullPlayerVisible &&
                               !stateManager.shouldHideMiniPlayer &&
-                              _tabController.index != 4)
+                              !isReelsModeActive)
                             Positioned(
                               left: useCenteredLayout ? horizontalInset : 0,
                               right: useCenteredLayout ? horizontalInset : 0,
@@ -272,7 +317,8 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                   ),
                 ),
               ),
-            );
+            ),
+          );
           },
         );
       },
@@ -360,6 +406,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   Widget _buildTabNavigator(int tabIndex, Widget child) {
     return Navigator(
       key: _navigatorKeys[tabIndex],
+      observers: [
+        tabNavigatorObservers[tabIndex],
+        if (tabIndex == 4) _ReelsRouteObserver(_reelsHasSubRoute),
+      ],
       onGenerateRoute: (settings) {
         return MaterialPageRoute(
           builder: (context) => child,
@@ -370,11 +420,43 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   }
 }
 
+/// Observes push/pop events on the reels tab's nested navigator and updates
+/// [hasSubRoute] so the nav bar can revert to normal styling on sub-routes.
+class _ReelsRouteObserver extends NavigatorObserver {
+  _ReelsRouteObserver(this.hasSubRoute);
+  final ValueNotifier<bool> hasSubRoute;
+
+  void _update() {
+    final canPop = navigator?.canPop() ?? false;
+    if (hasSubRoute.value != canPop) hasSubRoute.value = canPop;
+  }
+
+  @override
+  void didPush(Route route, Route? previousRoute) => _update();
+
+  @override
+  void didPop(Route route, Route? previousRoute) => _update();
+
+  @override
+  void didRemove(Route route, Route? previousRoute) => _update();
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) => _update();
+}
+
 class BottomNavCustom extends StatefulWidget {
   final TabController? tabController;
   final List<GlobalKey<NavigatorState>>? navigatorKeys;
+  /// Pre-computed reels-mode flag from [MainNavigationWrapper].
+  /// When true the nav bar renders with the dark Reels gradient style.
+  final bool isReelsMode;
 
-  const BottomNavCustom({super.key, this.tabController, this.navigatorKeys});
+  const BottomNavCustom({
+    super.key,
+    this.tabController,
+    this.navigatorKeys,
+    this.isReelsMode = false,
+  });
 
   @override
   State<BottomNavCustom> createState() => BottomNavCustomState();
@@ -519,23 +601,32 @@ class BottomNavCustomState extends State<BottomNavCustom>
     // FIXED: Use constant height + responsive padding only
     final double totalHeight =
         kNavBarGradientHeight + MediaQuery.of(context).padding.bottom;
+    final bool isReelsTab = widget.isReelsMode;
 
     return Container(
       width: double.infinity,
       height: totalHeight,
       decoration: BoxDecoration(
-        // Gradient background for floating effect
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            const Color.fromARGB(0, 255, 255, 255),
-            Colors.white.withOpacity(0.1),
-            Colors.white.withOpacity(0.3),
-            Colors.white.withOpacity(0.7),
-            Colors.white.withOpacity(0.95),
-            Colors.white,
-          ],
+          colors: isReelsTab
+              ? [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.1),
+                  Colors.black.withOpacity(0.3),
+                  Colors.black.withOpacity(0.55),
+                  Colors.black.withOpacity(0.70),
+                  Colors.black.withOpacity(0.80),
+                ]
+              : [
+                  const Color.fromARGB(0, 255, 255, 255),
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.7),
+                  Colors.white.withOpacity(0.95),
+                  Colors.white,
+                ],
           stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
         ),
       ),
@@ -569,27 +660,31 @@ class BottomNavCustomState extends State<BottomNavCustom>
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 2.0,
-                  ), // FIXED: Use constant
+                  ),
                   decoration: BoxDecoration(
-                    color: appColors().gray[100],
+                    color: isReelsTab
+                        ? Colors.black.withOpacity(0.55)
+                        : appColors().gray[100],
                     borderRadius: BorderRadius.circular(44.w),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 15.0, // FIXED: Use constant
-                        spreadRadius: 1.0, // FIXED: Use constant
-                        offset: const Offset(0, 3.0), // FIXED: Use constant
+                        color: Colors.black.withOpacity(isReelsTab ? 0.25 : 0.08),
+                        blurRadius: 15.0,
+                        spreadRadius: 1.0,
+                        offset: const Offset(0, 3.0),
                       ),
                     ],
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.9),
+                      color: isReelsTab
+                          ? Colors.white.withOpacity(0.15)
+                          : Colors.white.withOpacity(0.9),
                       width: 0.6.w,
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: List.generate(navItems.length, (index) {
-                      return _buildCustomNavItem(index);
+                      return _buildCustomNavItem(index, isReelsTab: isReelsTab);
                     }),
                   ),
                 ),
@@ -601,7 +696,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
     );
   }
 
-  Widget _buildCustomNavItem(int index) {
+  Widget _buildCustomNavItem(int index, {bool isReelsTab = false}) {
     return Expanded(
       child: InkWell(
         onTap: () => _onTabTapped(index),
@@ -612,6 +707,16 @@ class BottomNavCustomState extends State<BottomNavCustom>
             final isSelected = widget.tabController!.index == index;
             final activeIconPath = navItems[index]['activeIcon']!;
             final inactiveIconPath = navItems[index]['inactiveIcon']!;
+
+            final Color activeColor = isReelsTab
+                ? Colors.white
+                : appColors().primaryColorApp;
+            final Color inactiveColor = isReelsTab
+                ? Colors.white54
+                : Colors.grey[500]!;
+            final Color circleBg = isReelsTab
+                ? Colors.white24
+                : Colors.white;
 
             return SizedBox(
               height: double.infinity,
@@ -625,7 +730,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
                     width: isSelected ? 58.w : 0,
                     height: isSelected ? 58.w : 0,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white : Colors.transparent,
+                      color: isSelected ? circleBg : Colors.transparent,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -641,9 +746,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
                               width: 26.w,
                               height: 26.w,
                               colorFilter: ColorFilter.mode(
-                                isSelected
-                                    ? appColors().primaryColorApp
-                                    : Colors.grey[500]!,
+                                isSelected ? activeColor : inactiveColor,
                                 BlendMode.srcIn,
                               ),
                             )
@@ -652,9 +755,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
                                   ? Icons.play_circle_rounded
                                   : Icons.play_circle_outline_rounded,
                               size: 26.w,
-                              color: isSelected
-                                  ? appColors().primaryColorApp
-                                  : Colors.grey[500]!,
+                              color: isSelected ? activeColor : inactiveColor,
                             ),
                     ),
                   ),

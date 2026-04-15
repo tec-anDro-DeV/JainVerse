@@ -5,8 +5,9 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
+import 'package:jainverse/features/reels/presentation/widgets/reel_more_sheet.dart';
 
-/// Right-side column with like and share action buttons.
+/// Right-side column with view count, like, share, and more action buttons.
 class ReelActionBar extends ConsumerWidget {
   final ReelItem reel;
 
@@ -23,6 +24,16 @@ class ReelActionBar extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _ActionButton(
+          icon: Icon(
+            Icons.visibility_outlined,
+            color: Colors.white,
+            size: 26.w,
+          ),
+          label: _formatCount(reel.totalViews),
+          onTap: () {},
+        ),
+        SizedBox(height: 20.h),
         _ActionButton(
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
@@ -47,6 +58,24 @@ class ReelActionBar extends ConsumerWidget {
           ),
           label: 'Share',
           onTap: () => Share.share(reel.videoUrl),
+        ),
+        SizedBox(height: 20.h),
+        _ActionButton(
+          icon: Icon(
+            Icons.more_horiz_rounded,
+            color: Colors.white,
+            size: 28.w,
+          ),
+          label: 'More',
+          onTap: () => showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            useRootNavigator: true,
+            builder: (_) => ReelMoreSheet(
+              reel: reel,
+              localTotalLikes: likeEntry.count,
+            ),
+          ),
         ),
       ],
     );

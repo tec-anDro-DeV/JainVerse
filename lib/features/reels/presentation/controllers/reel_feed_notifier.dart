@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jainverse/features/reels/data/repository/reels_repository.dart';
 import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
 import 'package:jainverse/features/reels/presentation/state/reel_feed_state.dart';
+import 'package:jainverse/videoplayer/managers/subscription_state_manager.dart';
 
 class ReelFeedNotifier extends Notifier<ReelFeedState> {
   late final ReelsRepository _repository;
@@ -36,6 +37,10 @@ class ReelFeedNotifier extends Notifier<ReelFeedState> {
       );
       // Seed the like notifier with fresh data.
       ref.read(reelLikeProvider.notifier).seedFromReels(result.items);
+      // Seed global subscription state so subscribe buttons across the app stay in sync.
+      SubscriptionStateManager().batchUpdate(
+        {for (final r in result.items) r.channelId: r.subscribed == 1},
+      );
       // Activate the first controller immediately.
       if (result.items.isNotEmpty) {
         ref
@@ -75,6 +80,9 @@ class ReelFeedNotifier extends Notifier<ReelFeedState> {
         hasReachedEnd: result.currentPage >= result.totalPages,
       );
       ref.read(reelLikeProvider.notifier).seedFromReels(newItems);
+      SubscriptionStateManager().batchUpdate(
+        {for (final r in newItems) r.channelId: r.subscribed == 1},
+      );
     } catch (e) {
       if (kDebugMode) debugPrint('ReelFeedNotifier.loadMore error: $e');
       state = state.copyWith(isLoadingMore: false);

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import 'package:jainverse/features/reels/presentation/state/reel_feed_state.dart';
 
 import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
 import 'package:jainverse/features/reels/presentation/screens/reel_upload_screen.dart';
@@ -58,16 +61,25 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   Widget build(BuildContext context) {
     super.build(context); // required by AutomaticKeepAliveClientMixin
     final feedState = ref.watch(reelFeedProvider);
-
-    // Nav bar height reserved at the bottom of every state.
     final double navBarBottom = 90.0 + MediaQuery.of(context).padding.bottom;
 
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: _buildContent(feedState, navBarBottom),
+    );
+  }
+
+  Widget _buildContent(ReelFeedState feedState, double navBarBottom) {
     // ── Loading initial ──────────────────────────────────────────────────────
     if (feedState.isLoadingInitial) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Padding(
-          padding: EdgeInsets.only(bottom: navBarBottom), 
+          padding: EdgeInsets.only(bottom: navBarBottom),
           child: const Center(
             child: CircularProgressIndicator(color: Colors.white),
           ),

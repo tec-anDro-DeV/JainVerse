@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
@@ -64,26 +65,33 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
       }
     });
 
-    return PopScope(
-      canPop: !upload.isActive,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && upload.isActive) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Upload in progress — please wait.'),
-            ),
-          );
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          title: Text('New Reel', style: TextStyle(fontSize: 16.sp)),
-          elevation: 0,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+      child: PopScope(
+        canPop: !upload.isActive,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && upload.isActive) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Upload in progress — please wait.'),
+              ),
+            );
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            title: Text('New Reel', style: TextStyle(fontSize: 16.sp)),
+            elevation: 0,
+          ),
+          body: _buildBody(upload),
         ),
-        body: _buildBody(upload),
       ),
     );
   }
