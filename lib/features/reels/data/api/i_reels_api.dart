@@ -1,3 +1,5 @@
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
+
 /// Abstract contract for the Reels API layer.
 ///
 /// Implementations can be swapped without touching the repository or notifiers —
@@ -9,8 +11,12 @@ abstract class IReelsApi {
     int perPage = 10,
   });
 
-  /// POST upload_short_video — publishes full metadata after CDN upload.
-  Future<bool> publishReel({
+  /// POST upload_short_video — saves reel metadata after CDN upload.
+  ///
+  /// Returns the created [ReelItem] parsed from the API `data` payload.
+  /// Throws on API-level failure or network errors so callers can retry
+  /// the backend call independently without re-uploading to CDN.
+  Future<ReelItem> uploadReel({
     required String videoUrl,
     required String thumbnailUrl,
     required String title,

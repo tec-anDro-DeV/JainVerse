@@ -210,7 +210,7 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double navBarBottom = 90.0 + MediaQuery.of(context).padding.bottom;
+    final double navBarBottom = 120.h + MediaQuery.of(context).padding.bottom;
     return ReelsUIModeScope(
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
@@ -219,111 +219,111 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
           statusBarBrightness: Brightness.dark,
         ),
         child: Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      body: Padding(
-        padding: EdgeInsets.only(bottom: navBarBottom),
-        child: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            itemCount: _reels.length,
-            onPageChanged: _onPageChanged,
-            itemBuilder: (context, index) {
-              final reel = _reels[index];
-              final controller = _controllers[index];
-              final isInit = _initialized.contains(index);
-              final isBuffering = _buffering.contains(index);
+          backgroundColor: Colors.black,
+          extendBodyBehindAppBar: true,
+          body: Padding(
+            padding: EdgeInsets.only(bottom: navBarBottom),
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  itemCount: _reels.length,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (context, index) {
+                    final reel = _reels[index];
+                    final controller = _controllers[index];
+                    final isInit = _initialized.contains(index);
+                    final isBuffering = _buffering.contains(index);
 
-              return GestureDetector(
-                onTap: _toggleMute,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _VideoLayer(
-                      reel: reel,
-                      controller: controller,
-                      isInitialized: isInit,
-                    ),
-                    if (isBuffering)
-                      Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white70,
-                          strokeWidth: 2.5.w,
-                        ),
+                    return GestureDetector(
+                      onTap: _toggleMute,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _VideoLayer(
+                            reel: reel,
+                            controller: controller,
+                            isInitialized: isInit,
+                          ),
+                          if (isBuffering)
+                            Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white70,
+                                strokeWidth: 2.5.w,
+                              ),
+                            ),
+                          if (_isMuted)
+                            const Align(
+                              alignment: Alignment.center,
+                              child: _MuteIndicator(),
+                            ),
+                          const Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: _BottomGradient(),
+                          ),
+                          Positioned(
+                            bottom: 16.h,
+                            left: 16.w,
+                            right: 72.w,
+                            child: ReelInfoOverlay(reel: reel),
+                          ),
+                          Positioned(
+                            bottom: 16.h,
+                            right: 12.w,
+                            child: ReelActionBar(reel: reel),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: controller != null && isInit
+                                ? ReelProgressBar(controller: controller)
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
                       ),
-                    if (_isMuted)
-                      const Align(
-                        alignment: Alignment.center,
-                        child: _MuteIndicator(),
-                      ),
-                    const Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: _BottomGradient(),
-                    ),
-                    Positioned(
-                      bottom: 16.h,
-                      left: 16.w,
-                      right: 72.w,
-                      child: ReelInfoOverlay(reel: reel),
-                    ),
-                    Positioned(
-                      bottom: 16.h,
-                      right: 12.w,
-                      child: ReelActionBar(reel: reel),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: controller != null && isInit
-                          ? ReelProgressBar(controller: controller)
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
 
-          // Back button
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8.h,
-            left: 8.w,
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 22.w,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-
-          // Loading indicator at bottom when fetching more
-          if (_isLoadingMore)
-            Positioned(
-              bottom: 32.h,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: SizedBox(
-                  width: 20.w,
-                  height: 20.w,
-                  child: CircularProgressIndicator(
-                    color: Colors.white54,
-                    strokeWidth: 2,
+                // Back button
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8.h,
+                  left: 8.w,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 22.w,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
-              ),
+
+                // Loading indicator at bottom when fetching more
+                if (_isLoadingMore)
+                  Positioned(
+                    bottom: 32.h,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20.w,
+                        height: 20.w,
+                        child: CircularProgressIndicator(
+                          color: Colors.white54,
+                          strokeWidth: 2.w,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
         ),
-      ),
-    ),
       ),
     );
   }
@@ -401,11 +401,7 @@ class _MuteIndicator extends StatelessWidget {
           color: Colors.black54,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          Icons.volume_off_rounded,
-          color: Colors.white,
-          size: 32.w,
-        ),
+        child: Icon(Icons.volume_off_rounded, color: Colors.white, size: 32.w),
       ),
     );
   }

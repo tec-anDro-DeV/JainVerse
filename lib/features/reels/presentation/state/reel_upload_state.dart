@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 
 enum UploadStatus {
   idle,
   picking,
   validating,
+  trimming,
   previewing,
   compressing,
   uploading,
@@ -38,7 +40,24 @@ class ReelUploadState {
   /// Compressed video size in MB, e.g. "12.4".
   final String? videoSize;
 
+  /// True while the backend POST (save reel metadata) is in-flight.
+  /// Distinct from [UploadStatus.uploading] which covers the Bunny CDN phase.
+  final bool isSaving;
+
+  /// The [ReelItem] returned by the backend on successful publish.
+  /// Populated only when [status] is [UploadStatus.success].
+  final ReelItem? savedReel;
+
   final String? errorMessage;
+
+  /// Trim start point chosen on the trim screen. [Duration.zero] = no start offset.
+  final Duration trimStart;
+
+  /// Trim end point. Null means use the full video length from [trimStart].
+  final Duration? trimEnd;
+
+  /// User-picked cover photo. Null = auto-generate thumbnail from the video frame.
+  final File? customThumbnailFile;
 
   const ReelUploadState({
     this.status = UploadStatus.idle,
@@ -49,11 +68,19 @@ class ReelUploadState {
     this.thumbnailUrl,
     this.duration,
     this.videoSize,
+    this.isSaving = false,
+    this.savedReel,
     this.errorMessage,
+    this.trimStart = Duration.zero,
+    this.trimEnd,
+    this.customThumbnailFile,
   });
 
+  /// True while any background work is running — prevents back navigation.
   bool get isActive =>
-      status == UploadStatus.compressing || status == UploadStatus.uploading;
+      status == UploadStatus.compressing ||
+      status == UploadStatus.uploading ||
+      isSaving;
 
   ReelUploadState copyWith({
     UploadStatus? status,
@@ -64,9 +91,16 @@ class ReelUploadState {
     String? thumbnailUrl,
     String? duration,
     String? videoSize,
+    bool? isSaving,
+    ReelItem? savedReel,
     String? errorMessage,
     bool clearError = false,
     bool clearFile = false,
+    Duration? trimStart,
+    Duration? trimEnd,
+    bool clearTrimEnd = false,
+    File? customThumbnailFile,
+    bool clearCustomThumbnail = false,
   }) {
     return ReelUploadState(
       status: status ?? this.status,
@@ -77,7 +111,14 @@ class ReelUploadState {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       duration: duration ?? this.duration,
       videoSize: videoSize ?? this.videoSize,
+      isSaving: isSaving ?? this.isSaving,
+      savedReel: savedReel ?? this.savedReel,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      trimStart: trimStart ?? this.trimStart,
+      trimEnd: clearTrimEnd ? null : (trimEnd ?? this.trimEnd),
+      customThumbnailFile: clearCustomThumbnail
+          ? null
+          : (customThumbnailFile ?? this.customThumbnailFile),
     );
   }
 }

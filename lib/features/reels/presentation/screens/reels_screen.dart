@@ -61,7 +61,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   Widget build(BuildContext context) {
     super.build(context); // required by AutomaticKeepAliveClientMixin
     final feedState = ref.watch(reelFeedProvider);
-    final double navBarBottom = 90.0 + MediaQuery.of(context).padding.bottom;
+    final double navBarBottom = 120.h + MediaQuery.of(context).padding.bottom;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -142,21 +142,17 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.videocam_off_rounded,
-                  color: Colors.white38,
-                  size: 64.w,
-                ),
+                Icon(Icons.videocam_rounded, color: Colors.white38, size: 64.w),
                 SizedBox(height: 16.h),
                 Text(
-                  'No reels yet',
+                  'All caught up on short videos!',
                   style: TextStyle(color: Colors.white70, fontSize: 16.sp),
                 ),
                 SizedBox(height: 24.h),
                 ElevatedButton.icon(
                   onPressed: _openUpload,
                   icon: const Icon(Icons.add),
-                  label: const Text('Be the first to post'),
+                  label: const Text('Post new short video'),
                 ),
               ],
             ),

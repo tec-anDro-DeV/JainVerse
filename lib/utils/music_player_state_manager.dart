@@ -69,6 +69,17 @@ class MusicPlayerStateManager extends ChangeNotifier {
     _safeNotifyListeners();
   }
 
+  /// Hide mini players (music + video) WITHOUT hiding the bottom navigation bar.
+  /// Used for upload/edit screens that keep the nav bar visible but don't want
+  /// mini players overlapping the content.
+  void hideMiniPlayerOnly(String pageContext) {
+    if (_isDisposed) return;
+    _shouldHideMiniPlayer = true;
+    _shouldHideNavigation = false; // nav bar stays visible
+    _currentPageContext = pageContext;
+    _safeNotifyListeners();
+  }
+
   /// Show mini player when leaving specific pages
   void showMiniPlayerForPage(String pageContext) {
     if (_isDisposed) return;

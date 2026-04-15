@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/features/reels/data/api/i_reels_api.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
@@ -59,11 +60,11 @@ class ReelsApiImpl implements IReelsApi {
   }
 
   // ---------------------------------------------------------------------------
-  // publishReel — POST upload_short_video
+  // uploadReel — POST upload_short_video
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> publishReel({
+  Future<ReelItem> uploadReel({
     required String videoUrl,
     required String thumbnailUrl,
     required String title,
@@ -85,15 +86,20 @@ class ReelsApiImpl implements IReelsApi {
         },
         options: await _authOptions(),
       );
-      if (resp.statusCode == 200 || resp.statusCode == 201) {
-        final data = resp.data;
-        if (data is Map<String, dynamic>) return data['status'] == true;
-        return true;
+      final body = resp.data;
+      if (body is Map<String, dynamic> &&
+          body['status'] == true &&
+          body['data'] is Map<String, dynamic>) {
+        return ReelItem.fromUploadResponse(
+            body['data'] as Map<String, dynamic>);
       }
-      return false;
+      final msg = (body is Map<String, dynamic>)
+          ? body['msg']?.toString()
+          : null;
+      throw Exception(msg ?? 'Failed to publish reel');
     } on DioException catch (e) {
-      if (kDebugMode) debugPrint('ReelsApiImpl.publishReel: ${e.message}');
-      return false;
+      if (kDebugMode) debugPrint('ReelsApiImpl.uploadReel: ${e.message}');
+      rethrow; // Let the notifier decide whether to retry.
     }
   }
 

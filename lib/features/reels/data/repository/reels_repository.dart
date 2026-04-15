@@ -42,10 +42,15 @@ class ReelsRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // Publish (called after successful CDN upload)
+  // Upload (called after successful CDN upload)
   // ---------------------------------------------------------------------------
 
-  Future<bool> publishReel({
+  /// Saves reel metadata to the backend and returns the created [ReelItem].
+  ///
+  /// Throws on both network errors and API-level failures so the caller
+  /// ([ReelUploadNotifier]) can surface a specific message and retry only
+  /// the backend call without re-uploading to Bunny.
+  Future<ReelItem> uploadReel({
     required String videoUrl,
     required String thumbnailUrl,
     required String title,
@@ -53,7 +58,7 @@ class ReelsRepository {
     required String duration,
     required String videoSize,
   }) {
-    return _api.publishReel(
+    return _api.uploadReel(
       videoUrl: videoUrl,
       thumbnailUrl: thumbnailUrl,
       title: title,

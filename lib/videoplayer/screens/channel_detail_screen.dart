@@ -313,7 +313,11 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
             ],
             body: TabBarView(
               controller: _tabController,
-              children: [_buildVideosTab(state), _buildSongsTab(state), _buildShortsTab(state)],
+              children: [
+                _buildVideosTab(state),
+                _buildSongsTab(state),
+                _buildShortsTab(state),
+              ],
             ),
           ),
         );
@@ -928,7 +932,7 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, bottomPadding),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+        crossAxisCount: 3,
         mainAxisSpacing: 8.h,
         crossAxisSpacing: 8.w,
         childAspectRatio: 9 / 16,
@@ -981,15 +985,39 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                         ],
                       ),
                     ),
-                    child: Text(
-                      reel.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          reel.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 2.h),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.remove_red_eye_outlined,
+                              color: Colors.white70,
+                              size: 14.sp,
+                            ),
+                            SizedBox(width: 2.w),
+                            Text(
+                              _numberFormat.format(reel.totalViews),
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11.sp,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
 
@@ -61,21 +62,31 @@ class ReelUploadService {
   /// Full pipeline: validate → compress → upload video → upload thumbnail.
   ///
   /// [fileName] is the base name without extension, e.g. "reel_1713000000000".
+  /// [trimStartSec] / [trimDurationSec] clip the video before compression (seconds).
+  /// [customThumbnailFile] overrides auto-generated thumbnail when provided.
   /// Throws on validation or video upload failure.
   /// Thumbnail generation/upload failure is non-fatal.
   Future<BunnyUploadResult> uploadVideoComplete({
     required File file,
     required String fileName,
     VideoQuality quality = VideoQuality.MediumQuality,
+    int? trimStartSec,
+    int? trimDurationSec,
+    File? customThumbnailFile,
     ProgressCallback? onProgress,
   }) async {
     // 1. Validate raw file.
     await _validateVideoFile(file);
 
-    // 2. Compress (fall back to raw file on failure).
+    // 2. Compress (with optional trim; fall back to raw file on failure).
     File uploadFile = file;
     try {
-      uploadFile = await _compressVideo(file, quality: quality);
+      uploadFile = await _compressVideo(
+        file,
+        quality: quality,
+        startTimeSec: trimStartSec,
+        durationSec: trimDurationSec,
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('ReelUploadService: compression failed, using raw: $e');
@@ -113,11 +124,17 @@ class ReelUploadService {
     final metaFuture = VideoCompress.getMediaInfo(uploadFile.path)
         .then((info) => _formatDuration(((info.duration ?? 0) / 1000).round()))
         .catchError((_) => '');
-    final thumbBytesFuture = VideoCompress.getByteThumbnail(
-      uploadFile.path,
-      quality: 75,
-      position: -1,
-    ).catchError((_) => null);
+    final thumbBytesFuture = customThumbnailFile != null
+        ? FlutterImageCompress.compressWithFile(
+            customThumbnailFile.absolute.path,
+            quality: 85,
+            format: CompressFormat.jpeg,
+          )
+        : VideoCompress.getByteThumbnail(
+            uploadFile.path,
+            quality: 75,
+            position: -1,
+          ).then<Uint8List?>((b) => b).catchError((_) => null);
 
     await _bunnyPutWithRetry(
       file: uploadFile,
@@ -241,6 +258,8 @@ class ReelUploadService {
   Future<File> _compressVideo(
     File file, {
     VideoQuality quality = VideoQuality.MediumQuality,
+    int? startTimeSec,
+    int? durationSec,
   }) async {
     if (kDebugMode) debugPrint('ReelUploadService: compressing video...');
     final info = await VideoCompress.compressVideo(
@@ -249,6 +268,8 @@ class ReelUploadService {
       deleteOrigin: false,
       includeAudio: true,
       frameRate: 30,
+      startTime: startTimeSec,
+      duration: durationSec,
     );
     if (info == null || info.file == null) {
       throw Exception('Video compression returned null result');

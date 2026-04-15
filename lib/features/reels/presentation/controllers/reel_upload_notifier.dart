@@ -66,7 +66,41 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       );
       return;
     }
-    state = state.copyWith(status: UploadStatus.previewing, clearError: true);
+    state = state.copyWith(status: UploadStatus.trimming, clearError: true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Trim
+  // ---------------------------------------------------------------------------
+
+  /// Applies the chosen trim range and advances to the preview/metadata form.
+  void applyTrim(Duration start, Duration end) {
+    state = state.copyWith(
+      status: UploadStatus.previewing,
+      trimStart: start,
+      trimEnd: end,
+    );
+  }
+
+  /// Skips trim without changing start/end, advances to preview/metadata form.
+  void skipTrim() {
+    state = state.copyWith(status: UploadStatus.previewing);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Custom thumbnail
+  // ---------------------------------------------------------------------------
+
+  /// Opens the gallery image picker. Sets [customThumbnailFile] on success.
+  Future<void> pickThumbnail() async {
+    final xFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (xFile == null) return;
+    state = state.copyWith(customThumbnailFile: File(xFile.path));
+  }
+
+  /// Removes the custom thumbnail so the auto-generated frame is used instead.
+  void clearCustomThumbnail() {
+    state = state.copyWith(clearCustomThumbnail: true);
   }
 
   // ---------------------------------------------------------------------------
@@ -97,10 +131,19 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
     try {
       final fileName = 'reel_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Phase A — upload to Bunny CDN.
+      // Phase A — upload to Bunny CDN (with optional trim).
+      final trimStartSec = state.trimStart.inSeconds;
+      final trimEnd = state.trimEnd;
+      final trimDurationSec = (trimEnd != null && trimEnd > state.trimStart)
+          ? (trimEnd - state.trimStart).inSeconds
+          : null;
+
       final result = await _uploadService.uploadVideoComplete(
         file: file,
         fileName: fileName,
+        trimStartSec: trimStartSec > 0 ? trimStartSec : null,
+        trimDurationSec: trimDurationSec,
+        customThumbnailFile: state.customThumbnailFile,
         onProgress: (sent, total) {
           if (total > 0) state = state.copyWith(uploadProgress: sent / total);
         },
@@ -130,7 +173,7 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
   /// Calls the backend metadata endpoint using URLs already stored in state.
   ///
   /// Separated from [startUpload] so [retry] can invoke it directly when
-  /// the Bunny upload already succeeded.
+  /// the Bunny upload already succeeded — no re-upload needed.
   Future<void> _publishToBackend({
     required String title,
     String? description,
@@ -140,27 +183,38 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       throw Exception('No CDN URL available — cannot publish');
     }
 
-    final success = await _repository.publishReel(
-      videoUrl: videoUrl,
-      thumbnailUrl: state.thumbnailUrl ?? '',
-      title: title.trim(),
-      description: description?.trim(),
-      duration: state.duration ?? '00:00',
-      videoSize: state.videoSize ?? '0',
-    );
+    // Signal the saving phase so the UI can show "Saving reel…" distinctly
+    // from the Bunny upload progress.
+    state = state.copyWith(isSaving: true, clearError: true);
 
-    if (success) {
+    try {
+      final reel = await _repository.uploadReel(
+        videoUrl: videoUrl,
+        thumbnailUrl: state.thumbnailUrl ?? '',
+        title: title,
+        description: description,
+        duration: state.duration ?? '00:00',
+        videoSize: state.videoSize ?? '0',
+      );
+
       state = state.copyWith(
         status: UploadStatus.success,
         uploadProgress: 1.0,
+        isSaving: false,
+        savedReel: reel,
       );
-      // Refresh the feed so the new reel appears.
+
+      // Refresh the feed so the new reel appears immediately.
       ref.read(reelFeedProvider.notifier).loadInitial();
-    } else {
-      // Backend rejected — surface error so user can tap Retry (backend-only).
+    } catch (e) {
+      if (kDebugMode) debugPrint('ReelUploadNotifier._publishToBackend: $e');
+      // publicUrl is already in state — retry() will call _publishToBackend
+      // again without re-uploading to Bunny.
       state = state.copyWith(
         status: UploadStatus.error,
-        errorMessage: 'Failed to publish reel. Tap Retry to try again.',
+        isSaving: false,
+        errorMessage:
+            'Could not save reel. Tap Retry — no re-upload needed.',
       );
     }
   }

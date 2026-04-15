@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 
 /// Thin video progress bar pinned at the very bottom of a reel page.
@@ -20,7 +21,7 @@ class ReelProgressBar extends StatelessWidget {
 
         return LinearProgressIndicator(
           value: progress,
-          minHeight: 2,
+          minHeight: 2.h,
           backgroundColor: Colors.white24,
           valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
         );

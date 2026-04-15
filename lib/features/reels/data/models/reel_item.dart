@@ -1,6 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 
+int _parseInt(dynamic v, {int fallback = 0}) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  return int.tryParse(v.toString()) ?? fallback;
+}
+
 /// Data model for a single Reel (short-form vertical video).
 ///
 /// Intentionally separate from [VideoItem] to keep reel-specific
@@ -56,35 +62,57 @@ class ReelItem {
   // ---------------------------------------------------------------------------
 
   factory ReelItem.fromJson(Map<String, dynamic> j) {
-    int toInt(dynamic v, {int fallback = 0}) {
-      if (v == null) return fallback;
-      if (v is int) return v;
-      return int.tryParse(v.toString()) ?? fallback;
-    }
-
     int parseLike(dynamic v) {
-      final n = toInt(v);
+      final n = _parseInt(v);
       return (n == 0 || n == 1 || n == 2) ? n : 0;
     }
 
     return ReelItem(
-      id: toInt(j['id']),
+      id: _parseInt(j['id']),
       videoUrl: j['video_url']?.toString() ?? '',
       thumbnailUrl: j['thumbnail_url']?.toString() ?? '',
       title: j['title']?.toString() ?? '',
       description: j['description']?.toString(),
       duration: j['duration']?.toString() ?? '',
-      channelId: toInt(j['channel_id']),
+      channelId: _parseInt(j['channel_id']),
       channelName: j['channel_name']?.toString() ?? '',
       channelHandle: j['channel_handle']?.toString() ?? '',
       channelImageUrl: j['channel_image_url']?.toString() ?? '',
       like: parseLike(j['like']),
-      totalLikes: toInt(j['total_likes']),
-      totalViews: toInt(j['total_views']),
-      isOwn: toInt(j['is_own']),
-      subscribed: toInt(j['subscribed']),
+      totalLikes: _parseInt(j['total_likes']),
+      totalViews: _parseInt(j['total_views']),
+      isOwn: _parseInt(j['is_own']),
+      subscribed: _parseInt(j['subscribed']),
       createdAt: j['created_at'] != null
           ? DateTime.tryParse(j['created_at'].toString())
+          : null,
+    );
+  }
+
+  /// Parses the minimal payload returned by the upload API (`POST upload_short_video`).
+  ///
+  /// The upload response only includes server-assigned fields — channel profile
+  /// info, engagement counters, and subscription status are not returned.
+  /// Fields not present in the response are set to safe defaults.
+  factory ReelItem.fromUploadResponse(Map<String, dynamic> data) {
+    return ReelItem(
+      id: _parseInt(data['id']),
+      channelId: _parseInt(data['channel_id']),
+      title: data['title']?.toString() ?? '',
+      description: data['description']?.toString(),
+      videoUrl: data['video_url']?.toString() ?? '',
+      thumbnailUrl: data['thumbnail_url']?.toString() ?? '',
+      duration: data['duration']?.toString() ?? '00:00',
+      channelName: '',
+      channelHandle: '',
+      channelImageUrl: '',
+      like: 0,
+      totalLikes: 0,
+      totalViews: 0,
+      isOwn: 1, // always the authenticated user's own upload
+      subscribed: 0,
+      createdAt: data['created_at'] != null
+          ? DateTime.tryParse(data['created_at'].toString())
           : null,
     );
   }

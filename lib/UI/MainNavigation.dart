@@ -100,17 +100,18 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
 
         if (newIndex == 4) {
           // Pause audio (fire-and-forget; null-safe in case handler not ready).
-          try { const MyApp().called().pause(); } catch (_) {}
+          try {
+            const MyApp().called().pause();
+          } catch (_) {}
           // Pause video mini player if one is active.
           ref.read(videoPlayerProvider.notifier).pause();
           // Re-initialize the reel player for the current feed index so the
           // video starts from position 0 (controllers were released on leave).
           final feedState = ref.read(reelFeedProvider);
           if (feedState.reels.isNotEmpty) {
-            ref.read(reelPlayerProvider.notifier).onPageChanged(
-              feedState.currentIndex,
-              feedState.reels,
-            );
+            ref
+                .read(reelPlayerProvider.notifier)
+                .onPageChanged(feedState.currentIndex, feedState.reels);
           }
         }
 
@@ -120,7 +121,6 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
 
     // Set initial page in session
     session['page'] = widget.initialIndex.toString();
-
 
     // Register tab navigation service so other widgets can push into the
     // active tab's nested navigator after closing full player.
@@ -191,7 +191,11 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
         }
 
         return ListenableBuilder(
-          listenable: Listenable.merge([MusicPlayerStateManager(), _tabController, _reelsHasSubRoute]),
+          listenable: Listenable.merge([
+            MusicPlayerStateManager(),
+            _tabController,
+            _reelsHasSubRoute,
+          ]),
           builder: (context, child) {
             final stateManager = MusicPlayerStateManager();
 
@@ -247,78 +251,83 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                   backgroundColor: isReelsModeActive ? Colors.black : null,
                   resizeToAvoidBottomInset: false,
                   extendBodyBehindAppBar: true,
-                extendBody: true,
-                body: SafeArea(
-                  bottom: false,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Determine if device should use centered 50% width layout (tablet/iPad)
-                      final shortestSide = MediaQuery.of(
-                        context,
-                      ).size.shortestSide;
-                      final bool useCenteredLayout = shortestSide >= 600;
-                      // On tablets/iPad use 60% inner width for mini player -> left/right = 18% each
-                      final double horizontalInset = useCenteredLayout
-                          ? (MediaQuery.of(context).size.width * 0.18)
-                          : 0.0;
+                  extendBody: true,
+                  body: SafeArea(
+                    bottom: false,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Determine if device should use centered 50% width layout (tablet/iPad)
+                        final shortestSide = MediaQuery.of(
+                          context,
+                        ).size.shortestSide;
+                        final bool useCenteredLayout = shortestSide >= 600;
+                        // On tablets/iPad use 60% inner width for mini player -> left/right = 18% each
+                        final double horizontalInset = useCenteredLayout
+                            ? (MediaQuery.of(context).size.width * 0.18)
+                            : 0.0;
 
-                      return Stack(
-                        children: [
-                          // Tab content with separate navigators
-                          TabBarView(
-                            controller: _tabController,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: [
-                              _buildTabNavigator(0, const HomeDiscover()),
-                              _buildTabNavigator(1, const MyLibrary()),
-                              _buildTabNavigator(2, Search("")),
-                              _buildTabNavigator(3, const PanchangCalendarScreen()),
-                              _buildTabNavigator(4, const ReelsScreen()),
-                            ],
-                          ),
+                        return Stack(
+                          children: [
+                            // Tab content with separate navigators
+                            TabBarView(
+                              controller: _tabController,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: [
+                                _buildTabNavigator(0, const HomeDiscover()),
+                                _buildTabNavigator(1, const MyLibrary()),
+                                _buildTabNavigator(2, Search("")),
+                                _buildTabNavigator(
+                                  3,
+                                  const PanchangCalendarScreen(),
+                                ),
+                                _buildTabNavigator(4, const ReelsScreen()),
+                              ],
+                            ),
 
-                          // Bottom navigation bar - Hide when full player is visible
-                          if (!stateManager.shouldHideNavigation)
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: BottomNavCustom(
-                                tabController: _tabController,
-                                navigatorKeys: _navigatorKeys,
-                                isReelsMode: isReelsModeActive,
+                            // Bottom navigation bar - Hide when full player is visible
+                            if (!stateManager.shouldHideNavigation)
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: BottomNavCustom(
+                                  tabController: _tabController,
+                                  navigatorKeys: _navigatorKeys,
+                                  isReelsMode: isReelsModeActive,
+                                ),
                               ),
-                            ),
 
-                          // Hidden whenever reels mode is active (Reels tab or
-                          // any reels screen pushed from another tab).
-                          if (!stateManager.isFullPlayerVisible &&
-                              !stateManager.shouldHideMiniPlayer &&
-                              !isReelsModeActive)
+                            // Hidden whenever reels mode is active (Reels tab or
+                            // any reels screen pushed from another tab).
+                            if (!stateManager.isFullPlayerVisible &&
+                                !stateManager.shouldHideMiniPlayer &&
+                                !isReelsModeActive)
+                              Positioned(
+                                left: useCenteredLayout ? horizontalInset : 0,
+                                right: useCenteredLayout ? horizontalInset : 0,
+                                bottom: _getMiniPlayerBottom(),
+                                child: _buildCoordinatedMiniPlayers(
+                                  audioHandler,
+                                ),
+                              ),
+
+                            // Offline Mode Prompt - Shows when connectivity is lost
+                            const OfflineModePrompt(),
+
+                            // FIXED: Offline Mode FAB positioning
                             Positioned(
-                              left: useCenteredLayout ? horizontalInset : 0,
-                              right: useCenteredLayout ? horizontalInset : 0,
-                              bottom: _getMiniPlayerBottom(),
-                              child: _buildCoordinatedMiniPlayers(audioHandler),
+                              bottom: _getMiniPlayerBottom() + 8.0,
+                              right: 16.w,
+                              child: const OfflineModeFAB(),
                             ),
-
-                          // Offline Mode Prompt - Shows when connectivity is lost
-                          const OfflineModePrompt(),
-
-                          // FIXED: Offline Mode FAB positioning
-                          Positioned(
-                            bottom: _getMiniPlayerBottom() + 8.0,
-                            right: 16.w,
-                            child: const OfflineModeFAB(),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
+            );
           },
         );
       },
@@ -447,6 +456,7 @@ class _ReelsRouteObserver extends NavigatorObserver {
 class BottomNavCustom extends StatefulWidget {
   final TabController? tabController;
   final List<GlobalKey<NavigatorState>>? navigatorKeys;
+
   /// Pre-computed reels-mode flag from [MainNavigationWrapper].
   /// When true the nav bar renders with the dark Reels gradient style.
   final bool isReelsMode;
@@ -498,11 +508,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
       'label': 'Calendar',
     },
     // Reels tab — uses a Material icon; replace with SVG assets when available.
-    {
-      'activeIcon': '',
-      'inactiveIcon': '',
-      'label': 'Reels',
-    },
+    {'activeIcon': '', 'inactiveIcon': '', 'label': 'Reels'},
   ];
 
   // Animation controllers
@@ -658,9 +664,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: innerWidth),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 2.0,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
                   decoration: BoxDecoration(
                     color: isReelsTab
                         ? Colors.black.withOpacity(0.55)
@@ -668,7 +672,9 @@ class BottomNavCustomState extends State<BottomNavCustom>
                     borderRadius: BorderRadius.circular(44.w),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isReelsTab ? 0.25 : 0.08),
+                        color: Colors.black.withOpacity(
+                          isReelsTab ? 0.25 : 0.08,
+                        ),
                         blurRadius: 15.0,
                         spreadRadius: 1.0,
                         offset: const Offset(0, 3.0),
@@ -709,14 +715,12 @@ class BottomNavCustomState extends State<BottomNavCustom>
             final inactiveIconPath = navItems[index]['inactiveIcon']!;
 
             final Color activeColor = isReelsTab
-                ? Colors.white
+                ? appColors().primaryColorApp
                 : appColors().primaryColorApp;
             final Color inactiveColor = isReelsTab
                 ? Colors.white54
                 : Colors.grey[500]!;
-            final Color circleBg = isReelsTab
-                ? Colors.white24
-                : Colors.white;
+            final Color circleBg = isReelsTab ? Colors.white : Colors.white;
 
             return SizedBox(
               height: double.infinity,
