@@ -57,6 +57,8 @@ class ReelsRepository {
     String? description,
     required String duration,
     required String videoSize,
+    required String videoFileName,
+    required String thumbnailFileName,
   }) {
     return _api.uploadReel(
       videoUrl: videoUrl,
@@ -65,6 +67,8 @@ class ReelsRepository {
       description: description,
       duration: duration,
       videoSize: videoSize,
+      videoFileName: videoFileName,
+      thumbnailFileName: thumbnailFileName,
     );
   }
 
@@ -106,8 +110,8 @@ class ReelsRepository {
     final List<dynamic> dataList = (raw['data'] is List)
         ? raw['data'] as List
         : (raw['videos'] is List)
-            ? raw['videos'] as List
-            : [];
+        ? raw['videos'] as List
+        : [];
 
     final items = dataList
         .whereType<Map<String, dynamic>>()

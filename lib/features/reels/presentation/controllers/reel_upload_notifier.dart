@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,19 +30,14 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
   Future<void> pickVideo() async {
     state = state.copyWith(status: UploadStatus.picking);
     try {
-      final xFile = await _picker.pickVideo(
-        source: ImageSource.gallery,
-      );
+      final xFile = await _picker.pickVideo(source: ImageSource.gallery);
       if (xFile == null) {
         // User cancelled.
         state = state.copyWith(status: UploadStatus.idle);
         return;
       }
       final file = File(xFile.path);
-      state = state.copyWith(
-        status: UploadStatus.validating,
-        pickedFile: file,
-      );
+      state = state.copyWith(status: UploadStatus.validating, pickedFile: file);
       await _validate(file);
     } catch (e) {
       state = state.copyWith(
@@ -72,12 +68,25 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
     final videoDuration = Duration(milliseconds: durationMs.round());
 
     if (videoDuration.inSeconds > 300) {
-      // Discard the temp file — it will not be used.
-      try { await file.delete(); } catch (_) {}
+      try {
+        await file.delete();
+      } catch (_) {}
       state = state.copyWith(
         status: UploadStatus.idle,
         clearFile: true,
         errorMessage: 'Maximum allowed video length is 5 minutes',
+      );
+      return;
+    }
+
+    if (videoDuration.inSeconds < 30) {
+      try {
+        await file.delete();
+      } catch (_) {}
+      state = state.copyWith(
+        status: UploadStatus.idle,
+        clearFile: true,
+        errorMessage: 'Video must be at least 30 seconds long.',
       );
       return;
     }
@@ -104,6 +113,30 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       trimEnd: end,
       isTrimSkipped: false,
     );
+  }
+
+  /// Opens the native camera recorder (max 3 minutes). Feeds the recorded
+  /// file into the same validation → trim → preview pipeline as gallery picks.
+  Future<void> recordVideo() async {
+    state = state.copyWith(status: UploadStatus.picking);
+    try {
+      final xFile = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 3),
+      );
+      if (xFile == null) {
+        state = state.copyWith(status: UploadStatus.idle);
+        return;
+      }
+      final file = File(xFile.path);
+      state = state.copyWith(status: UploadStatus.validating, pickedFile: file);
+      await _validate(file);
+    } catch (e) {
+      state = state.copyWith(
+        status: UploadStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
   }
 
   /// Skips trim without changing start/end, advances to preview/metadata form.
@@ -142,10 +175,7 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
   ///   so a subsequent backend failure can be retried without re-uploading.
   ///
   /// Phase B — Backend: POST upload_short_video with full metadata.
-  Future<void> startUpload({
-    required String title,
-    String? description,
-  }) async {
+  Future<void> startUpload({required String title, String? description}) async {
     if (state.pickedFile == null) return;
     final file = state.pickedFile!;
 
@@ -156,7 +186,11 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
     );
 
     try {
-      final fileName = 'reel_${DateTime.now().millisecondsSinceEpoch}';
+      final uniqueId = Random().nextInt(900000) + 100000;
+      final fileName =
+          'reel_${uniqueId}_${DateTime.now().millisecondsSinceEpoch}';
+      final videoFileName = '$fileName.mp4';
+      final thumbnailFileName = '$fileName.jpg';
 
       // Phase A — upload to Bunny CDN (with optional trim).
       //
@@ -204,6 +238,8 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
         thumbnailUrl: result.thumbnailUrl,
         duration: result.duration,
         videoSize: result.videoSize,
+        videoFileName: videoFileName,
+        thumbnailFileName: thumbnailFileName,
       );
 
       // Phase B — publish metadata to backend.
@@ -226,6 +262,15 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
     String? description,
   }) async {
     final videoUrl = state.publicUrl;
+    final videoFileName = state.videoFileName;
+    final thumbnailFileName = state.thumbnailFileName;
+
+    if (videoFileName == null || videoFileName.isEmpty) {
+      throw Exception('No video file name available — cannot publish');
+    }
+    if (thumbnailFileName == null || thumbnailFileName.isEmpty) {
+      throw Exception('No thumbnail file name available — cannot publish');
+    }
     if (videoUrl == null || videoUrl.isEmpty) {
       throw Exception('No CDN URL available — cannot publish');
     }
@@ -242,6 +287,8 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
         description: description,
         duration: state.duration ?? '00:00',
         videoSize: state.videoSize ?? '0',
+        videoFileName: videoFileName,
+        thumbnailFileName: thumbnailFileName,
       );
 
       state = state.copyWith(
@@ -260,8 +307,7 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       state = state.copyWith(
         status: UploadStatus.error,
         isSaving: false,
-        errorMessage:
-            'Could not save reel. Tap Retry — no re-upload needed.',
+        errorMessage: 'Could not save reel. Tap Retry — no re-upload needed.',
       );
     }
   }
@@ -278,10 +324,7 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
   /// If [state.publicUrl] is already set, the Bunny upload succeeded and only
   /// the backend call needs to be re-attempted.
   /// Otherwise the full pipeline runs from the beginning.
-  Future<void> retry({
-    required String title,
-    String? description,
-  }) async {
+  Future<void> retry({required String title, String? description}) async {
     if (state.pickedFile == null) {
       reset();
       return;
@@ -302,5 +345,4 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       await startUpload(title: title, description: description);
     }
   }
-
 }

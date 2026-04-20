@@ -13,8 +13,8 @@ class ReelsApiImpl implements IReelsApi {
   final SharedPref _sharedPref;
 
   ReelsApiImpl({Dio? dio, SharedPref? sharedPref})
-      : _dio = dio ?? Dio(),
-        _sharedPref = sharedPref ?? SharedPref() {
+    : _dio = dio ?? Dio(),
+      _sharedPref = sharedPref ?? SharedPref() {
     _dio.options.baseUrl = AppConstant.BaseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 20);
     _dio.options.receiveTimeout = const Duration(seconds: 30);
@@ -27,11 +27,13 @@ class ReelsApiImpl implements IReelsApi {
 
   Future<Options> _authOptions() async {
     final token = (await _sharedPref.getToken())?.toString() ?? '';
-    return Options(headers: {
-      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    });
+    return Options(
+      headers: {
+        if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -71,6 +73,8 @@ class ReelsApiImpl implements IReelsApi {
     String? description,
     required String duration,
     required String videoSize,
+    required String videoFileName,
+    required String thumbnailFileName,
   }) async {
     try {
       final resp = await _dio.post(
@@ -78,6 +82,8 @@ class ReelsApiImpl implements IReelsApi {
         data: {
           'video_url': videoUrl,
           'thumbnail_url': thumbnailUrl,
+          'video_file_name': videoFileName,
+          'thumbnail_file_name': thumbnailFileName,
           'title': title,
           if (description != null && description.isNotEmpty)
             'description': description,
@@ -91,7 +97,8 @@ class ReelsApiImpl implements IReelsApi {
           body['status'] == true &&
           body['data'] is Map<String, dynamic>) {
         return ReelItem.fromUploadResponse(
-            body['data'] as Map<String, dynamic>);
+          body['data'] as Map<String, dynamic>,
+        );
       }
       final msg = (body is Map<String, dynamic>)
           ? body['msg']?.toString()
@@ -167,7 +174,8 @@ class ReelsApiImpl implements IReelsApi {
       }
       return {};
     } on DioException catch (e) {
-      if (kDebugMode) debugPrint('ReelsApiImpl.fetchChannelReels: ${e.message}');
+      if (kDebugMode)
+        debugPrint('ReelsApiImpl.fetchChannelReels: ${e.message}');
       throw Exception('Failed to fetch channel reels: ${e.message}');
     }
   }

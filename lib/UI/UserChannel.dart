@@ -18,12 +18,14 @@ import 'package:jainverse/main.dart';
 import 'package:jainverse/UI/ChannelSettings.dart';
 import 'package:jainverse/services/audio_player_service.dart';
 import 'package:jainverse/services/my_videos_service.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 // moved: MyVideosSection and video card widgets now used from `user_channel_videos.dart`
 import 'package:jainverse/utils/video_player_launcher.dart';
 import 'package:jainverse/utils/crash_prevention_helper.dart';
 import 'package:jainverse/UI/user_channel_image_helper.dart';
 import 'package:jainverse/UI/user_channel_videos.dart';
+import 'package:jainverse/features/reels/presentation/screens/channel_reels_screen.dart';
 
 class UserChannel extends StatefulWidget {
   final ChannelModel channel;
@@ -79,6 +81,9 @@ class _UserChannelState extends State<UserChannel>
   // My Videos state
   final MyVideosService _myVideosService = MyVideosService();
   List<VideoItem> _myVideos = [];
+  List<ReelItem> _myShorts = [];
+  bool _isLoadingShorts = true;
+  String? _shortsError;
   bool _isLoadingVideos = true;
   String? _videosError;
 
@@ -118,6 +123,8 @@ class _UserChannelState extends State<UserChannel>
 
     // Load my videos
     _loadMyVideos();
+    // Load my shorts
+    _loadMyShorts();
 
     // Begin loading fresh channel data (will use cache then revalidate)
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadChannelOnOpen());
@@ -170,6 +177,26 @@ class _UserChannelState extends State<UserChannel>
       setState(() {
         _videosError = 'Failed to load videos: $e';
         _isLoadingVideos = false;
+      });
+    }
+  }
+
+  Future<void> _loadMyShorts() async {
+    setState(() {
+      _isLoadingShorts = true;
+      _shortsError = null;
+    });
+
+    try {
+      final shorts = await _myVideosService.getMyShorts();
+      setState(() {
+        _myShorts = shorts;
+        _isLoadingShorts = false;
+      });
+    } catch (e) {
+      setState(() {
+        _shortsError = 'Failed to load shorts: $e';
+        _isLoadingShorts = false;
       });
     }
   }
@@ -421,7 +448,10 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user if the picked image is very large and allow cancel
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(
+          context,
+          local,
+        )) {
           return;
         }
         final cropped = await UserChannelImageHelper.cropProfileImage(
@@ -456,7 +486,10 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large images (may blow native cropper memory)
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(
+          context,
+          local,
+        )) {
           return;
         }
         final cropped = await UserChannelImageHelper.cropProfileImage(
@@ -489,7 +522,10 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large banner images
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(
+          context,
+          local,
+        )) {
           return;
         }
         final cropped = await UserChannelImageHelper.cropBannerImage(
@@ -523,7 +559,10 @@ class _UserChannelState extends State<UserChannel>
           return;
         }
         // Warn user about very large banner images
-        if (!await UserChannelImageHelper.checkImageSizeAndWarn(context, local)) {
+        if (!await UserChannelImageHelper.checkImageSizeAndWarn(
+          context,
+          local,
+        )) {
           return;
         }
         final cropped = await UserChannelImageHelper.cropBannerImage(
@@ -867,12 +906,17 @@ class _UserChannelState extends State<UserChannel>
                                     SizedBox(height: 32.w),
                                     UserChannelVideosSection(
                                       videos: _myVideos,
+                                      shorts: _myShorts,
                                       isLoading: _isLoadingVideos,
                                       error: _videosError,
                                       onRetry: _loadMyVideos,
                                       onTap: _openVideoPlayer,
                                       onMenuAction: (action, video) =>
                                           _handleVideoAction(action, video),
+                                      onShortTap: (reel) =>
+                                          _openShortsPlayer(reel),
+                                      onShortMenuAction: (action, reel) =>
+                                          _handleShortAction(action, reel),
                                     ),
                                   ],
 
@@ -1257,6 +1301,154 @@ class _UserChannelState extends State<UserChannel>
       contextVideos: playableVideos,
       contextLabel: '${_currentChannel.name} Videos',
     );
+  }
+
+  void _openShortsPlayer(ReelItem reel) {
+    final index = _myShorts.indexWhere((r) => r.id == reel.id);
+    final start = index < 0 ? 0 : index;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChannelReelsScreen(
+          channelId: _currentChannel.id,
+          reels: _myShorts,
+          startIndex: start,
+        ),
+      ),
+    );
+  }
+
+  void _handleShortAction(String action, ReelItem reel) {
+    if (action == 'edit') {
+      _showEditShortSheet(reel);
+    } else if (action == 'delete') {
+      _confirmDeleteShort(reel);
+    }
+  }
+
+  void _showEditShortSheet(ReelItem reel) {
+    final titleCtrl = TextEditingController(text: reel.title);
+    final descCtrl = TextEditingController(text: reel.description ?? '');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 16.w,
+            right: 16.w,
+            top: 16.w,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Edit Short',
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700),
+              ),
+              SizedBox(height: 12.w),
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              SizedBox(height: 8.w),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              SizedBox(height: 12.w),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final newTitle = titleCtrl.text.trim();
+                      final newDesc = descCtrl.text.trim();
+                      Navigator.of(ctx).pop();
+                      try {
+                        final updated = await _myVideosService.updateShortVideo(
+                          shortId: reel.id,
+                          title: newTitle.isEmpty ? null : newTitle,
+                          description: newDesc.isEmpty ? null : newDesc,
+                        );
+                        if (updated != null) {
+                          setState(() {
+                            final idx = _myShorts.indexWhere(
+                              (r) => r.id == reel.id,
+                            );
+                            if (idx >= 0) _myShorts[idx] = updated;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Short updated')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to update short'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteShort(ReelItem reel) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Short'),
+        content: const Text(
+          'Are you sure you want to delete this short? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final ok = await _myVideosService.deleteShortVideo(shortId: reel.id);
+      if (ok) {
+        setState(() {
+          _myShorts.removeWhere((r) => r.id == reel.id);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Short deleted')));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to delete short')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   void _showBlockedReasonDialog(VideoItem video) {

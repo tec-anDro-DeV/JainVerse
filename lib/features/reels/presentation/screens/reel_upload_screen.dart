@@ -61,6 +61,23 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
     super.dispose();
   }
 
+  void _disposePreviewController() {
+    if (_trimLoopListener != null) {
+      _previewController?.removeListener(_trimLoopListener!);
+      _trimLoopListener = null;
+    }
+    if (_previewController != null) {
+      try {
+        _previewController?.pause();
+      } catch (_) {}
+      try {
+        _previewController?.dispose();
+      } catch (_) {}
+      _previewController = null;
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _buildPreviewController(
     String path, {
     Duration trimStart = Duration.zero,
@@ -125,6 +142,11 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
       child: PopScope(
         canPop: !upload.isActive,
         onPopInvokedWithResult: (didPop, _) {
+          if (didPop) {
+            // Ensure preview controller is disposed if the user navigates back
+            // to avoid leaving platform decoders alive.
+            _disposePreviewController();
+          }
           if (!didPop && upload.isActive) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -164,7 +186,8 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
 
   Widget _buildBody(ReelUploadState upload) {
     return switch (upload.status) {
-      UploadStatus.idle || UploadStatus.picking => _buildPickPrompt(upload.errorMessage),
+      UploadStatus.idle ||
+      UploadStatus.picking => _buildPickPrompt(upload.errorMessage),
       UploadStatus.validating => _buildSpinner('Checking video…'),
       UploadStatus.trimming => ReelTrimWidget(
         file: upload.pickedFile!,
@@ -214,7 +237,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
           ),
           SizedBox(height: 8.h),
           Text(
-            'Up to 3 minutes · MP4, MOV',
+            '30 sec – 3 min · MP4, MOV',
             style: TextStyle(color: Colors.black45, fontSize: 13.sp),
           ),
           if (errorMessage != null) ...[
@@ -224,15 +247,20 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline_rounded,
-                      color: Colors.red.shade400, size: 16.w),
+                  Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.red.shade400,
+                    size: 16.w,
+                  ),
                   SizedBox(width: 6.w),
                   Flexible(
                     child: Text(
                       errorMessage,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: Colors.red.shade400, fontSize: 12.sp),
+                        color: Colors.red.shade400,
+                        fontSize: 12.sp,
+                      ),
                     ),
                   ),
                 ],
@@ -240,17 +268,44 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
             ),
           ],
           SizedBox(height: 32.h),
-          ElevatedButton.icon(
-            onPressed: () => ref.read(reelUploadProvider.notifier).pickVideo(),
-            icon: const Icon(Icons.photo_library_rounded),
-            label: const Text('Pick from Gallery'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kPrimary,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 14.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
-              ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32.w),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.read(reelUploadProvider.notifier).recordVideo(),
+                    icon: const Icon(Icons.videocam_rounded),
+                    label: const Text('Record'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _kPrimary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.read(reelUploadProvider.notifier).pickVideo(),
+                    icon: const Icon(Icons.photo_library_rounded),
+                    label: const Text('Upload'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _kPrimary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -310,8 +365,12 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          ref.read(reelUploadProvider.notifier).reset(),
+                      onPressed: () {
+                        // Dispose preview controller before resetting provider
+                        // to avoid leaving native resources alive.
+                        _disposePreviewController();
+                        ref.read(reelUploadProvider.notifier).reset();
+                      },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.black54,
                         side: BorderSide(color: Colors.grey.shade300),
@@ -358,13 +417,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
     // transcoder starts. Both compete for Android's ImageReader surface buffer
     // pool; leaving the preview controller alive causes the transcoder to stall
     // indefinitely (State.Wait on both audio + video pipelines).
-    if (_trimLoopListener != null) {
-      _previewController?.removeListener(_trimLoopListener!);
-      _trimLoopListener = null;
-    }
-    _previewController?.pause();
-    _previewController?.dispose();
-    _previewController = null;
+    _disposePreviewController();
 
     ref
         .read(reelUploadProvider.notifier)

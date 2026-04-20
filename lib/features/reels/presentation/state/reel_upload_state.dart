@@ -40,6 +40,12 @@ class ReelUploadState {
   /// Compressed video size in MB, e.g. "12.4".
   final String? videoSize;
 
+  /// Unique file name used for the uploaded video on Bunny and backend metadata.
+  final String? videoFileName;
+
+  /// Unique file name used for the uploaded thumbnail on Bunny and backend metadata.
+  final String? thumbnailFileName;
+
   /// True while the backend POST (save reel metadata) is in-flight.
   /// Distinct from [UploadStatus.uploading] which covers the Bunny CDN phase.
   final bool isSaving;
@@ -77,6 +83,8 @@ class ReelUploadState {
     this.thumbnailUrl,
     this.duration,
     this.videoSize,
+    this.videoFileName,
+    this.thumbnailFileName,
     this.isSaving = false,
     this.savedReel,
     this.errorMessage,
@@ -103,6 +111,8 @@ class ReelUploadState {
     String? thumbnailUrl,
     String? duration,
     String? videoSize,
+    String? videoFileName,
+    String? thumbnailFileName,
     bool? isSaving,
     ReelItem? savedReel,
     String? errorMessage,
@@ -126,6 +136,8 @@ class ReelUploadState {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       duration: duration ?? this.duration,
       videoSize: videoSize ?? this.videoSize,
+      videoFileName: videoFileName ?? this.videoFileName,
+      thumbnailFileName: thumbnailFileName ?? this.thumbnailFileName,
       isSaving: isSaving ?? this.isSaving,
       savedReel: savedReel ?? this.savedReel,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),

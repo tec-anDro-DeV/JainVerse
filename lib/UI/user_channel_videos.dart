@@ -3,16 +3,20 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/ThemeMain/appColors.dart';
 import 'package:jainverse/widgets/user_channel/my_videos_section.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
+import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 
 class UserChannelVideosSection extends StatelessWidget {
   final List<VideoItem> videos;
+  final List<ReelItem> shorts;
   final bool isLoading;
   final String? error;
   final Future<void> Function() onRetry;
   final void Function(VideoItem) onTap;
   final void Function(String, VideoItem) onMenuAction;
+  final void Function(ReelItem)? onShortTap;
+  final void Function(String, ReelItem)? onShortMenuAction;
 
   const UserChannelVideosSection({
     super.key,
@@ -22,6 +26,9 @@ class UserChannelVideosSection extends StatelessWidget {
     required this.onRetry,
     required this.onTap,
     required this.onMenuAction,
+    this.shorts = const [],
+    this.onShortTap,
+    this.onShortMenuAction,
   });
 
   List<VideoItem> get blockedVideos =>
@@ -90,11 +97,14 @@ class UserChannelVideosSection extends StatelessWidget {
         // My Videos (unblocked)
         MyVideosSection(
           videos: unblockedVideos,
+          shorts: shorts,
           isLoading: isLoading,
           error: error,
           onRetry: onRetry,
           onTap: onTap,
           onMenuAction: onMenuAction,
+          onShortTap: onShortTap,
+          onShortMenuAction: onShortMenuAction,
         ),
 
         // Blocked videos (if any)

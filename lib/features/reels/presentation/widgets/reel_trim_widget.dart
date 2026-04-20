@@ -340,7 +340,7 @@ class _ReelTrimWidgetState extends State<ReelTrimWidget> {
             Text(
               widget.isTrimRequired
                   ? 'Select up to 3 minutes to continue'
-                  : 'Optional: trim your video',
+                  : 'Optional: trim (30 sec – 3 min)',
               style: TextStyle(fontSize: 10.sp, color: Colors.black38),
             ),
           ],
@@ -751,7 +751,16 @@ class _ReelTrimWidgetState extends State<ReelTrimWidget> {
     // Leave a 500 ms gap from the absolute end so the underlying extractor
     // never reads past the trim boundary.
     const endBufferUs = 500000; // 500 ms
-    const minWindowUs = 1000000; // 1 s minimum clip
+    const minWindowUs = 30000000; // 30 s minimum clip
+
+    // Reject before clamping so the user gets explicit feedback.
+    final rawWindowUs = ((_windowEndFrac - _windowStartFrac) * totalUs).toInt();
+    if (rawWindowUs < minWindowUs) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Minimum clip length is 30 seconds')),
+      );
+      return;
+    }
 
     final startUs = (_windowStartFrac * totalUs).toInt().clamp(
       0,
