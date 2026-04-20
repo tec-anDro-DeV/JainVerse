@@ -58,6 +58,47 @@ class ReelFeedNotifier extends Notifier<ReelFeedState> {
     }
   }
 
+  /// Non-destructive refresh: fetches page 1, deduplicates, and prepends
+  /// only unseen reels at the top. Existing feed, playback state, and
+  /// pagination cursor are all preserved.
+  ///
+  /// Safe to call concurrently — guarded by [ReelFeedState.isRefreshing].
+  Future<void> refresh() async {
+    if (state.isRefreshing || state.isLoadingInitial) return;
+    state = state.copyWith(isRefreshing: true, clearError: true);
+    try {
+      final result = await _repository.getReelsFeed(page: 1);
+      final existingIds = state.reels.map((r) => r.id).toSet();
+      final newItems =
+          result.items.where((r) => !existingIds.contains(r.id)).toList();
+
+      if (newItems.isEmpty) {
+        state = state.copyWith(isRefreshing: false);
+        return;
+      }
+
+      final merged = [...newItems, ...state.reels];
+      state = state.copyWith(reels: merged, isRefreshing: false);
+      // currentPage / totalPages intentionally unchanged — the pagination
+      // cursor from loadMore() is still valid after a prepend-only refresh.
+
+      ref.read(reelLikeProvider.notifier).seedFromReels(newItems);
+      SubscriptionStateManager().batchUpdate(
+        {for (final r in newItems) r.channelId: r.subscribed == 1},
+      );
+
+      // The player's window (indices 0/1) now points to different reels.
+      // resetForNewFeed saves existing positions, clears the pool, and
+      // re-initialises controllers for the updated feed.
+      ref
+          .read(reelPlayerProvider.notifier)
+          .resetForNewFeed(state.currentIndex, merged);
+    } catch (e) {
+      if (kDebugMode) debugPrint('ReelFeedNotifier.refresh error: $e');
+      state = state.copyWith(isRefreshing: false);
+    }
+  }
+
   Future<void> loadMore() async {
     if (state.isLoadingMore || state.hasReachedEnd || state.isLoadingInitial) {
       return;

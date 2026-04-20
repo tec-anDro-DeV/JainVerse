@@ -59,6 +59,15 @@ class ReelUploadState {
   /// User-picked cover photo. Null = auto-generate thumbnail from the video frame.
   final File? customThumbnailFile;
 
+  /// Actual duration of the picked video, set after validation.
+  final Duration? videoDuration;
+
+  /// True when [videoDuration] > 3 minutes — trim is mandatory in this case.
+  final bool isTrimRequired;
+
+  /// True when the user explicitly tapped "Skip Trim".
+  final bool isTrimSkipped;
+
   const ReelUploadState({
     this.status = UploadStatus.idle,
     this.pickedFile,
@@ -74,6 +83,9 @@ class ReelUploadState {
     this.trimStart = Duration.zero,
     this.trimEnd,
     this.customThumbnailFile,
+    this.videoDuration,
+    this.isTrimRequired = false,
+    this.isTrimSkipped = false,
   });
 
   /// True while any background work is running — prevents back navigation.
@@ -101,6 +113,9 @@ class ReelUploadState {
     bool clearTrimEnd = false,
     File? customThumbnailFile,
     bool clearCustomThumbnail = false,
+    Duration? videoDuration,
+    bool? isTrimRequired,
+    bool? isTrimSkipped,
   }) {
     return ReelUploadState(
       status: status ?? this.status,
@@ -119,6 +134,9 @@ class ReelUploadState {
       customThumbnailFile: clearCustomThumbnail
           ? null
           : (customThumbnailFile ?? this.customThumbnailFile),
+      videoDuration: videoDuration ?? this.videoDuration,
+      isTrimRequired: isTrimRequired ?? this.isTrimRequired,
+      isTrimSkipped: isTrimSkipped ?? this.isTrimSkipped,
     );
   }
 }

@@ -286,6 +286,10 @@ class MainActivity: AudioServiceFragmentActivity() {
         // Register the just_audio integration plugin
         flutterEngine.plugins.add(JustAudioVisualizerIntegrationPlugin())
 
+        // Register the native video trimmer (two-step trim pipeline).
+        // Bypasses OtaliaStudios TrimDataSource render=false / State.Wait bug.
+        flutterEngine.plugins.add(VideoTrimmerPlugin())
+
         // Set up method channel for background audio management
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {

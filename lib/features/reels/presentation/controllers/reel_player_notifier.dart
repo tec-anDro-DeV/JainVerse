@@ -24,6 +24,21 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
   /// URL cache: index → video URL (populated from the feed list).
   final Map<int, String> _urlCache = {};
 
+  /// Maps feed index → reel ID. Used to look up saved positions when a
+  /// controller is disposed or when seeking on init.
+  final Map<int, int> _idCache = {};
+
+  /// Tracks the URL that was used to create each pooled controller.
+  /// After a feed restructure (e.g. prepend), the URL at a given index may
+  /// change. Comparing against this cache lets us detect and replace stale
+  /// controllers before they play the wrong video.
+  final Map<int, String> _poolUrls = {};
+
+  /// Per-reel playback positions keyed by reel ID.
+  /// Intentionally NOT cleared on [releaseAll] so positions survive tab
+  /// switches. Cleared only when the provider itself is disposed.
+  final Map<int, Duration> _playbackPositions = {};
+
   /// Indices currently being initialized (fire-and-forget guard).
   ///
   /// Prevents two concurrent [_initController] calls for the same index from
@@ -68,8 +83,23 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
     // await point.
     _activeWindow = keepIndices;
 
+    // ── URL-change detection ──────────────────────────────────────────────
+    // After a feed restructure (e.g. a refresh that prepends items) the URL
+    // at an in-window index may differ from what its pooled controller was
+    // initialised with. Detect and dispose those stale controllers BEFORE
+    // updating the caches so _disposeAt can still read the OLD reel ID and
+    // save its playback position correctly.
+    for (final i in keepIndices) {
+      final newUrl = reels[i].videoUrl;
+      if (_pool.containsKey(i) && _poolUrls[i] != newUrl) {
+        await _disposeAt(i); // saves old position via _idCache, removes pool entry
+      }
+    }
+
+    // Now update URL and ID caches with the current feed state.
     for (final i in keepIndices) {
       _urlCache[i] = reels[i].videoUrl;
+      _idCache[i] = reels[i].id;
     }
 
     // Dispose controllers outside the window in a batch, emitting state once
@@ -79,7 +109,15 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
     if (toRemove.isNotEmpty) {
       for (final i in toRemove) {
         final c = _pool.remove(i);
-        if (c != null) await _safeDispose(c);
+        if (c != null) {
+          // Save position before disposal so we can resume next time.
+          if (c.value.isInitialized) {
+            final reelId = _idCache[i];
+            if (reelId != null) _playbackPositions[reelId] = c.value.position;
+          }
+          _poolUrls.remove(i);
+          await _safeDispose(c);
+        }
       }
       state = state.copyWith(
         controllers: Map.from(_pool),
@@ -148,20 +186,63 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
   /// [onPageChanged] call will re-create controllers from scratch, starting
   /// each video at position 0.
   void releaseAll() {
+    // Save positions for all active controllers so they survive the tab switch.
+    for (final entry in List.of(_pool.entries)) {
+      final c = entry.value;
+      if (c.value.isInitialized) {
+        final reelId = _idCache[entry.key];
+        if (reelId != null) _playbackPositions[reelId] = c.value.position;
+      }
+    }
     // Clear window tracking so any in-flight _initController calls
     // self-cancel at their next await point.
     _pendingPlayIndex = null;
     _activeWindow = {};
     _initializingIndices.clear();
     _urlCache.clear();
+    _idCache.clear();
+    _poolUrls.clear();
     // _disposeAll pauses + disposes every controller (fire-and-forget on the
     // async disposal itself) and clears _pool synchronously.
+    // NOTE: _playbackPositions is intentionally NOT cleared here — positions
+    // must survive tab switches.
     _disposeAll();
     state = state.copyWith(
       controllers: const {},
       bufferingIndices: const {},
       initializedIndices: const {},
     );
+  }
+
+  /// Saves current playback positions, fully resets the controller pool, then
+  /// re-initialises the ±1 window for [reels] at [activeIndex].
+  ///
+  /// Call this after a feed restructure (e.g. a refresh that prepends items)
+  /// so that controllers at indices 0/1 are replaced with the new reels rather
+  /// than continuing to play the old ones.
+  Future<void> resetForNewFeed(int activeIndex, List<ReelItem> reels) async {
+    // Persist positions before blowing away the pool.
+    for (final entry in List.of(_pool.entries)) {
+      final c = entry.value;
+      if (c.value.isInitialized) {
+        final reelId = _idCache[entry.key];
+        if (reelId != null) _playbackPositions[reelId] = c.value.position;
+      }
+    }
+    _pendingPlayIndex = null;
+    _activeWindow = {};
+    _initializingIndices.clear();
+    _urlCache.clear();
+    _idCache.clear();
+    _poolUrls.clear();
+    _disposeAll();
+    state = state.copyWith(
+      controllers: const {},
+      bufferingIndices: const {},
+      initializedIndices: const {},
+    );
+    // Re-initialise for the active window with the restructured feed.
+    await onPageChanged(activeIndex, reels);
   }
 
   // ---------------------------------------------------------------------------
@@ -197,6 +278,7 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
       }
 
       _pool[index] = controller;
+      _poolUrls[index] = url;
       _emitState(bufferingAdd: index);
 
       controller.addListener(() => _onControllerUpdate(index, controller));
@@ -224,6 +306,15 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
 
       await controller.setLooping(true);
       await controller.setVolume(state.isMuted ? 0.0 : 1.0);
+
+      // Restore saved playback position (e.g. after tab switch or refresh).
+      final reelId = _idCache[index];
+      if (reelId != null) {
+        final saved = _playbackPositions[reelId];
+        if (saved != null && saved > Duration.zero) {
+          await controller.seekTo(saved);
+        }
+      }
 
       _emitState(bufferingRemove: index, initializedAdd: index);
 
@@ -266,7 +357,16 @@ class ReelPlayerNotifier extends Notifier<ReelPlayerState> {
 
   Future<void> _disposeAt(int index) async {
     final c = _pool.remove(index);
-    if (c != null) await _safeDispose(c);
+    if (c != null) {
+      // Save the current playback position before disposal so it can be
+      // restored the next time this reel scrolls into view.
+      if (c.value.isInitialized) {
+        final reelId = _idCache[index];
+        if (reelId != null) _playbackPositions[reelId] = c.value.position;
+      }
+      _poolUrls.remove(index);
+      await _safeDispose(c);
+    }
     final newInit = Set.of(state.initializedIndices)..remove(index);
     final newBuf = Set.of(state.bufferingIndices)..remove(index);
     state = state.copyWith(

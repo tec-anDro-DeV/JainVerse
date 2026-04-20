@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
@@ -261,27 +263,138 @@ class ReelUploadService {
     int? startTimeSec,
     int? durationSec,
   }) async {
-    if (kDebugMode) debugPrint('ReelUploadService: compressing video...');
-    final info = await VideoCompress.compressVideo(
-      file.path,
-      quality: quality,
-      deleteOrigin: false,
-      includeAudio: true,
-      frameRate: 30,
-      startTime: startTimeSec,
-      duration: durationSec,
-    );
-    if (info == null || info.file == null) {
-      throw Exception('Video compression returned null result');
+    // ── Validate + clamp trim parameters against the real video length ────────
+    // An out-of-range startTimeSec causes the Android MediaExtractor to read
+    // past the trim end, entering an infinite State.Wait retry loop.
+    // meta.duration is in **milliseconds** (VideoCompress convention).
+    if (startTimeSec != null || durationSec != null) {
+      final meta = await VideoCompress.getMediaInfo(file.path);
+      final totalSec = ((meta.duration ?? 0) / 1000).floor();
+      if (totalSec > 0) {
+        // Clamp start to [0, totalSec − 1].
+        final safeStart = (startTimeSec ?? 0).clamp(0, totalSec - 1);
+        // Leave a 1-second gap from the absolute end to prevent overrun.
+        final maxDuration = totalSec - 1 - safeStart;
+        final safeDuration =
+            durationSec?.clamp(1, maxDuration.clamp(1, totalSec));
+
+        if (kDebugMode) {
+          debugPrint(
+            'ReelUploadService._compressVideo: trim '
+            'start=${safeStart}s  duration=${safeDuration}s  '
+            'total=${totalSec}s'
+            ' (requested: start=${startTimeSec}s  duration=${durationSec}s)',
+          );
+        }
+
+        if (safeDuration != null && safeDuration <= 0) {
+          throw Exception(
+            'Invalid trim range: start=$safeStart s exceeds '
+            'video length=$totalSec s',
+          );
+        }
+
+        startTimeSec = safeStart;
+        durationSec = safeDuration;
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Two-step pipeline: native trim → video_compress (no trim params) ──────
+    // Passing startTime/duration to VideoCompress triggers OtaliaStudios
+    // TrimDataSource which in v0.10.5 marks in-window frames render=false,
+    // starving both decoder pipelines into an infinite State.Wait loop.
+    // Instead: trim losslessly first via MediaExtractor+MediaMuxer, then
+    // hand the already-bounded file to VideoCompress with no trim args.
+    File sourceFile = file;
+    File? nativeTrimmedFile;
+
+    if (startTimeSec != null && durationSec != null) {
+      final startUs = startTimeSec * 1000000;
+      final endUs   = startUs + (durationSec * 1000000);
+      nativeTrimmedFile = await _trimVideoNative(file, startUs, endUs);
+      sourceFile = nativeTrimmedFile;
+    }
+
+    try {
+      if (kDebugMode) {
+        debugPrint('ReelUploadService: compressing ${sourceFile.path}...');
+      }
+
+      // Timeout guards against the OtaliaStudios transcoder State.Wait
+      // deadlock (audio decoder fills all 6 output buffers, video reader stalls,
+      // neither can unblock the other — the Future never resolves without this).
+      // cancelCompression() sets the internal cancel flag the spin loop checks.
+      final info = await VideoCompress.compressVideo(
+        sourceFile.path,
+        quality: quality,
+        deleteOrigin: false,
+        includeAudio: true,
+        frameRate: 30,
+        // No startTime / duration — file is already trimmed natively.
+      ).timeout(const Duration(minutes: 5), onTimeout: () {
+        VideoCompress.cancelCompression();
+        throw TimeoutException(
+          'VideoCompress deadlock: State.Wait spin exceeded 5 min',
+        );
+      });
+      if (info == null || info.file == null) {
+        throw Exception('Video compression returned null result');
+      }
+      if (kDebugMode) {
+        debugPrint(
+          'ReelUploadService: compressed '
+          '${_formatSize(await sourceFile.length())} → '
+          '${_formatSize(await info.file!.length())}',
+        );
+      }
+      return info.file!;
+    } finally {
+      // Delete the native-trimmed temp file whether or not compression succeeded.
+      if (nativeTrimmedFile != null) {
+        try { nativeTrimmedFile.deleteSync(); } catch (_) {}
+      }
+    }
+  }
+
+  /// Trims [file] natively via Android MediaExtractor + MediaMuxer.
+  ///
+  /// [startUs] / [endUs] are absolute positions in the source video in
+  /// **microseconds**.  Returns a trimmed temp [File]; caller is responsible
+  /// for deleting it after use (the `finally` block in [_compressVideo] does
+  /// this automatically).
+  Future<File> _trimVideoNative(File file, int startUs, int endUs) async {
+    const ch = MethodChannel('com.jainverse.video_trim');
+    final dir = await getTemporaryDirectory();
+    final outputPath =
+        '${dir.path}/trim_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+    if (kDebugMode) {
+      debugPrint(
+        'ReelUploadService._trimVideoNative: '
+        'startUs=$startUs  endUs=$endUs  out=$outputPath',
+      );
+    }
+
+    final result = await ch.invokeMethod<String>('trimVideo', {
+      'inputPath': file.path,
+      'outputPath': outputPath,
+      'startUs': startUs,
+      'endUs': endUs,
+    });
+
+    if (result == null) throw Exception('Native trim returned null path');
+    final out = File(result);
+    if (!await out.exists()) {
+      throw Exception('Native trim produced no file at: $result');
     }
     if (kDebugMode) {
       debugPrint(
-        'ReelUploadService: compressed '
-        '${_formatSize(await file.length())} → '
-        '${_formatSize(await info.file!.length())}',
+        'ReelUploadService._trimVideoNative: '
+        '${_formatSize(await file.length())} → ${_formatSize(await out.length())}',
       );
     }
-    return info.file!;
+    return out;
   }
 
   Future<File> _writeTempFile(Uint8List bytes, String name) async {

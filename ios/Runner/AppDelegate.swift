@@ -14,6 +14,7 @@ import AVKit
   private var methodChannel: FlutterMethodChannel?
   private let pipChannelName = "com.jainverse.pip"
   private var pipChannel: FlutterMethodChannel?
+  private var videoTrimmerPlugin: VideoTrimmerPlugin?
   private let pluginRegistrarName = "com.jainverse.AppDelegate"
   private var pluginMessenger: FlutterBinaryMessenger? {
     registrar(forPlugin: pluginRegistrarName)?.messenger()
@@ -148,6 +149,9 @@ import AVKit
         result(FlutterMethodNotImplemented)
       }
     })
+
+    // Video trimmer channel (two-step trim+compress pipeline)
+    videoTrimmerPlugin = VideoTrimmerPlugin(messenger: messenger)
 
     // PiP channel
     pipChannel = FlutterMethodChannel(name: pipChannelName, binaryMessenger: messenger)

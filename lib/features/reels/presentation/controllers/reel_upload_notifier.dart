@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_compress/video_compress.dart';
 
 import 'package:jainverse/features/reels/data/repository/reels_repository.dart';
 import 'package:jainverse/features/reels/data/upload/reel_upload_service.dart';
@@ -30,7 +31,6 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
     try {
       final xFile = await _picker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 1),
       );
       if (xFile == null) {
         // User cancelled.
@@ -66,7 +66,30 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       );
       return;
     }
-    state = state.copyWith(status: UploadStatus.trimming, clearError: true);
+
+    final info = await VideoCompress.getMediaInfo(file.path);
+    final durationMs = info.duration ?? 0;
+    final videoDuration = Duration(milliseconds: durationMs.round());
+
+    if (videoDuration.inSeconds > 300) {
+      // Discard the temp file — it will not be used.
+      try { await file.delete(); } catch (_) {}
+      state = state.copyWith(
+        status: UploadStatus.idle,
+        clearFile: true,
+        errorMessage: 'Maximum allowed video length is 5 minutes',
+      );
+      return;
+    }
+
+    final isTrimRequired = videoDuration.inSeconds > 180;
+
+    state = state.copyWith(
+      status: UploadStatus.trimming,
+      clearError: true,
+      videoDuration: videoDuration,
+      isTrimRequired: isTrimRequired,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -79,12 +102,16 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       status: UploadStatus.previewing,
       trimStart: start,
       trimEnd: end,
+      isTrimSkipped: false,
     );
   }
 
   /// Skips trim without changing start/end, advances to preview/metadata form.
   void skipTrim() {
-    state = state.copyWith(status: UploadStatus.previewing);
+    state = state.copyWith(
+      status: UploadStatus.previewing,
+      isTrimSkipped: true,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -132,16 +159,36 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
       final fileName = 'reel_${DateTime.now().millisecondsSinceEpoch}';
 
       // Phase A — upload to Bunny CDN (with optional trim).
-      final trimStartSec = state.trimStart.inSeconds;
-      final trimEnd = state.trimEnd;
-      final trimDurationSec = (trimEnd != null && trimEnd > state.trimStart)
-          ? (trimEnd - state.trimStart).inSeconds
-          : null;
+      //
+      // Optimization: skip the native trim step entirely when the user did not
+      // apply a meaningful trim. This avoids calling the native MediaExtractor
+      // for full-video uploads, which saves time and avoids edge-case issues.
+      final bool skipTrimStep =
+          state.isTrimSkipped ||
+          (state.trimStart == Duration.zero && state.trimEnd == null);
+
+      int? trimStartSec;
+      int? trimDurationSec;
+
+      if (!skipTrimStep) {
+        final trimEnd = state.trimEnd;
+        final rawSec = (trimEnd != null && trimEnd > state.trimStart)
+            ? (trimEnd - state.trimStart).inSeconds
+            : null;
+        if (rawSec != null && rawSec > 0) {
+          trimStartSec = state.trimStart.inSeconds;
+          trimDurationSec = rawSec;
+        }
+      }
 
       final result = await _uploadService.uploadVideoComplete(
         file: file,
         fileName: fileName,
-        trimStartSec: trimStartSec > 0 ? trimStartSec : null,
+        // Always pass trimStartSec explicitly (even 0) when a trim duration is
+        // active.  Passing null here allows the underlying Android
+        // MediaExtractor to start from its *current* position instead of
+        // seeking to 0, which causes "time >> end" read-past-end loop.
+        trimStartSec: trimStartSec,
         trimDurationSec: trimDurationSec,
         customThumbnailFile: state.customThumbnailFile,
         onProgress: (sent, total) {
@@ -204,8 +251,8 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
         savedReel: reel,
       );
 
-      // Refresh the feed so the new reel appears immediately.
-      ref.read(reelFeedProvider.notifier).loadInitial();
+      // Prepend the new reel to the feed without wiping existing content.
+      ref.read(reelFeedProvider.notifier).refresh();
     } catch (e) {
       if (kDebugMode) debugPrint('ReelUploadNotifier._publishToBackend: $e');
       // publicUrl is already in state — retry() will call _publishToBackend

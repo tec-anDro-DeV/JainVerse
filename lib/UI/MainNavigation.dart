@@ -294,6 +294,11 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                                   tabController: _tabController,
                                   navigatorKeys: _navigatorKeys,
                                   isReelsMode: isReelsModeActive,
+                                  onSameReelsTabTapped: () {
+                                    ref
+                                        .read(reelNavTapProvider.notifier)
+                                        .increment();
+                                  },
                                 ),
                               ),
 
@@ -461,11 +466,17 @@ class BottomNavCustom extends StatefulWidget {
   /// When true the nav bar renders with the dark Reels gradient style.
   final bool isReelsMode;
 
+  /// Called when the user taps the Reels tab icon (index 4) while already on
+  /// that tab. [MainNavigationWrapper] uses this to trigger scroll-to-top and
+  /// a non-destructive feed refresh in [ReelsScreen].
+  final VoidCallback? onSameReelsTabTapped;
+
   const BottomNavCustom({
     super.key,
     this.tabController,
     this.navigatorKeys,
     this.isReelsMode = false,
+    this.onSameReelsTabTapped,
   });
 
   @override
@@ -591,6 +602,8 @@ class BottomNavCustomState extends State<BottomNavCustom>
             (route) => route.isFirst,
           );
         }
+        // Reels tab re-tap: notify ReelsScreen to scroll to top + refresh.
+        if (index == 4) widget.onSameReelsTabTapped?.call();
       } else {
         // Navigate to new tab (only for tabs 0-2)
         widget.tabController!.animateTo(index);

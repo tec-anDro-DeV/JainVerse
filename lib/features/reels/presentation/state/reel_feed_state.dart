@@ -14,6 +14,10 @@ class ReelFeedState {
   /// The index of the page currently visible in the PageView.
   final int currentIndex;
 
+  /// True while a non-destructive refresh (prepend) is in flight.
+  /// Guards against concurrent refresh calls.
+  final bool isRefreshing;
+
   const ReelFeedState({
     this.reels = const [],
     this.isLoadingInitial = false,
@@ -23,6 +27,7 @@ class ReelFeedState {
     this.totalPages = 1,
     this.errorMessage,
     this.currentIndex = 0,
+    this.isRefreshing = false,
   });
 
   ReelFeedState copyWith({
@@ -34,6 +39,7 @@ class ReelFeedState {
     int? totalPages,
     String? errorMessage,
     int? currentIndex,
+    bool? isRefreshing,
     bool clearError = false,
   }) {
     return ReelFeedState(
@@ -45,6 +51,7 @@ class ReelFeedState {
       totalPages: totalPages ?? this.totalPages,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       currentIndex: currentIndex ?? this.currentIndex,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
 }

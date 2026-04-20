@@ -57,9 +57,37 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
     ref.read(reelFeedProvider.notifier).setCurrentIndex(index);
   }
 
+  /// Pull-to-refresh: only fires when the user is already at the top (index 0)
+  /// so that mid-feed overscroll is silently ignored.
+  Future<void> _onRefresh() async {
+    if (ref.read(reelFeedProvider).currentIndex != 0) return;
+    await ref.read(reelFeedProvider.notifier).refresh();
+  }
+
+  /// Called when the user taps the Reels tab icon while already on this screen.
+  /// Scrolls to the top first (if needed), then triggers a non-destructive
+  /// refresh so new reels appear at the top without losing existing content.
+  void _onNavReelsTap() {
+    final feedState = ref.read(reelFeedProvider);
+    if (feedState.reels.isEmpty) return;
+
+    if (feedState.currentIndex != 0) {
+      _pageController.jumpToPage(0);
+      // Explicitly sync notifier state so refresh() reads currentIndex = 0.
+      ref.read(reelFeedProvider.notifier).setCurrentIndex(0);
+    }
+    ref.read(reelFeedProvider.notifier).refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // required by AutomaticKeepAliveClientMixin
+
+    // Listen for Reels tab re-taps signalled by MainNavigation.
+    ref.listen(reelNavTapProvider, (prev, next) {
+      if (prev != next) _onNavReelsTap();
+    });
+
     final feedState = ref.watch(reelFeedProvider);
     final double navBarBottom = 120.h + MediaQuery.of(context).padding.bottom;
 
@@ -173,22 +201,27 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
         padding: EdgeInsets.only(bottom: navBarBottom),
         child: Stack(
           children: [
-            PageView.builder(
-              controller: _pageController,
-              scrollDirection: Axis.vertical,
-              itemCount: itemCount,
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) {
-                if (index >= feedState.reels.length) {
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white54,
-                      strokeWidth: 2.w,
-                    ),
-                  );
-                }
-                return ReelPageItem(reel: feedState.reels[index], index: index);
-              },
+            RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: Colors.white,
+              backgroundColor: Colors.black54,
+              child: PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                itemCount: itemCount,
+                onPageChanged: _onPageChanged,
+                itemBuilder: (context, index) {
+                  if (index >= feedState.reels.length) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white54,
+                        strokeWidth: 2.w,
+                      ),
+                    );
+                  }
+                  return ReelPageItem(reel: feedState.reels[index], index: index);
+                },
+              ),
             ),
 
             Positioned(

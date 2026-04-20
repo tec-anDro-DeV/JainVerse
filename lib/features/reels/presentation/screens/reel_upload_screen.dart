@@ -35,6 +35,17 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
   void initState() {
     super.initState();
     MusicPlayerStateManager().hideMiniPlayerOnly('reel_upload');
+    // Defer the reset until after the first frame to avoid Riverpod's
+    // "modified provider during build" assertion. This clears any leftover
+    // state from a previous visit so the user always lands on the pick-video
+    // prompt. The guard keeps an in-progress background upload alive.
+    Future(() {
+      if (!mounted) return;
+      final uploadState = ref.read(reelUploadProvider);
+      if (!uploadState.isActive) {
+        ref.read(reelUploadProvider.notifier).reset();
+      }
+    });
   }
 
   @override
@@ -153,10 +164,11 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
 
   Widget _buildBody(ReelUploadState upload) {
     return switch (upload.status) {
-      UploadStatus.idle || UploadStatus.picking => _buildPickPrompt(),
+      UploadStatus.idle || UploadStatus.picking => _buildPickPrompt(upload.errorMessage),
       UploadStatus.validating => _buildSpinner('Checking video…'),
       UploadStatus.trimming => ReelTrimWidget(
         file: upload.pickedFile!,
+        isTrimRequired: upload.isTrimRequired,
         onApply: (s, e) =>
             ref.read(reelUploadProvider.notifier).applyTrim(s, e),
         onSkip: () => ref.read(reelUploadProvider.notifier).skipTrim(),
@@ -185,7 +197,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
 
   // ── Pick prompt ─────────────────────────────────────────────────────────────
 
-  Widget _buildPickPrompt() {
+  Widget _buildPickPrompt(String? errorMessage) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -202,9 +214,31 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
           ),
           SizedBox(height: 8.h),
           Text(
-            'Up to 60 seconds · MP4, MOV',
+            'Up to 3 minutes · MP4, MOV',
             style: TextStyle(color: Colors.black45, fontSize: 13.sp),
           ),
+          if (errorMessage != null) ...[
+            SizedBox(height: 16.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32.w),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline_rounded,
+                      color: Colors.red.shade400, size: 16.w),
+                  SizedBox(width: 6.w),
+                  Flexible(
+                    child: Text(
+                      errorMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.red.shade400, fontSize: 12.sp),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(height: 32.h),
           ElevatedButton.icon(
             onPressed: () => ref.read(reelUploadProvider.notifier).pickVideo(),
@@ -319,6 +353,19 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
   void _startUpload() {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
+
+    // Release the preview player's hardware decoder buffers before the native
+    // transcoder starts. Both compete for Android's ImageReader surface buffer
+    // pool; leaving the preview controller alive causes the transcoder to stall
+    // indefinitely (State.Wait on both audio + video pipelines).
+    if (_trimLoopListener != null) {
+      _previewController?.removeListener(_trimLoopListener!);
+      _trimLoopListener = null;
+    }
+    _previewController?.pause();
+    _previewController?.dispose();
+    _previewController = null;
+
     ref
         .read(reelUploadProvider.notifier)
         .startUpload(title: title, description: _descController.text.trim());
