@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:jainverse/videoplayer/widgets/video_card.dart';
 import 'package:jainverse/videoplayer/widgets/video_card_skeleton.dart';
 import 'package:jainverse/videoplayer/models/video_item.dart';
 import 'package:jainverse/features/reels/data/models/reel_item.dart';
+import 'package:jainverse/features/reels/presentation/widgets/reel_overlay_helper.dart';
 
-class MyVideosSection extends StatelessWidget {
+class MyVideosSection extends StatefulWidget {
   final List<VideoItem> videos;
   final List<ReelItem> shorts;
   final bool isLoading;
@@ -14,7 +17,9 @@ class MyVideosSection extends StatelessWidget {
   final Function(VideoItem) onTap;
   final Function(String, VideoItem) onMenuAction;
   final Function(ReelItem)? onShortTap;
-  final Function(String, ReelItem)? onShortMenuAction;
+  final void Function(String, ReelItem)? onShortMenuAction;
+  final void Function(ReelItem)? onShortEdited;
+  final void Function(int)? onShortDeleted;
 
   const MyVideosSection({
     super.key,
@@ -27,7 +32,30 @@ class MyVideosSection extends StatelessWidget {
     required this.onMenuAction,
     this.onShortTap,
     this.onShortMenuAction,
+    this.onShortEdited,
+    this.onShortDeleted,
   });
+
+  @override
+  State<MyVideosSection> createState() => _MyVideosSectionState();
+}
+
+class _MyVideosSectionState extends State<MyVideosSection> {
+  late List<ReelItem> _shorts;
+
+  @override
+  void initState() {
+    super.initState();
+    _shorts = List<ReelItem>.from(widget.shorts);
+  }
+
+  @override
+  void didUpdateWidget(covariant MyVideosSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.shorts, widget.shorts)) {
+      _shorts = List<ReelItem>.from(widget.shorts);
+    }
+  }
 
   Widget _buildLoading() {
     return Column(
@@ -62,13 +90,13 @@ class MyVideosSection extends StatelessWidget {
           ),
           SizedBox(height: 8.w),
           Text(
-            error ?? 'Unknown error',
+            widget.error ?? 'Unknown error',
             style: TextStyle(fontSize: 13.sp, color: Colors.red.shade600),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 16.w),
           ElevatedButton.icon(
-            onPressed: onRetry,
+            onPressed: widget.onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
@@ -122,13 +150,13 @@ class MyVideosSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return _buildLoading();
-    if (error != null) return _buildError();
-    if (videos.isEmpty && shorts.isEmpty) return _buildEmpty();
+    if (widget.isLoading) return _buildLoading();
+    if (widget.error != null) return _buildError();
+    if (widget.videos.isEmpty && _shorts.isEmpty) return _buildEmpty();
 
     final children = <Widget>[];
 
-    if (shorts.isNotEmpty) {
+    if (_shorts.isNotEmpty) {
       children.add(
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,9 +175,36 @@ class MyVideosSection extends StatelessWidget {
               mainAxisSpacing: 12.w,
               crossAxisSpacing: 12.w,
               childAspectRatio: 9 / 16,
-              children: shorts.map((reel) {
+              children: _shorts.map((reel) {
                 return GestureDetector(
-                  onTap: onShortTap != null ? () => onShortTap!(reel) : null,
+                  onTap: widget.onShortTap != null
+                      ? () => widget.onShortTap!(reel)
+                      : null,
+                  onLongPress: reel.isOwn == 1
+                      ? () {
+                          HapticFeedback.mediumImpact();
+                          ReelOverlayHelper.showOptions(
+                            context: context,
+                            reel: reel,
+                            onEdited: (updated) {
+                              setState(() {
+                                final idx = _shorts.indexWhere(
+                                  (r) => r.id == reel.id,
+                                );
+                                if (idx >= 0) _shorts[idx] = updated;
+                              });
+                              widget.onShortEdited?.call(updated);
+                            },
+                            onDeleted: () {
+                              setState(
+                                () =>
+                                    _shorts.removeWhere((r) => r.id == reel.id),
+                              );
+                              widget.onShortDeleted?.call(reel.id);
+                            },
+                          );
+                        }
+                      : null,
                   child: Stack(
                     children: [
                       ClipRRect(
@@ -184,30 +239,61 @@ class MyVideosSection extends StatelessWidget {
                           ),
                         ),
                       ),
+                      // bottom overlay: title and views
                       Positioned(
-                        right: 4.w,
-                        top: 4.w,
-                        child: reel.isOwn == 1 && onShortMenuAction != null
-                            ? PopupMenuButton<String>(
-                                padding: EdgeInsets.zero,
-                                onSelected: (v) => onShortMenuAction!(v, reel),
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('Edit'),
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 6.w,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black54],
+                            ),
+                            borderRadius: BorderRadius.vertical(
+                              bottom: Radius.circular(8.w),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  reel.title.isNotEmpty ? reel.title : '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.sp,
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('Delete'),
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.remove_red_eye,
+                                    size: 12.w,
+                                    color: Colors.white70,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    '${reel.totalViews}',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11.sp,
+                                    ),
                                   ),
                                 ],
-                                icon: Icon(
-                                  Icons.more_vert,
-                                  color: Colors.white,
-                                  size: 18.w,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -220,16 +306,16 @@ class MyVideosSection extends StatelessWidget {
       );
     }
 
-    if (videos.isNotEmpty) {
+    if (widget.videos.isNotEmpty) {
       children.addAll(
-        videos.map((video) {
+        widget.videos.map((video) {
           return Padding(
             padding: EdgeInsets.only(bottom: 16.w),
             child: VideoCard(
               item: video,
-              onTap: () => onTap(video),
+              onTap: () => widget.onTap(video),
               showPopupMenu: true,
-              onMenuAction: (action) => onMenuAction(action, video),
+              onMenuAction: (action) => widget.onMenuAction(action, video),
             ),
           );
         }).toList(),

@@ -153,7 +153,7 @@ class MyVideosService {
     try {
       final resp = await _dio.post(
         AppConstant.BaseUrl + 'delete_short_video',
-        data: {'short_id': shortId},
+        data: {'id': shortId},
         options: Options(
           headers: {
             'Content-Type': 'application/json',
