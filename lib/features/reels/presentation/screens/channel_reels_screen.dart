@@ -1,17 +1,24 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 
+import 'package:jainverse/UI/CreateChannel.dart';
 import 'package:jainverse/features/reels/data/models/reel_item.dart';
 import 'package:jainverse/features/reels/data/repository/reels_repository.dart';
 import 'package:jainverse/features/reels/presentation/providers/reel_providers.dart';
+import 'package:jainverse/features/reels/presentation/screens/reel_upload_screen.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_action_bar.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_info_overlay.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_progress_bar.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reels_ui_mode_scope.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 /// Full-screen vertical reels player scoped to a single channel.
 /// Opened from the Shorts tab in [ChannelVideosScreen].
@@ -47,6 +54,9 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
   int _totalPages = 1;
   int _currentIndex = 0;
 
+  /// null = not yet fetched, false = no channel, true = has channel.
+  bool? _userHasChannel;
+
   final ReelsRepository _repository = ReelsRepository();
 
   @override
@@ -55,6 +65,7 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
     _reels = List.of(widget.reels);
     _currentIndex = widget.startIndex.clamp(0, _reels.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
+    _fetchChannelStatus();
 
     // Seed like provider with initial reels
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,6 +74,86 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
         _onPageChanged(_currentIndex);
       }
     });
+  }
+
+  /// Mirrors AccountPage._fetchProfileFromApi + _applyChannelPayload.
+  Future<void> _fetchChannelStatus() async {
+    try {
+      final token = (await SharedPref().getToken())?.toString() ?? '';
+      if (token.isEmpty) {
+        if (mounted) setState(() => _userHasChannel = false);
+        return;
+      }
+      final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
+      final resp = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      if (!mounted) return;
+      if (resp.statusCode != 200) {
+        setState(() => _userHasChannel = false);
+        return;
+      }
+      final jsonResp = json.decode(resp.body) as Map<String, dynamic>;
+      final dynamic data = jsonResp['data'] ?? jsonResp;
+      final dynamic channel =
+          data is Map<String, dynamic> ? data['channel'] : null;
+      setState(() {
+        _userHasChannel =
+            channel is Map<String, dynamic> && channel.isNotEmpty;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _userHasChannel = false);
+    }
+  }
+
+  Future<void> _checkAndUpload() async {
+    if (_userHasChannel == null) {
+      await _fetchChannelStatus();
+      if (!mounted) return;
+    }
+
+    if (_userHasChannel != true) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Channel Required'),
+          content: const Text(
+            'You need to create a channel before uploading a reel.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateChannel()),
+                );
+                _fetchChannelStatus();
+              },
+              child: const Text('Create Channel'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    await _openUpload();
+  }
+
+  Future<void> _openUpload() async {
+    _controllers[_currentIndex]?.pause();
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReelUploadScreen()),
+    );
+    if (mounted) _controllers[_currentIndex]?.play();
   }
 
   @override
@@ -314,6 +405,21 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
                       size: 22.w,
                     ),
                     onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+
+                // Upload button
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8.h,
+                  right: 8.w,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.add_circle_outline_rounded,
+                      color: Colors.white,
+                      size: 28.w,
+                    ),
+                    tooltip: 'Upload Reel',
+                    onPressed: _checkAndUpload,
                   ),
                 ),
 

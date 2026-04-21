@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:jainverse/features/reels/presentation/state/reel_feed_state.dart';
 
@@ -9,6 +12,9 @@ import 'package:jainverse/features/reels/presentation/providers/reel_providers.d
 import 'package:jainverse/features/reels/presentation/screens/reel_upload_screen.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_page_item.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_upload_progress_overlay.dart';
+import 'package:jainverse/UI/CreateChannel.dart';
+import 'package:jainverse/utils/AppConstant.dart';
+import 'package:jainverse/utils/SharedPref.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
   const ReelsScreen({super.key});
@@ -23,11 +29,45 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   bool get wantKeepAlive => true;
   late final PageController _pageController;
 
+  /// null = not yet fetched, false = no channel, true = has channel.
+  bool? _userHasChannel;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
+    _fetchChannelStatus();
+  }
+
+  /// Mirrors AccountPage._fetchProfileFromApi + _applyChannelPayload.
+  Future<void> _fetchChannelStatus() async {
+    try {
+      final token = (await SharedPref().getToken())?.toString() ?? '';
+      if (token.isEmpty) {
+        if (mounted) setState(() => _userHasChannel = false);
+        return;
+      }
+      final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
+      final resp = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      if (!mounted) return;
+      if (resp.statusCode != 200) {
+        setState(() => _userHasChannel = false);
+        return;
+      }
+      final jsonResp = json.decode(resp.body) as Map<String, dynamic>;
+      final dynamic data = jsonResp['data'] ?? jsonResp;
+      final dynamic channel =
+          data is Map<String, dynamic> ? data['channel'] : null;
+      setState(() {
+        _userHasChannel =
+            channel is Map<String, dynamic> && channel.isNotEmpty;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _userHasChannel = false);
+    }
   }
 
   @override
@@ -57,23 +97,30 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
     ref.read(reelFeedProvider.notifier).setCurrentIndex(index);
   }
 
-  /// Pull-to-refresh: only fires when the user is already at the top (index 0)
-  /// so that mid-feed overscroll is silently ignored.
+  /// Pull-to-refresh on the live feed (only when at the top page).
   Future<void> _onRefresh() async {
     if (ref.read(reelFeedProvider).currentIndex != 0) return;
     await ref.read(reelFeedProvider.notifier).refresh();
   }
 
+  /// Pull-to-refresh for error / empty states — does a full reload.
+  Future<void> _onRefreshEmpty() async {
+    await ref.read(reelFeedProvider.notifier).loadInitial();
+  }
+
   /// Called when the user taps the Reels tab icon while already on this screen.
-  /// Scrolls to the top first (if needed), then triggers a non-destructive
-  /// refresh so new reels appear at the top without losing existing content.
+  /// If there is no feed content (error / empty), does a full reload.
+  /// Otherwise scrolls to top and prepends any new reels.
   void _onNavReelsTap() {
     final feedState = ref.read(reelFeedProvider);
-    if (feedState.reels.isEmpty) return;
+
+    if (feedState.reels.isEmpty) {
+      ref.read(reelFeedProvider.notifier).loadInitial();
+      return;
+    }
 
     if (feedState.currentIndex != 0) {
       _pageController.jumpToPage(0);
-      // Explicitly sync notifier state so refresh() reads currentIndex = 0.
       ref.read(reelFeedProvider.notifier).setCurrentIndex(0);
     }
     ref.read(reelFeedProvider.notifier).refresh();
@@ -121,38 +168,49 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
         backgroundColor: Colors.black,
         body: Padding(
           padding: EdgeInsets.only(bottom: navBarBottom),
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(24.w),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.wifi_off_rounded,
-                    color: Colors.white54,
-                    size: 56.w,
+          child: RefreshIndicator(
+            onRefresh: _onRefreshEmpty,
+            color: Colors.white,
+            backgroundColor: Colors.black54,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height - navBarBottom,
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.w),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.wifi_off_rounded,
+                          color: Colors.white54,
+                          size: 56.w,
+                        ),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'Could not load reels',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          feedState.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white54, fontSize: 13.sp),
+                        ),
+                        SizedBox(height: 24.h),
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              ref.read(reelFeedProvider.notifier).loadInitial(),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'Could not load reels',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(color: Colors.white),
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    feedState.errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54, fontSize: 13.sp),
-                  ),
-                  SizedBox(height: 24.h),
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        ref.read(reelFeedProvider.notifier).loadInitial(),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -166,23 +224,34 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
         backgroundColor: Colors.black,
         body: Padding(
           padding: EdgeInsets.only(bottom: navBarBottom),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.videocam_rounded, color: Colors.white38, size: 64.w),
-                SizedBox(height: 16.h),
-                Text(
-                  'All caught up on short videos!',
-                  style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+          child: RefreshIndicator(
+            onRefresh: _onRefreshEmpty,
+            color: Colors.white,
+            backgroundColor: Colors.black54,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height - navBarBottom,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.videocam_rounded, color: Colors.white38, size: 64.w),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'All caught up on short videos!',
+                        style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+                      ),
+                      SizedBox(height: 24.h),
+                      ElevatedButton.icon(
+                        onPressed: _checkAndUpload,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Post new short video'),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 24.h),
-                ElevatedButton.icon(
-                  onPressed: _openUpload,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Post new short video'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -213,7 +282,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
                 itemBuilder: (context, index) {
                   if (index >= feedState.reels.length) {
                     return Center(
-                      child: CircularProgressIndicator(
+                      child: CircularProgressIndicator( 
                         color: Colors.white54,
                         strokeWidth: 2.w,
                       ),
@@ -228,7 +297,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
               top: 0,
               left: 0,
               right: 0,
-              child: _TopBar(onUploadTap: _openUpload),
+              child: _TopBar(onUploadTap: _checkAndUpload),
             ),
 
             Positioned(
@@ -240,6 +309,47 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _checkAndUpload() async {
+    // If the initial fetch hasn't resolved yet, wait for it now.
+    if (_userHasChannel == null) {
+      await _fetchChannelStatus();
+      if (!mounted) return;
+    }
+
+    if (_userHasChannel != true) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Channel Required'),
+          content: const Text(
+            'You need to create a channel before uploading a reel.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateChannel()),
+                );
+                _fetchChannelStatus();
+              },
+              child: const Text('Create Channel'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    await _openUpload();
   }
 
   Future<void> _openUpload() async {

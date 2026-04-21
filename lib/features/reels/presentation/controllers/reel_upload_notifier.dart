@@ -298,16 +298,24 @@ class ReelUploadNotifier extends Notifier<ReelUploadState> {
         savedReel: reel,
       );
 
+      // Seed like state from the upload response (totalLikes: 0) before
+      // refreshing the feed. The feed API may return total_likes: 1 for the
+      // owner's own upload; putIfAbsent in seedFromReels will then skip that
+      // value and preserve the correct 0 we set here.
+      ref.read(reelLikeProvider.notifier).seedFromReels([reel]);
+
       // Prepend the new reel to the feed without wiping existing content.
       ref.read(reelFeedProvider.notifier).refresh();
     } catch (e) {
       if (kDebugMode) debugPrint('ReelUploadNotifier._publishToBackend: $e');
-      // publicUrl is already in state — retry() will call _publishToBackend
-      // again without re-uploading to Bunny.
+      final raw = e.toString().replaceFirst('Exception: ', '').trim();
+      final msg = raw.isNotEmpty
+          ? raw
+          : 'Could not save reel. Tap Retry — no re-upload needed.';
       state = state.copyWith(
         status: UploadStatus.error,
         isSaving: false,
-        errorMessage: 'Could not save reel. Tap Retry — no re-upload needed.',
+        errorMessage: msg,
       );
     }
   }
