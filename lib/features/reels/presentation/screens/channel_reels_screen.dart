@@ -42,6 +42,7 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
 
   bool _isMuted = false;
   bool _isLoadingMore = false;
+  bool _wasPlayingBeforeLongPress = false;
   int _currentPage = 1;
   int _totalPages = 1;
   int _currentIndex = 0;
@@ -238,6 +239,19 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
 
                     return GestureDetector(
                       onTap: _toggleMute,
+                      onLongPressStart: (_) {
+                        final ctrl = _controllers[index];
+                        if (ctrl != null && ctrl.value.isPlaying) {
+                          _wasPlayingBeforeLongPress = true;
+                          ctrl.pause();
+                        }
+                      },
+                      onLongPressEnd: (_) {
+                        if (_wasPlayingBeforeLongPress) {
+                          _controllers[_currentIndex]?.play();
+                          _wasPlayingBeforeLongPress = false;
+                        }
+                      },
                       child: Stack(
                         fit: StackFit.expand,
                         children: [

@@ -14,22 +14,47 @@ import 'package:jainverse/features/reels/presentation/widgets/reel_progress_bar.
 ///
 /// Each item is self-contained: it reads only its own slice of [reelPlayerProvider]
 /// so unrelated index changes don't cause unnecessary rebuilds.
-class ReelPageItem extends ConsumerWidget {
+class ReelPageItem extends ConsumerStatefulWidget {
   final ReelItem reel;
   final int index;
 
   const ReelPageItem({super.key, required this.reel, required this.index});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReelPageItem> createState() => _ReelPageItemState();
+}
+
+class _ReelPageItemState extends ConsumerState<ReelPageItem> {
+  bool _wasPlayingBeforeLongPress = false;
+
+  void _onLongPressStart(LongPressStartDetails _) {
+    final ctrl =
+        ref.read(reelPlayerProvider).controllers[widget.index];
+    if (ctrl != null && ctrl.value.isPlaying) {
+      _wasPlayingBeforeLongPress = true;
+      ctrl.pause();
+    }
+  }
+
+  void _onLongPressEnd(LongPressEndDetails _) {
+    if (_wasPlayingBeforeLongPress) {
+      ref.read(reelPlayerProvider).controllers[widget.index]?.play();
+      _wasPlayingBeforeLongPress = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final controller = ref.watch(
-      reelPlayerProvider.select((s) => s.controllers[index]),
+      reelPlayerProvider.select((s) => s.controllers[widget.index]),
     );
     final isBuffering = ref.watch(
-      reelPlayerProvider.select((s) => s.bufferingIndices.contains(index)),
+      reelPlayerProvider.select(
+          (s) => s.bufferingIndices.contains(widget.index)),
     );
     final isInitialized = ref.watch(
-      reelPlayerProvider.select((s) => s.initializedIndices.contains(index)),
+      reelPlayerProvider.select(
+          (s) => s.initializedIndices.contains(widget.index)),
     );
     final isMuted = ref.watch(
       reelPlayerProvider.select((s) => s.isMuted),
@@ -37,11 +62,13 @@ class ReelPageItem extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () => ref.read(reelPlayerProvider.notifier).toggleMute(),
+      onLongPressStart: _onLongPressStart,
+      onLongPressEnd: _onLongPressEnd,
       child: Stack(
         fit: StackFit.expand,
         children: [
           _VideoLayer(
-            reel: reel,
+            reel: widget.reel,
             controller: controller,
             isInitialized: isInitialized,
           ),
@@ -71,13 +98,13 @@ class ReelPageItem extends ConsumerWidget {
             bottom: 16.h,
             left: 16.w,
             right: 72.w,
-            child: ReelInfoOverlay(reel: reel),
+            child: ReelInfoOverlay(reel: widget.reel),
           ),
 
           Positioned(
             bottom: 16.h,
             right: 12.w,
-            child: ReelActionBar(reel: reel),
+            child: ReelActionBar(reel: widget.reel),
           ),
 
           Positioned(
