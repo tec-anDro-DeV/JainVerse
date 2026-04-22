@@ -250,8 +250,8 @@ class OfflineBottomNavigation extends StatelessWidget {
   }
 
   Widget _buildOfflineNavItem(int index) {
-    // Show Downloads tab as "selected" (index 1 = Library/Downloads)
-    final isSelected = index == 1; // Downloads tab appears selected
+    // Show Downloads tab as "selected" (index 2 = Library/Downloads)
+    final isSelected = index == 2; // Downloads tab appears selected
     final activeIconPath = navItems[index]['activeIcon']!;
     final inactiveIconPath = navItems[index]['inactiveIcon']!;
 

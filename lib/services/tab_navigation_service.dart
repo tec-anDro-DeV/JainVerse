@@ -47,4 +47,8 @@ class TabNavigationService {
     }
     return navigator.push(route);
   }
+
+  void switchToTab(int index) {
+    _tabController?.animateTo(index);
+  }
 }

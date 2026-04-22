@@ -162,7 +162,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
             backgroundColor: Colors.white,
             foregroundColor: Colors.black87,
             title: Text(
-              'New Reel',
+              'New Jainverse Short',
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
@@ -397,7 +397,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
                               ? null
                               : _startUpload,
                           icon: const Icon(Icons.upload_rounded),
-                          label: const Text('Post Reel'),
+                          label: const Text('Post Jainverse Short'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _kPrimary,
                             foregroundColor: Colors.white,
@@ -552,7 +552,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
             ),
             SizedBox(height: 20.h),
             Text(
-              'Reel posted!',
+              'Jainverse Short posted!',
               style: TextStyle(
                 color: Colors.black87,
                 fontSize: 20.sp,
@@ -578,7 +578,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
                   borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
-              child: const Text('Back to Reels'),
+              child: const Text('Back to JainVerse'),
             ),
           ],
         ),

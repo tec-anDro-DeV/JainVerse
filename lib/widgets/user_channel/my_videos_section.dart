@@ -20,6 +20,7 @@ class MyVideosSection extends StatefulWidget {
   final void Function(String, ReelItem)? onShortMenuAction;
   final void Function(ReelItem)? onShortEdited;
   final void Function(int)? onShortDeleted;
+  final VoidCallback? onAddShort;
 
   const MyVideosSection({
     super.key,
@@ -34,6 +35,7 @@ class MyVideosSection extends StatefulWidget {
     this.onShortMenuAction,
     this.onShortEdited,
     this.onShortDeleted,
+    this.onAddShort,
   });
 
   @override
@@ -163,9 +165,25 @@ class _MyVideosSectionState extends State<MyVideosSection> {
           children: [
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.w),
-              child: Text(
-                'Shorts',
-                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Shorts',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.onAddShort != null)
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: widget.onAddShort,
+                      tooltip: 'Upload Short',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
               ),
             ),
             GridView.count(

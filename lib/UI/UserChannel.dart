@@ -26,6 +26,7 @@ import 'package:jainverse/utils/crash_prevention_helper.dart';
 import 'package:jainverse/UI/user_channel_image_helper.dart';
 import 'package:jainverse/UI/user_channel_videos.dart';
 import 'package:jainverse/features/reels/presentation/screens/channel_reels_screen.dart';
+import 'package:jainverse/features/reels/presentation/screens/reel_upload_screen.dart';
 
 class UserChannel extends StatefulWidget {
   final ChannelModel channel;
@@ -890,6 +891,10 @@ class _UserChannelState extends State<UserChannel>
                                   // Action Buttons (only in non-edit mode)
                                   if (!_isEditMode) _buildCustomizeButton(),
 
+                                  if (!_isEditMode) SizedBox(height: 12.w),
+
+                                  if (!_isEditMode) _buildUploadShortButton(),
+
                                   if (!_isEditMode) SizedBox(height: 24.w),
 
                                   // Channel Info Card or Edit Form
@@ -917,6 +922,7 @@ class _UserChannelState extends State<UserChannel>
                                           _openShortsPlayer(reel),
                                       onShortMenuAction: (action, reel) =>
                                           _handleShortAction(action, reel),
+                                      onAddShort: _openUploadShort,
                                     ),
                                   ],
 
@@ -1113,6 +1119,41 @@ class _UserChannelState extends State<UserChannel>
     );
   }
 
+  Widget _buildUploadShortButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.symmetric(vertical: 16.w),
+          side: BorderSide(color: appColors().primaryColorApp, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.w),
+          ),
+        ),
+        onPressed: _openUploadShort,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add_circle_outline,
+              size: 20.w,
+              color: appColors().primaryColorApp,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              'Upload JainVerse Short',
+              style: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w500,
+                color: appColors().primaryColorApp,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildModernTextField({
     required TextEditingController controller,
     required FocusNode focusNode,
@@ -1301,6 +1342,12 @@ class _UserChannelState extends State<UserChannel>
       contextVideos: playableVideos,
       contextLabel: '${_currentChannel.name} Videos',
     );
+  }
+
+  void _openUploadShort() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ReelUploadScreen()),
+    ).then((_) => _loadMyShorts());
   }
 
   void _openShortsPlayer(ReelItem reel) {

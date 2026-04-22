@@ -418,7 +418,7 @@ class _ChannelReelsScreenState extends ConsumerState<ChannelReelsScreen> {
                       color: Colors.white,
                       size: 28.w,
                     ),
-                    tooltip: 'Upload Reel',
+                    tooltip: 'Upload Jainverse Short',
                     onPressed: _checkAndUpload,
                   ),
                 ),

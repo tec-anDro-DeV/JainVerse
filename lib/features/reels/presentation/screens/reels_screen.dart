@@ -402,7 +402,7 @@ class _TopBar extends StatelessWidget {
               ),
             const Spacer(),
             Text(
-              'Reels',
+              'JainVerse Shorts',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -418,7 +418,7 @@ class _TopBar extends StatelessWidget {
                 size: 28.w,
               ),
               onPressed: onUploadTap,
-              tooltip: 'Upload Reel',
+              tooltip: 'Upload Jainverse Short',
             ),
           ],
         ),

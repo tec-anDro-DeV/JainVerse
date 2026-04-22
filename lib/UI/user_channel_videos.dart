@@ -17,6 +17,7 @@ class UserChannelVideosSection extends StatelessWidget {
   final void Function(String, VideoItem) onMenuAction;
   final void Function(ReelItem)? onShortTap;
   final void Function(String, ReelItem)? onShortMenuAction;
+  final VoidCallback? onAddShort;
 
   const UserChannelVideosSection({
     super.key,
@@ -29,6 +30,7 @@ class UserChannelVideosSection extends StatelessWidget {
     this.shorts = const [],
     this.onShortTap,
     this.onShortMenuAction,
+    this.onAddShort,
   });
 
   List<VideoItem> get blockedVideos =>
@@ -105,6 +107,7 @@ class UserChannelVideosSection extends StatelessWidget {
           onMenuAction: onMenuAction,
           onShortTap: onShortTap,
           onShortMenuAction: onShortMenuAction,
+          onAddShort: onAddShort,
         ),
 
         // Blocked videos (if any)

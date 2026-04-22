@@ -26,6 +26,7 @@ import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/CacheManager.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 import 'package:jainverse/utils/music_action_handler.dart';
+import 'package:jainverse/services/tab_navigation_service.dart';
 import 'package:session_storage/session_storage.dart';
 
 import '../main.dart';
@@ -108,6 +109,11 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
 
   // Library items data
   final List<LibraryItem> libraryItems = [
+    LibraryItem(
+      icon: Icons.play_circle_outline_rounded,
+      title: 'JainVerse Shorts',
+      color: appColors().primaryColorApp,
+    ),
     LibraryItem(
       icon: Icons.queue_music_outlined,
       title: 'Song Playlist',
@@ -477,6 +483,9 @@ class MyState extends State<MyLibrary> with SingleTickerProviderStateMixin {
     _isNavigatingBack = true;
 
     switch (title) {
+      case 'JainVerse Shorts':
+        TabNavigationService().switchToTab(1);
+        break;
       case 'Song Playlist':
         Navigator.push(
           context,

@@ -63,10 +63,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
   // Navigation keys for each tab to maintain separate navigation stacks
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(), // Home
+    GlobalKey<NavigatorState>(), // Shorts
     GlobalKey<NavigatorState>(), // Library
     GlobalKey<NavigatorState>(), // Search
     GlobalKey<NavigatorState>(), // Calendar
-    GlobalKey<NavigatorState>(), // Reels
   ];
 
   @override
@@ -86,9 +86,9 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
         final newIndex = _tabController.index;
         session['page'] = newIndex.toString();
 
-        // Leaving the Reels tab → dispose all video controllers so their
+        // Leaving the Shorts tab → dispose all video controllers so their
         // Android ImageReader buffer slots are freed immediately.
-        if (_previousTabIndex == 4 && newIndex != 4) {
+        if (_previousTabIndex == 1 && newIndex != 1) {
           ref.read(reelPlayerProvider.notifier).releaseAll();
         }
 
@@ -98,7 +98,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
         // the status bar declaratively so no imperative SystemChrome call is needed.
         ref.read(reelsUIModeProvider.notifier).exitReelsMode();
 
-        if (newIndex == 4) {
+        if (newIndex == 1) {
           // Pause audio (fire-and-forget; null-safe in case handler not ready).
           try {
             const MyApp().called().pause();
@@ -209,10 +209,10 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
               _lastMusicManagerLog = musicSummary;
             }
 
-            // Unified reels-mode flag: active when on the Reels tab (no
+            // Unified reels-mode flag: active when on the Shorts tab (no
             // sub-route), OR when a reels screen was pushed from another tab.
             final isReelsModeActive =
-                (_tabController.index == 4 && !_reelsHasSubRoute.value) ||
+                (_tabController.index == 1 && !_reelsHasSubRoute.value) ||
                 isGlobalReelsMode;
 
             return WillPopScope(
@@ -274,13 +274,13 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
                               physics: const NeverScrollableScrollPhysics(),
                               children: [
                                 _buildTabNavigator(0, const HomeDiscover()),
-                                _buildTabNavigator(1, const MyLibrary()),
-                                _buildTabNavigator(2, Search("")),
+                                _buildTabNavigator(1, const ReelsScreen()),
+                                _buildTabNavigator(2, const MyLibrary()),
+                                _buildTabNavigator(3, Search("")),
                                 _buildTabNavigator(
-                                  3,
+                                  4,
                                   const PanchangCalendarScreen(),
                                 ),
-                                _buildTabNavigator(4, const ReelsScreen()),
                               ],
                             ),
 
@@ -422,7 +422,7 @@ class _MainNavigationWrapperState extends ConsumerState<MainNavigationWrapper>
       key: _navigatorKeys[tabIndex],
       observers: [
         tabNavigatorObservers[tabIndex],
-        if (tabIndex == 4) _ReelsRouteObserver(_reelsHasSubRoute),
+        if (tabIndex == 1) _ReelsRouteObserver(_reelsHasSubRoute),
       ],
       onGenerateRoute: (settings) {
         return MaterialPageRoute(
@@ -466,7 +466,7 @@ class BottomNavCustom extends StatefulWidget {
   /// When true the nav bar renders with the dark Reels gradient style.
   final bool isReelsMode;
 
-  /// Called when the user taps the Reels tab icon (index 4) while already on
+  /// Called when the user taps the Shorts tab icon (index 1) while already on
   /// that tab. [MainNavigationWrapper] uses this to trigger scroll-to-top and
   /// a non-destructive feed refresh in [ReelsScreen].
   final VoidCallback? onSameReelsTabTapped;
@@ -503,6 +503,8 @@ class BottomNavCustomState extends State<BottomNavCustom>
       'inactiveIcon': 'assets/images/discover_inactive.svg',
       'label': 'Home',
     },
+    // Shorts tab (index 1) — uses a Material icon; replace with SVG assets when available.
+    {'activeIcon': '', 'inactiveIcon': '', 'label': 'Shorts'},
     {
       'activeIcon': 'assets/images/library_active.svg',
       'inactiveIcon': 'assets/images/library_inactive.svg',
@@ -518,8 +520,6 @@ class BottomNavCustomState extends State<BottomNavCustom>
       'inactiveIcon': 'assets/images/calendar_inactive.svg',
       'label': 'Calendar',
     },
-    // Reels tab — uses a Material icon; replace with SVG assets when available.
-    {'activeIcon': '', 'inactiveIcon': '', 'label': 'Reels'},
   ];
 
   // Animation controllers
@@ -602,8 +602,8 @@ class BottomNavCustomState extends State<BottomNavCustom>
             (route) => route.isFirst,
           );
         }
-        // Reels tab re-tap: notify ReelsScreen to scroll to top + refresh.
-        if (index == 4) widget.onSameReelsTabTapped?.call();
+        // Shorts tab re-tap: notify ReelsScreen to scroll to top + refresh.
+        if (index == 1) widget.onSameReelsTabTapped?.call();
       } else {
         // Navigate to new tab (only for tabs 0-2)
         widget.tabController!.animateTo(index);
@@ -771,7 +771,7 @@ class BottomNavCustomState extends State<BottomNavCustom>
                               isSelected
                                   ? Icons.play_circle_rounded
                                   : Icons.play_circle_outline_rounded,
-                              size: 26.w,
+                              size: 30.w,
                               color: isSelected ? activeColor : inactiveColor,
                             ),
                     ),

@@ -83,7 +83,7 @@ class AppConstant {
   static const String API_ARTIST_VERIFY_STATUS = "artist/verify-status";
   static const String API_BUCKET_UPLOAD_URL = "bucket_upload_url";
 
-  // Short-video / Reels endpoints
+  // Short-video endpoints
   static const String API_GET_SHORT_VIDEO = 'get_short_video';
   static const String API_UPLOAD_SHORT_VIDEO = 'upload_short_video';
   static const String API_LIKE_DISLIKE_SHORT_VIDEO = 'like_dislike_short_video';
