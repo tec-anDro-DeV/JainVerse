@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_compress/video_compress.dart';
 
 import 'package:jainverse/utils/AppConstant.dart';
+import 'video_compression_service.dart';
 
 typedef ProgressCallback = void Function(int sent, int total);
 
@@ -49,6 +50,7 @@ class ReelUploadService {
   static const List<String> _allowedExtensions = ['mp4', 'mov', 'm4v', '3gp'];
 
   final Dio _dio;
+  final _compressor = VideoCompressionService();
 
   ReelUploadService()
       : _dio = Dio() {
@@ -71,7 +73,6 @@ class ReelUploadService {
   Future<BunnyUploadResult> uploadVideoComplete({
     required File file,
     required String fileName,
-    VideoQuality quality = VideoQuality.MediumQuality,
     int? trimStartSec,
     int? trimDurationSec,
     File? customThumbnailFile,
@@ -85,7 +86,6 @@ class ReelUploadService {
     try {
       uploadFile = await _compressVideo(
         file,
-        quality: quality,
         startTimeSec: trimStartSec,
         durationSec: trimDurationSec,
       );
@@ -259,7 +259,6 @@ class ReelUploadService {
 
   Future<File> _compressVideo(
     File file, {
-    VideoQuality quality = VideoQuality.MediumQuality,
     int? startTimeSec,
     int? durationSec,
   }) async {
@@ -317,40 +316,20 @@ class ReelUploadService {
     }
 
     try {
-      if (kDebugMode) {
-        debugPrint('ReelUploadService: compressing ${sourceFile.path}...');
+      final compressedFile = await _compressor.compress(sourceFile);
+
+      // If VideoCompressionService skipped compression it returns sourceFile
+      // unchanged.  When sourceFile IS the native-trimmed temp, we must NOT
+      // delete it in the finally block — the caller (uploadVideoComplete) will
+      // clean it up via the `uploadFile.path != file.path` guard instead.
+      if (compressedFile.path == sourceFile.path) {
+        nativeTrimmedFile = null;
       }
 
-      // Timeout guards against the OtaliaStudios transcoder State.Wait
-      // deadlock (audio decoder fills all 6 output buffers, video reader stalls,
-      // neither can unblock the other — the Future never resolves without this).
-      // cancelCompression() sets the internal cancel flag the spin loop checks.
-      final info = await VideoCompress.compressVideo(
-        sourceFile.path,
-        quality: quality,
-        deleteOrigin: false,
-        includeAudio: true,
-        frameRate: 30,
-        // No startTime / duration — file is already trimmed natively.
-      ).timeout(const Duration(minutes: 5), onTimeout: () {
-        VideoCompress.cancelCompression();
-        throw TimeoutException(
-          'VideoCompress deadlock: State.Wait spin exceeded 5 min',
-        );
-      });
-      if (info == null || info.file == null) {
-        throw Exception('Video compression returned null result');
-      }
-      if (kDebugMode) {
-        debugPrint(
-          'ReelUploadService: compressed '
-          '${_formatSize(await sourceFile.length())} → '
-          '${_formatSize(await info.file!.length())}',
-        );
-      }
-      return info.file!;
+      return compressedFile;
     } finally {
-      // Delete the native-trimmed temp file whether or not compression succeeded.
+      // Delete the native-trimmed temp file when compression produced a new
+      // output (nativeTrimmedFile is cleared above in the skip case).
       if (nativeTrimmedFile != null) {
         try { nativeTrimmedFile.deleteSync(); } catch (_) {}
       }

@@ -84,7 +84,7 @@ class HomeController extends ChangeNotifier {
     bool forceRefresh = false,
     bool suppressIndicator = false,
   }) async {
-    if (_isLoading && !forceRefresh) return;
+    if ((_isLoading || _isRefreshing) && !forceRefresh) return;
 
     if (forceRefresh && !suppressIndicator) {
       _isRefreshing = true;

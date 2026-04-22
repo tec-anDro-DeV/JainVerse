@@ -157,6 +157,7 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
         },
         child: Scaffold(
           backgroundColor: Colors.white,
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             backgroundColor: Colors.white,
             foregroundColor: Colors.black87,
@@ -337,72 +338,81 @@ class _ReelUploadScreenState extends ConsumerState<ReelUploadScreen> {
                   ),
           ),
         ),
-        Container(
-          color: Colors.grey.shade50,
-          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 32.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleController,
-                style: TextStyle(color: Colors.black87, fontSize: 14.sp),
-                decoration: _inputDecoration('Title *'),
-                maxLength: 100,
-                onChanged: (_) => setState(() {}),
+        Expanded(
+          child: ColoredBox(
+            color: Colors.grey.shade50,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                16.w,
+                4.h,
+                16.w,
+                MediaQuery.of(context).viewInsets.bottom + 180.w,
               ),
-              SizedBox(height: 12.h),
-              TextField(
-                controller: _descController,
-                style: TextStyle(color: Colors.black87, fontSize: 14.sp),
-                decoration: _inputDecoration('Description (optional)'),
-                maxLines: 2,
-                maxLength: 300,
-              ),
-              SizedBox(height: 12.h),
-              _buildThumbnailPicker(upload),
-              SizedBox(height: 16.h),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        // Dispose preview controller before resetting provider
-                        // to avoid leaving native resources alive.
-                        _disposePreviewController();
-                        ref.read(reelUploadProvider.notifier).reset();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black54,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                      ),
-                      child: const Text('Change Video'),
-                    ),
+                  TextField(
+                    controller: _titleController,
+                    style: TextStyle(color: Colors.black87, fontSize: 14.sp),
+                    decoration: _inputDecoration('Title *'),
+                    maxLength: 100,
+                    onChanged: (_) => setState(() {}),
                   ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _titleController.text.trim().isEmpty
-                          ? null
-                          : _startUpload,
-                      icon: const Icon(Icons.upload_rounded),
-                      label: const Text('Post Reel'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _kPrimary,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey.shade200,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.r),
+                  SizedBox(height: 12.h),
+                  TextField(
+                    controller: _descController,
+                    style: TextStyle(color: Colors.black87, fontSize: 14.sp),
+                    decoration: _inputDecoration('Description (optional)'),
+                    maxLines: 2,
+                    maxLength: 300,
+                  ),
+                  SizedBox(height: 12.h),
+                  _buildThumbnailPicker(upload),
+                  SizedBox(height: 16.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            // Dispose preview controller before resetting provider
+                            // to avoid leaving native resources alive.
+                            _disposePreviewController();
+                            ref.read(reelUploadProvider.notifier).reset();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black54,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                          ),
+                          child: const Text('Change Video'),
                         ),
                       ),
-                    ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          onPressed: _titleController.text.trim().isEmpty
+                              ? null
+                              : _startUpload,
+                          icon: const Icon(Icons.upload_rounded),
+                          label: const Text('Post Reel'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _kPrimary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade200,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ],

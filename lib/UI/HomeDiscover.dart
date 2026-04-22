@@ -110,7 +110,11 @@ class _HomeDiscoverState extends State<HomeDiscover>
 
   @override
   void didPush() {
-    _handleFocusGained(allowWhenEmpty: true);
+    // Do not trigger an API call on the initial push. The post-frame callback
+    // in initState schedules _controller.initialize() which performs the first
+    // load. Calling _handleFocusGained(allowWhenEmpty: true) here races with
+    // that initializer and causes a brief 401 error flash on first login.
+    _handleFocusGained(allowWhenEmpty: false);
   }
 
   @override
