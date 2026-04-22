@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:jainverse/Model/ModelTheme.dart';
 import 'package:jainverse/Model/song_model.dart';
@@ -1002,10 +1003,14 @@ class _ChannelVideosScreenState extends State<ChannelVideosScreen>
                         SizedBox(height: 2.h),
                         Row(
                           children: [
-                            Icon(
-                              Icons.remove_red_eye_outlined,
-                              color: Colors.white70,
-                              size: 14.sp,
+                            SvgPicture.asset(
+                              'assets/icons/view-icon.svg',
+                              height: 14.sp,
+                              width: 14.sp,
+                              colorFilter: const ColorFilter.mode(
+                                Colors.white70,
+                                BlendMode.srcIn,
+                              ),
                             ),
                             SizedBox(width: 2.w),
                             Text(

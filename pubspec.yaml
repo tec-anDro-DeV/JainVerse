@@ -217,6 +217,7 @@ flutter:
     - assets/icons/autoplay_icon.svg
     - assets/icons/play_icon.svg
     - assets/icons/pause_icon.svg
+    - assets/icons/view-icon.svg
 
   fonts:
     - family: Poppins

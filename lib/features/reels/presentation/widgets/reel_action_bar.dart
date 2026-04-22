@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:jainverse/features/reels/data/models/reel_item.dart';
@@ -17,7 +18,11 @@ class ReelActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final likeEntry = ref
         .watch(reelLikeProvider)
-        .entryFor(reel.id, fallbackLiked: reel.like, fallbackCount: reel.totalLikes);
+        .entryFor(
+          reel.id,
+          fallbackLiked: reel.like,
+          fallbackCount: reel.totalLikes,
+        );
 
     final isLiked = likeEntry.liked == 1;
 
@@ -25,10 +30,11 @@ class ReelActionBar extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionButton(
-          icon: Icon(
-            Icons.visibility_outlined,
-            color: Colors.white,
-            size: 26.w,
+          icon: SvgPicture.asset(
+            'assets/icons/view-icon.svg',
+            height: 26.w,
+            width: 26.w,
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
           ),
           label: _formatCount(reel.totalViews),
           onTap: () {},
@@ -51,30 +57,20 @@ class ReelActionBar extends ConsumerWidget {
         ),
         SizedBox(height: 20.h),
         _ActionButton(
-          icon: Icon(
-            Icons.share_rounded,
-            color: Colors.white,
-            size: 28.w,
-          ),
+          icon: Icon(Icons.share_rounded, color: Colors.white, size: 28.w),
           label: 'Share',
           onTap: () => Share.share(reel.videoUrl),
         ),
         SizedBox(height: 20.h),
         _ActionButton(
-          icon: Icon(
-            Icons.more_horiz_rounded,
-            color: Colors.white,
-            size: 28.w,
-          ),
+          icon: Icon(Icons.more_horiz_rounded, color: Colors.white, size: 28.w),
           label: 'More',
           onTap: () => showModalBottomSheet(
             context: context,
             backgroundColor: Colors.transparent,
             useRootNavigator: true,
-            builder: (_) => ReelMoreSheet(
-              reel: reel,
-              localTotalLikes: likeEntry.count,
-            ),
+            builder: (_) =>
+                ReelMoreSheet(reel: reel, localTotalLikes: likeEntry.count),
           ),
         ),
       ],

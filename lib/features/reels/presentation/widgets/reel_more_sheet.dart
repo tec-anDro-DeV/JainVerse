@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:jainverse/features/reels/data/models/reel_item.dart';
 
 /// Bottom sheet showing stats (likes, views, upload date) for a reel.
@@ -81,8 +82,8 @@ class ReelMoreSheet extends StatelessWidget {
               ),
               SizedBox(width: 8.w),
               Expanded(
-                child: _buildMetricCard(
-                  Icons.visibility_outlined,
+                child: _buildMetricCardWithSvg(
+                  'assets/icons/view-icon.svg',
                   _formatNumber(reel.totalViews),
                   'Views',
                 ),
@@ -113,6 +114,44 @@ class ReelMoreSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: Colors.white70, size: 20.w),
+          SizedBox(height: 6.h),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            label,
+            style: TextStyle(color: Colors.white54, fontSize: 11.sp),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCardWithSvg(String svgPath, String value, String label) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(10.r),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            svgPath,
+            height: 20.w,
+            width: 20.w,
+            colorFilter: const ColorFilter.mode(
+              Colors.white70,
+              BlendMode.srcIn,
+            ),
+          ),
           SizedBox(height: 6.h),
           Text(
             value,
