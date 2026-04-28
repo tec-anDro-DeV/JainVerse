@@ -13,6 +13,7 @@ import 'package:jainverse/features/reels/presentation/screens/reel_upload_screen
 import 'package:jainverse/features/reels/presentation/widgets/reel_page_item.dart';
 import 'package:jainverse/features/reels/presentation/widgets/reel_upload_progress_overlay.dart';
 import 'package:jainverse/UI/CreateChannel.dart';
+import 'package:jainverse/UI/VerifyArtistScreen.dart';
 import 'package:jainverse/utils/AppConstant.dart';
 import 'package:jainverse/utils/SharedPref.dart';
 
@@ -32,6 +33,9 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   /// null = not yet fetched, false = no channel, true = has channel.
   bool? _userHasChannel;
 
+  /// Artist verification status: "A" = accepted, "P" = pending, null = not fetched
+  String? _artistVerifyStatus;
+
   @override
   void initState() {
     super.initState();
@@ -41,11 +45,16 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
   }
 
   /// Mirrors AccountPage._fetchProfileFromApi + _applyChannelPayload.
+  /// Also fetches artist verification status.
   Future<void> _fetchChannelStatus() async {
     try {
       final token = (await SharedPref().getToken())?.toString() ?? '';
       if (token.isEmpty) {
-        if (mounted) setState(() => _userHasChannel = false);
+        if (mounted)
+          setState(() {
+            _userHasChannel = false;
+            _artistVerifyStatus = null;
+          });
         return;
       }
       final uri = Uri.parse('${AppConstant.BaseUrl}my_profile');
@@ -54,19 +63,31 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
           .timeout(const Duration(seconds: 10));
       if (!mounted) return;
       if (resp.statusCode != 200) {
-        setState(() => _userHasChannel = false);
+        setState(() {
+          _userHasChannel = false;
+          _artistVerifyStatus = null;
+        });
         return;
       }
       final jsonResp = json.decode(resp.body) as Map<String, dynamic>;
       final dynamic data = jsonResp['data'] ?? jsonResp;
-      final dynamic channel =
-          data is Map<String, dynamic> ? data['channel'] : null;
+      final dynamic user = data is Map<String, dynamic> ? data['user'] : null;
+      final dynamic channel = data is Map<String, dynamic>
+          ? data['channel']
+          : null;
+      final String? artistVerifyStatus = user is Map<String, dynamic>
+          ? user['artist_verify_status']
+          : null;
       setState(() {
-        _userHasChannel =
-            channel is Map<String, dynamic> && channel.isNotEmpty;
+        _userHasChannel = channel is Map<String, dynamic> && channel.isNotEmpty;
+        _artistVerifyStatus = artistVerifyStatus;
       });
     } catch (_) {
-      if (mounted) setState(() => _userHasChannel = false);
+      if (mounted)
+        setState(() {
+          _userHasChannel = false;
+          _artistVerifyStatus = null;
+        });
     }
   }
 
@@ -190,15 +211,17 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
                         SizedBox(height: 16.h),
                         Text(
                           'Could not load reels',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.white),
                         ),
                         SizedBox(height: 8.h),
                         Text(
                           feedState.errorMessage!,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white54, fontSize: 13.sp),
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 13.sp,
+                          ),
                         ),
                         SizedBox(height: 24.h),
                         ElevatedButton.icon(
@@ -236,11 +259,18 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.videocam_rounded, color: Colors.white38, size: 64.w),
+                      Icon(
+                        Icons.videocam_rounded,
+                        color: Colors.white38,
+                        size: 64.w,
+                      ),
                       SizedBox(height: 16.h),
                       Text(
                         'All caught up on short videos!',
-                        style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16.sp,
+                        ),
                       ),
                       SizedBox(height: 24.h),
                       ElevatedButton.icon(
@@ -282,13 +312,16 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
                 itemBuilder: (context, index) {
                   if (index >= feedState.reels.length) {
                     return Center(
-                      child: CircularProgressIndicator( 
+                      child: CircularProgressIndicator(
                         color: Colors.white54,
                         strokeWidth: 2.w,
                       ),
                     );
                   }
-                  return ReelPageItem(reel: feedState.reels[index], index: index);
+                  return ReelPageItem(
+                    reel: feedState.reels[index],
+                    index: index,
+                  );
                 },
               ),
             ),
@@ -313,11 +346,80 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen>
 
   Future<void> _checkAndUpload() async {
     // If the initial fetch hasn't resolved yet, wait for it now.
-    if (_userHasChannel == null) {
+    if (_userHasChannel == null || _artistVerifyStatus == null) {
       await _fetchChannelStatus();
       if (!mounted) return;
     }
 
+    // ── First check: Artist verification status ──
+    if (_artistVerifyStatus != "A") {
+      if (_artistVerifyStatus == "P") {
+        // Artist verification is pending
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Artist Verification Pending'),
+            content: const Text(
+              'Your artist verification request is pending. Once approved, you can create a channel and upload reels. Tap "Check Status" to view your application status.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  await Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(
+                      builder: (_) => const VerifyArtistScreen(),
+                    ),
+                  );
+                  // Refresh verification status after returning
+                  _fetchChannelStatus();
+                },
+                child: const Text('Check Status'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Not verified as artist
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Artist Verification Required'),
+            content: const Text(
+              'You need to be registered and verified as an artist to upload reels. Please apply for artist verification first.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  await Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(
+                      builder: (_) => const VerifyArtistScreen(),
+                    ),
+                  );
+                  // Refresh verification status after returning
+                  _fetchChannelStatus();
+                },
+                child: const Text('Apply for Verification'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── Second check: Channel existence ──
     if (_userHasChannel != true) {
       await showDialog<void>(
         context: context,

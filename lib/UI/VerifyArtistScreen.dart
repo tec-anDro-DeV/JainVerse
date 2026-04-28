@@ -161,7 +161,8 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
                               if ((_previousDocumentUrl != null &&
                                       _previousDocumentUrl!.isNotEmpty) ||
                                   (_previousCertificateUrl != null &&
-                                      _previousCertificateUrl!.isNotEmpty)) ...[
+                                      _previousCertificateUrl!
+                                          .isNotEmpty)) ...[
                                 _buildPreviousUploadsSection(),
                                 SizedBox(height: 12.w),
                               ],
@@ -229,7 +230,7 @@ class _VerifyArtistScreenState extends State<VerifyArtistScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).maybePop(),
             icon: Icon(
               Icons.arrow_back,
               color: appColors().colorText,

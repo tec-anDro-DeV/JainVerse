@@ -1034,8 +1034,7 @@ class MyState extends State<AccountPage>
           title: 'Request as Artist',
           iconColor: appColors().primaryColorApp,
           onTap: () {
-            Navigator.push(
-              context,
+            Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute(
                 builder: (context) => const VerifyArtistScreen(),
                 settings: const RouteSettings(
@@ -1077,8 +1076,10 @@ class MyState extends State<AccountPage>
                       child: const Text('Request Now'),
                       onPressed: () async {
                         Navigator.of(dialogContext).pop();
-                        await Navigator.push(
+                        await Navigator.of(
                           context,
+                          rootNavigator: true,
+                        ).push(
                           MaterialPageRoute(
                             builder: (context) => const VerifyArtistScreen(),
                             settings: const RouteSettings(
